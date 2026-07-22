@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="rebind.svg" width="300" alt="Rebind logo: a book wrapped by a circular refresh loop">
+  <img src="assets/rebind.svg" width="300" alt="Rebind logo: a book wrapped by a circular refresh loop">
 </p>
 
 # Rebind
