@@ -50,9 +50,10 @@ Prefer a plugin manager? You can also install and update Rebind from inside KORe
 with [Storefront](https://github.com/ultimatejimmy/storefront.koplugin) or
 [App Store](https://github.com/omer-faruq/appstore.koplugin).
 
-> **Rebind needs the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin)**
-> (MIT). It reuses that plugin's API client rather than talking to Hardcover directly.
-> Install it, **enable** it, and configure its API token by following
+> **Required dependency: the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
+> Rebind does not work without it. Rebind reuses that plugin's API client instead of
+> talking to Hardcover directly, so you must install it, **enable** it, and configure
+> its API token by following
 > [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme)
 > (you'll need a token from <https://hardcover.app/account/api>). If Hardcover is
 > missing, disabled, or unconfigured, Rebind tells you instead of doing anything.
