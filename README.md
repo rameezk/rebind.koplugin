@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="rebind.svg" width="300" alt="Rebind logo: a book wrapped by a circular refresh loop">
+</p>
+
 # Rebind
 
 Fix your EPUBs' embedded metadata (title, author, and series) from
@@ -41,6 +45,10 @@ without ever leaving the reader.
 
 2. Restart KOReader.
 3. Enable **Rebind** (menu → gear → **Plugin management**).
+
+Prefer a plugin manager? You can also install and update Rebind from inside KOReader
+with [Storefront](https://github.com/ultimatejimmy/storefront.koplugin) or
+[App Store](https://github.com/omer-faruq/appstore.koplugin).
 
 > **Rebind needs the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin)**
 > (MIT). It reuses that plugin's API client rather than talking to Hardcover directly.
