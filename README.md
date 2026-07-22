@@ -34,6 +34,14 @@ without ever leaving the reader.
 
 ## Install
 
+> **Required dependency: the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
+> Rebind does not work without it. Rebind reuses that plugin's API client instead of
+> talking to Hardcover directly, so you must install it, **enable** it, and configure
+> its API token by following
+> [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme)
+> (you'll need a token from <https://hardcover.app/account/api>). If Hardcover is
+> missing, disabled, or unconfigured, Rebind tells you instead of doing anything.
+
 1. Copy the `rebind.koplugin` folder into your device's KOReader plugins folder:
 
    | Device | Plugins folder |
@@ -49,14 +57,6 @@ without ever leaving the reader.
 Prefer a plugin manager? You can also install and update Rebind from inside KOReader
 with [Storefront](https://github.com/ultimatejimmy/storefront.koplugin) or
 [App Store](https://github.com/omer-faruq/appstore.koplugin).
-
-> **Required dependency: the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
-> Rebind does not work without it. Rebind reuses that plugin's API client instead of
-> talking to Hardcover directly, so you must install it, **enable** it, and configure
-> its API token by following
-> [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme)
-> (you'll need a token from <https://hardcover.app/account/api>). If Hardcover is
-> missing, disabled, or unconfigured, Rebind tells you instead of doing anything.
 
 ---
 
