@@ -2,7 +2,7 @@ PLUGIN := rebind.koplugin
 DIST := dist
 STAGE := $(DIST)/$(PLUGIN)
 
-RUNTIME := _meta.lua main.lua README.md
+RUNTIME := _meta.lua main.lua README.md LICENSE
 
 .DEFAULT_GOAL := help
 

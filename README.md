@@ -180,6 +180,8 @@ the zip extracts straight into KOReader's `plugins/` directory.
 
 ## Credits & license
 
+Rebind is released under the [MIT License](LICENSE).
+
 - Hardcover API client: [`hardcoverapp.koplugin`](https://github.com/billiam/hardcoverapp.koplugin) (MIT).
 - OPF XML parsing/serialization: [SLAXML](https://github.com/Phrogz/SLAXML) (MIT),
   vendored under `rebind/vendor/`.
