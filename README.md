@@ -101,6 +101,10 @@ Two toggles in the footer, remembered between runs:
 Hit **Apply** and Rebind rewrites the file. The library refreshes on its own. If you
 rebind the book you're reading, it offers to reopen so the new metadata takes effect.
 
+<p align="center">
+  <img src="screenshots/diff-picker.png" width="320" alt="The metadata picker: current values on the left, new Hardcover values on the right">
+</p>
+
 ### Sorting into folders
 
 Turn on **Sort book** and, after applying, Rebind offers to file the book away. The
@@ -115,6 +119,10 @@ The `.sdr` sidecar (reading progress, bookmarks, highlights) travels with the bo
 Sort the book you're currently reading and Rebind relocates it and reopens it at the
 new path, position intact. Author folders are surname-first (e.g. `Herbert, Frank`),
 and folder names are sanitized for filesystem-illegal characters.
+
+<p align="center">
+  <img src="screenshots/sort-move-dialog.png" width="320" alt="The move prompt: file the book by Author/Title, directly in the folder, or keep it">
+</p>
 
 ## Safety
 
