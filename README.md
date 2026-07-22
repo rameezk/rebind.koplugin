@@ -178,6 +178,16 @@ path logic, and the Hardcover lookup/extraction. The UI modules (`main.lua`,
 `make package` stages only the runtime files under a `rebind.koplugin/` prefix, so
 the zip extracts straight into KOReader's `plugins/` directory.
 
+### Releasing
+
+Publishing a GitHub Release builds and attaches the plugin zip automatically. Draft
+a release in the GitHub UI (or use the CLI below), and on publish the workflow runs
+the tests, builds `dist/rebind.koplugin.zip`, and attaches it to that release:
+
+```
+gh release create v0.1.0 --generate-notes
+```
+
 ## Credits & license
 
 Rebind is released under the [MIT License](LICENSE).
