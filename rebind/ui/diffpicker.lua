@@ -4,11 +4,14 @@ local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
+local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local InputContainer = require("ui/widget/container/inputcontainer")
+local InputDialog = require("ui/widget/inputdialog")
 local LeftContainer = require("ui/widget/container/leftcontainer")
 local LineWidget = require("ui/widget/linewidget")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
 local ScrollableContainer = require("ui/widget/container/scrollablecontainer")
 local Size = require("ui/size")
 local TextBoxWidget = require("ui/widget/textboxwidget")
@@ -24,11 +27,37 @@ local function sc(v)
     return Screen:scaleBySize(v)
 end
 
+local TapBox = InputContainer:extend{
+    on_tap = nil,
+}
+
+function TapBox:init()
+    self.ges_events = {
+        Tap = {
+            GestureRange:new{
+                ges = "tap",
+                range = function()
+                    return self.dimen
+                end,
+            },
+        },
+    }
+end
+
+function TapBox:onTap()
+    if self.on_tap then
+        self.on_tap()
+        return true
+    end
+end
+
 local DiffPicker = InputContainer:extend{
     fields = nil,
     selection = nil,
+    custom = nil,
     on_apply = nil,
     subtitle = nil,
+    new_label = nil,
     keep_backup = nil,
     move_to_sorted = nil,
 }
@@ -51,9 +80,9 @@ function DiffPicker:init()
     end
 
     self.selection = {}
+    self.custom = {}
     for _, f in ipairs(self.fields) do
-        local has_new = f.new_text ~= nil and f.new_text ~= ""
-        if has_new and f.new_text ~= f.current_text then
+        if not f.is_empty(f.new_value) and f.display(f.new_value) ~= f.display(f.current_value) then
             self.selection[f.key] = "new"
         else
             self.selection[f.key] = "current"
@@ -63,7 +92,7 @@ function DiffPicker:init()
     self:_build()
 end
 
-function DiffPicker:_value_box(text, width, dim)
+function DiffPicker:_value_box(text, width, dim, on_tap)
     local face = Font:getFace("cfont", 18)
     local shown = (text ~= nil and text ~= "") and text or _("(none)")
     local box = TextBoxWidget:new{
@@ -73,7 +102,7 @@ function DiffPicker:_value_box(text, width, dim)
         alignment = "left",
         fgcolor = dim and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK,
     }
-    return FrameContainer:new{
+    local frame = FrameContainer:new{
         bordersize = Size.border.thin,
         radius = sc(4),
         padding = Size.padding.default,
@@ -82,6 +111,13 @@ function DiffPicker:_value_box(text, width, dim)
             dimen = Geom:new{ w = width - 2 * Size.padding.default, h = box:getSize().h },
             box,
         },
+    }
+    if not on_tap then
+        return frame
+    end
+    return TapBox:new{
+        on_tap = on_tap,
+        frame,
     }
 end
 
@@ -103,8 +139,19 @@ function DiffPicker:_select_button(text, width, selected, callback, enabled)
     return btn
 end
 
+function DiffPicker:_selected_value(field)
+    local sel = self.selection[field.key]
+    if sel == "custom" then
+        return self.custom[field.key]
+    elseif sel == "new" then
+        return field.new_value
+    end
+    return field.current_value
+end
+
 function DiffPicker:_field_row(field, col_w)
     local group = VerticalGroup:new{ align = "left" }
+    local full_w = 2 * col_w + sc(8)
 
     table.insert(group, TextWidget:new{
         text = field.label,
@@ -112,14 +159,18 @@ function DiffPicker:_field_row(field, col_w)
     })
     table.insert(group, VerticalSpan:new{ width = sc(4) })
 
+    local has_new = not field.is_empty(field.new_value)
     table.insert(group, HorizontalGroup:new{
-        self:_value_box(field.current_text, col_w),
+        self:_value_box(field.display(field.current_value), col_w, false, function()
+            self:_edit(field, field.current_value)
+        end),
         HorizontalSpan:new{ width = sc(8) },
-        self:_value_box(field.new_text, col_w, field.new_text == nil or field.new_text == ""),
+        self:_value_box(field.display(field.new_value), col_w, not has_new, function()
+            self:_edit(field, field.new_value)
+        end),
     })
     table.insert(group, VerticalSpan:new{ width = sc(6) })
 
-    local has_new = field.new_text ~= nil and field.new_text ~= ""
     local sel = self.selection[field.key]
     table.insert(group, HorizontalGroup:new{
         self:_select_button(_("◂ Keep current"), col_w, sel == "current", function()
@@ -133,11 +184,136 @@ function DiffPicker:_field_row(field, col_w)
         end, has_new),
     })
 
+    local custom = self.custom[field.key]
+    if custom ~= nil then
+        table.insert(group, VerticalSpan:new{ width = sc(6) })
+        table.insert(group, self:_value_box(field.display(custom), full_w, false, function()
+            self:_edit(field, custom)
+        end))
+    end
+
+    table.insert(group, VerticalSpan:new{ width = sc(6) })
+    if custom == nil then
+        table.insert(group, Button:new{
+            text = _("Edit"),
+            width = full_w,
+            radius = sc(4),
+            bordersize = Size.border.button,
+            padding = sc(8),
+            show_parent = self,
+            callback = function()
+                self:_edit(field, self:_selected_value(field))
+            end,
+        })
+    else
+        table.insert(group, self:_select_button(_("Use mine"), full_w, sel == "custom", function()
+            self.selection[field.key] = "custom"
+            self:_refresh()
+        end))
+    end
+
     return FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
         group,
     }
+end
+
+function DiffPicker:_commit(field, raw)
+    self.custom[field.key] = raw
+    self.selection[field.key] = "custom"
+    self:_refresh()
+end
+
+function DiffPicker:_edit(field, seed)
+    if field.editor == "series" then
+        self:_edit_series(field, seed)
+        return
+    end
+
+    local long = field.editor == "longtext"
+    local dialog
+    local save = {
+        text = _("Save"),
+        is_enter_default = not long,
+        callback = function()
+            local text = dialog:getInputText()
+            UIManager:close(dialog)
+            self:_commit(field, field.from_input(text))
+        end,
+    }
+    local cancel = {
+        text = _("Cancel"),
+        id = "close",
+        callback = function()
+            UIManager:close(dialog)
+        end,
+    }
+
+    local opts = {
+        title = field.label,
+        input = field.to_input(seed),
+        buttons = { { cancel, save } },
+    }
+    if field.editor == "authors" then
+        opts.description = _("Separate multiple authors with commas.")
+    end
+    if long then
+        opts.fullscreen = true
+        opts.condensed = true
+        opts.allow_newline = true
+        opts.cursor_at_end = false
+        opts.add_scroll_buttons = true
+        opts.buttons = { {}, { cancel, save } }
+    end
+
+    dialog = InputDialog:new(opts)
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function DiffPicker:_edit_series(field, seed)
+    local input = field.to_input(seed)
+    local dialog
+    dialog = MultiInputDialog:new{
+        title = field.label,
+        fields = {
+            {
+                description = _("Series name"),
+                text = input.name,
+                hint = _("Series"),
+            },
+            {
+                description = _("Series index"),
+                text = input.index,
+                hint = _("1"),
+            },
+        },
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    id = "close",
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+                {
+                    text = _("Save"),
+                    callback = function()
+                        local values = dialog:getFields()
+                        UIManager:close(dialog)
+                        self:_commit(field, field.from_input({
+                            name = values[1],
+                            index = values[2],
+                        }))
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
 end
 
 function DiffPicker:_build()
@@ -208,7 +384,7 @@ function DiffPicker:_build()
         HorizontalGroup:new{
             col_head(_("Current")),
             HorizontalSpan:new{ width = sc(8) },
-            col_head(_("New (Hardcover)")),
+            col_head(self.new_label or _("New (Hardcover)")),
         },
     }
 
@@ -348,8 +524,7 @@ end
 function DiffPicker:_select_all(choice)
     for _, f in ipairs(self.fields) do
         if choice == "new" then
-            local has_new = f.new_text ~= nil and f.new_text ~= ""
-            self.selection[f.key] = has_new and "new" or "current"
+            self.selection[f.key] = (not f.is_empty(f.new_value)) and "new" or "current"
         else
             self.selection[f.key] = "current"
         end
@@ -365,8 +540,11 @@ end
 function DiffPicker:_apply()
     local changes = {}
     for _, f in ipairs(self.fields) do
-        if self.selection[f.key] == "new" then
-            f.apply(changes)
+        local sel = self.selection[f.key]
+        if sel == "new" then
+            f.apply(changes, f.new_value)
+        elseif sel == "custom" then
+            f.apply(changes, self.custom[f.key])
         end
     end
     UIManager:close(self, "ui")

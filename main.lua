@@ -5,6 +5,7 @@ local Dispatcher = require("dispatcher")
 local Event = require("ui/event")
 local InfoMessage = require("ui/widget/infomessage")
 local LuaSettings = require("luasettings")
+local MultiConfirmBox = require("ui/widget/multiconfirmbox")
 local NetworkMgr = require("ui/network/manager")
 local Trapper = require("ui/trapper")
 local UIManager = require("ui/uimanager")
@@ -13,49 +14,12 @@ local _ = require("gettext")
 
 local DiffPicker = require("rebind/ui/diffpicker")
 local Epub = require("rebind/epub")
+local Fields = require("rebind/fields")
 local Hardcover = require("rebind/hardcover")
 local Organize = require("rebind/organize")
 
 local function info(text, timeout)
     UIManager:show(InfoMessage:new{ text = text, timeout = timeout })
-end
-
-local function join_authors(authors)
-    if type(authors) ~= "table" then
-        return ""
-    end
-    return table.concat(authors, ", ")
-end
-
-local PREVIEW_LIMIT = 300
-
-local function preview_text(text)
-    if type(text) ~= "string" or text == "" then
-        return text
-    end
-    local flat = text:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
-    if #flat <= PREVIEW_LIMIT then
-        return flat
-    end
-    local cut = PREVIEW_LIMIT
-    while cut > 0 do
-        local b = flat:byte(cut + 1)
-        if not b or b < 0x80 or b > 0xBF then
-            break
-        end
-        cut = cut - 1
-    end
-    return flat:sub(1, cut) .. "…"
-end
-
-local function series_text(name, index)
-    if not name or name == "" then
-        return ""
-    end
-    if index ~= nil and tostring(index) ~= "" then
-        return name .. " #" .. tostring(index)
-    end
-    return name
 end
 
 local Rebind = WidgetContainer:extend{
@@ -168,20 +132,26 @@ function Rebind:onRebind(file)
         return
     end
 
-    local available, Api = Hardcover.available()
-    if not available then
-        info(_([[Rebind needs the Hardcover plugin.
-
-Install hardcoverapp.koplugin, add your API token to its hardcover_config.lua, and enable it, then try again.]]))
-        return
-    end
-
     local current, err = Epub.read_metadata(file)
     if not current then
         info(_("Could not read EPUB metadata: ") .. tostring(err))
         return
     end
 
+    local available, Api = Hardcover.available()
+    if not available then
+        self:_offerManualEdit(file, current, _([[Rebind needs the Hardcover plugin to look books up.
+
+Install hardcoverapp.koplugin, add your API token to its hardcover_config.lua, and enable it.
+
+Edit this book's metadata by hand instead?]]))
+        return
+    end
+
+    self:_startLookup(file, current, Api)
+end
+
+function Rebind:_startLookup(file, current, Api)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             self:_lookup(file, current, Api)
@@ -196,7 +166,7 @@ function Rebind:_lookup(file, current, Api)
         Trapper:clear()
 
         if not results or #results == 0 then
-            info(_("No match found on Hardcover."))
+            self:_offerManualEdit(file, current)
             return
         end
 
@@ -209,8 +179,29 @@ function Rebind:_lookup(file, current, Api)
 
     if not ok then
         Trapper:clear()
-        info(_("Hardcover lookup failed:\n") .. tostring(err))
+        UIManager:show(MultiConfirmBox:new{
+            text = _("Hardcover lookup failed:\n") .. tostring(err),
+            choice1_text = _("Retry"),
+            choice1_callback = function()
+                self:_startLookup(file, current, Api)
+            end,
+            choice2_text = _("Edit myself"),
+            choice2_callback = function()
+                self:_showDiff(file, current, nil)
+            end,
+        })
     end
+end
+
+function Rebind:_offerManualEdit(file, current, text)
+    UIManager:show(ConfirmBox:new{
+        text = text or _("No match found on Hardcover.\n\nEdit the metadata yourself?"),
+        ok_text = _("Edit"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            self:_showDiff(file, current, nil)
+        end,
+    })
 end
 
 function Rebind:_showChooser(file, current, results)
@@ -227,7 +218,7 @@ function Rebind:_showChooser(file, current, results)
             extra[#extra + 1] = tostring(m.release_year)
         end
         if m.series then
-            extra[#extra + 1] = series_text(m.series, m.series_index)
+            extra[#extra + 1] = Fields.series_text(m.series, m.series_index)
         end
         if m.users_read_count then
             extra[#extra + 1] = tostring(m.users_read_count) .. _(" readers")
@@ -246,6 +237,16 @@ function Rebind:_showChooser(file, current, results)
         }
     end
 
+    buttons[#buttons + 1] = {
+        {
+            text = _("None of these, edit myself"),
+            callback = function()
+                UIManager:close(chooser)
+                self:_showDiff(file, current, nil)
+            end,
+        },
+    }
+
     chooser = ButtonDialog:new{
         title = _("Select a match"),
         title_align = "center",
@@ -255,51 +256,14 @@ function Rebind:_showChooser(file, current, results)
 end
 
 function Rebind:_showDiff(file, current, book)
-    local proposed = Hardcover.extract(book)
-
-    local fields = {
-        {
-            key = "title",
-            label = _("Title"),
-            current_text = current.title,
-            new_text = proposed.title,
-            apply = function(changes)
-                changes.title = proposed.title
-            end,
-        },
-        {
-            key = "author",
-            label = _("Author(s)"),
-            current_text = join_authors(current.authors),
-            new_text = join_authors(proposed.authors),
-            apply = function(changes)
-                changes.authors = proposed.authors
-            end,
-        },
-        {
-            key = "series",
-            label = _("Series"),
-            current_text = series_text(current.series, current.series_index),
-            new_text = series_text(proposed.series, proposed.series_index),
-            apply = function(changes)
-                changes.series = proposed.series
-                changes.series_index = proposed.series_index
-            end,
-        },
-        {
-            key = "description",
-            label = _("Description"),
-            current_text = preview_text(current.description),
-            new_text = preview_text(proposed.description),
-            apply = function(changes)
-                changes.description = proposed.description
-            end,
-        },
-    }
+    local proposed = book and Hardcover.extract(book) or {}
+    local manual = book == nil
 
     local picker = DiffPicker:new{
-        fields = fields,
-        subtitle = _("Pick which value to keep for each field"),
+        fields = Fields.build(current, proposed),
+        subtitle = manual and _("Tap a value to edit it")
+            or _("Pick a value per field, or tap one to edit it"),
+        new_label = manual and _("Hardcover (not used)") or nil,
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         on_apply = function(changes, opts)
