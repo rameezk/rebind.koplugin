@@ -180,13 +180,15 @@ the zip extracts straight into KOReader's `plugins/` directory.
 
 ### Releasing
 
-Publishing a GitHub Release builds and attaches the plugin zip automatically. Draft
-a release in the GitHub UI (or use the CLI below), and on publish the workflow runs
-the tests, builds `dist/rebind.koplugin.zip`, and attaches it to that release:
+Releases are automated with
+[release-please](https://github.com/googleapis/release-please) and driven by
+[conventional commits](https://www.conventionalcommits.org/). Merging a commit into
+`main` opens a `chore(main): release X.Y.Z` pull request carrying the version bump
+and the generated [`CHANGELOG.md`](CHANGELOG.md) entries; merging *that* tags the
+release, publishes it, and attaches `dist/rebind.koplugin.zip` to it.
 
-```
-gh release create v0.1.0 --generate-notes
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the commit conventions and how each
+prefix affects the version.
 
 ## Credits & license
 
