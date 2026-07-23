@@ -37,6 +37,16 @@ local OPF_ISBN10 = [[<?xml version="1.0" encoding="utf-8"?>
   <manifest></manifest>
 </package>]]
 
+local OPF_DESC = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+    <dc:creator>Old Author</dc:creator>
+    <dc:description>Old blurb.</dc:description>
+  </metadata>
+  <manifest></manifest>
+</package>]]
+
 local OPF_WRONGORDER = [[<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -76,6 +86,25 @@ T["epub2 replaces multiple creators without duplicating"] = function(a)
     a.contains(out, "Frank Herbert")
     a.contains(out, "Someone Else")
     a.not_contains(out, "Old Author")
+end
+
+T["description replaces an existing one without duplicating"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_DESC, { description = "New blurb." }))
+    a.count_eq(out, "<dc:description>", 1)
+    a.contains(out, "<dc:description>New blurb.</dc:description>")
+    a.not_contains(out, "Old blurb.")
+end
+
+T["description is added when the OPF has none"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { description = "Fresh blurb." }))
+    a.count_eq(out, "<dc:description>", 1)
+    a.contains(out, "Fresh blurb.")
+end
+
+T["description markup is escaped"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { description = 'A <b>bold</b> & "quoted" blurb.' }))
+    a.contains(out, "A &lt;b&gt;bold&lt;/b&gt; &amp;")
+    a.not_contains(out, "<b>bold</b>")
 end
 
 T["epub2 updates calibre series and adds epub3 series"] = function(a)
@@ -145,6 +174,20 @@ T["read_metadata parses container and opf"] = function(a)
     a.eq(md.isbn_13, "9780441013593")
     a.eq(md.series, "Old Series")
     a.eq(tostring(md.series_index), "3")
+    unseed()
+end
+
+T["read_metadata reads the description"] = function(a)
+    seed(OPF_DESC)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.description, "Old blurb.")
+    unseed()
+end
+
+T["read_metadata reports a missing description as nil"] = function(a)
+    seed(OPF3)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.description, nil)
     unseed()
 end
 

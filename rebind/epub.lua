@@ -351,6 +351,13 @@ function Epub.read_metadata(path)
             break
         end
     end
+    local description
+    for _, el in ipairs(child_elements(metadata)) do
+        if is_dc(el, "description") then
+            description = get_text(el)
+            break
+        end
+    end
     local authors = {}
     for _, el in ipairs(child_elements(metadata)) do
         if is_dc(el, "creator") then
@@ -362,6 +369,7 @@ function Epub.read_metadata(path)
     return {
         title = title,
         authors = authors,
+        description = description,
         series = series,
         series_index = series_index,
         isbn_13 = isbn_13,
@@ -381,6 +389,9 @@ local function edit_opf(opf_xml, changes)
     end
     if changes.authors and #changes.authors > 0 then
         set_creators(metadata, prefix, changes.authors)
+    end
+    if changes.description and changes.description ~= "" then
+        set_dc_text(metadata, "description", prefix, changes.description)
     end
     if changes.series and changes.series ~= "" then
         set_calibre_series(metadata, changes.series, changes.series_index)

@@ -4,7 +4,7 @@
 
 # Rebind
 
-Fix your EPUBs' embedded metadata (title, author, and series) from
+Fix your EPUBs' embedded metadata (title, author, series, and description) from
 [Hardcover](https://hardcover.app), **entirely on your KOReader device**. Long-press
 a book, review the current vs. proposed values side by side, pick what to keep, and
 Rebind rewrites the file in place (Calibre-style, mutating the OPF). No laptop, no
@@ -88,10 +88,11 @@ back to a title + author search. If several matches come back, you pick the righ
 ### The metadata picker
 
 The heart of Rebind. Your book's **current** values sit on the left, Hardcover's
-**new** values on the right, field by field (title, author, series). Tap **Keep
-current** or **Use new** per field, or **Keep all current** / **Use all new** at the
-top to decide in one go. An empty field (like a missing series) shows `(none)`, so
-you can see exactly what Rebind would add.
+**new** values on the right, field by field (title, author, series, description). Tap
+**Keep current** or **Use new** per field, or **Keep all current** / **Use all new**
+at the top to decide in one go. An empty field (like a missing series) shows `(none)`,
+so you can see exactly what Rebind would add. Long descriptions are shortened to a
+preview in the picker; the full text is what gets written.
 
 Two toggles in the footer, remembered between runs:
 
@@ -146,16 +147,20 @@ browser shows the new values without a restart.
 
 ### What gets written
 
-Only **title, author(s), series, and series index** (v1 scope). Series is written in
-**both** conventions for maximum compatibility, updating existing tags in place
-rather than duplicating them:
+Only **title, author(s), series, series index, and description**. Title, authors and
+description are written as their `dc:` elements; series is written in **both**
+conventions for maximum compatibility, updating existing tags in place rather than
+duplicating them:
 
 - Calibre: `<meta name="calibre:series" .../>` + `calibre:series_index`
 - EPUB3: `belongs-to-collection` / `collection-type` / `group-position`
 
+The Hardcover plugin's own queries don't return descriptions, so Rebind asks
+Hardcover for them itself in a single extra query per lookup. If that query fails,
+the rest of the lookup still works — the description just shows as `(none)`.
+
 **EPUB only.** Other formats (MOBI/AZW3/PDF) are detected and reported as not
-supported yet. One book at a time, no batch mode. Cover and description are not
-written yet.
+supported yet. One book at a time, no batch mode. Covers are not written yet.
 
 ## Development
 

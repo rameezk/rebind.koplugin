@@ -63,6 +63,7 @@ function Hardcover.extract(book)
         book_id = book.book_id,
         title = book.title,
         authors = authors_from_contributions(book.contributions),
+        description = book.description,
         series = series_name,
         series_index = series_index,
         release_year = book.release_year,
@@ -71,6 +72,55 @@ function Hardcover.extract(book)
         users_count = book.users_count,
         users_read_count = book.users_read_count,
     }
+end
+
+local DESCRIPTION_QUERY = [[
+    query ($ids: [Int!]) {
+      books(where: { id: { _in: $ids }}) {
+        id
+        description
+      }
+    }
+]]
+
+function Hardcover.attach_descriptions(Api, books)
+    if type(books) ~= "table" or #books == 0 then
+        return books
+    end
+
+    local ids = {}
+    for _, book in ipairs(books) do
+        local id = tonumber(book.book_id)
+        if id and book.description == nil then
+            ids[#ids + 1] = id
+        end
+    end
+    if #ids == 0 then
+        return books
+    end
+
+    local ok, result = pcall(function()
+        return Api:query(DESCRIPTION_QUERY, { ids = ids })
+    end)
+    local rows = ok and type(result) == "table" and result.books
+    if type(rows) ~= "table" then
+        return books
+    end
+
+    local by_id = {}
+    for _, row in ipairs(rows) do
+        if type(row) == "table" then
+            by_id[tonumber(row.id)] = row.description
+        end
+    end
+
+    for _, book in ipairs(books) do
+        if book.description == nil then
+            book.description = by_id[tonumber(book.book_id)]
+        end
+    end
+
+    return books
 end
 
 function Hardcover.lookup(Api, meta)
@@ -87,7 +137,7 @@ function Hardcover.lookup(Api, meta)
     if next(identifiers) then
         local book = Api:findBookByIdentifiers(identifiers, user_id)
         if book then
-            return { book }, "isbn"
+            return Hardcover.attach_descriptions(Api, { book }), "isbn"
         end
     end
 
@@ -95,7 +145,7 @@ function Hardcover.lookup(Api, meta)
         local author = meta.authors and meta.authors[1]
         local books = Api:findBooks(meta.title, author, user_id)
         if type(books) == "table" then
-            return books, "search"
+            return Hardcover.attach_descriptions(Api, books), "search"
         end
     end
 
