@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/rameezk/rebind.koplugin/compare/v1.2.0...v1.3.0) (2026-07-23)
+
+
+### Features
+
+* allow for free text editing ([#7](https://github.com/rameezk/rebind.koplugin/issues/7)) ([6789b1e](https://github.com/rameezk/rebind.koplugin/commit/6789b1e0a978c02ef1b95e9d4001f5e06ad27600))
+
 ## [1.2.0](https://github.com/rameezk/rebind.koplugin/compare/v1.1.0...v1.2.0) (2026-07-23)
 
 
