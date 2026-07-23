@@ -301,8 +301,10 @@ function DiffPicker:_build()
         body_h = math.floor(self.height * 0.4)
     end
 
+    local previous = self.cropping_widget
     local scroller = ScrollableContainer:new{
         dimen = Geom:new{ w = self.width, h = body_h },
+        show_parent = self,
         bordersize = 0,
         padding = 0,
         FrameContainer:new{
@@ -311,6 +313,10 @@ function DiffPicker:_build()
             body,
         },
     }
+    if previous then
+        scroller:setScrolledOffset(previous:getScrolledOffset())
+        previous:onCloseWidget()
+    end
     self.cropping_widget = scroller
 
     local content = VerticalGroup:new{

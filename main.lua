@@ -27,6 +27,27 @@ local function join_authors(authors)
     return table.concat(authors, ", ")
 end
 
+local PREVIEW_LIMIT = 300
+
+local function preview_text(text)
+    if type(text) ~= "string" or text == "" then
+        return text
+    end
+    local flat = text:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+    if #flat <= PREVIEW_LIMIT then
+        return flat
+    end
+    local cut = PREVIEW_LIMIT
+    while cut > 0 do
+        local b = flat:byte(cut + 1)
+        if not b or b < 0x80 or b > 0xBF then
+            break
+        end
+        cut = cut - 1
+    end
+    return flat:sub(1, cut) .. "…"
+end
+
 local function series_text(name, index)
     if not name or name == "" then
         return ""
@@ -263,6 +284,15 @@ function Rebind:_showDiff(file, current, book)
             apply = function(changes)
                 changes.series = proposed.series
                 changes.series_index = proposed.series_index
+            end,
+        },
+        {
+            key = "description",
+            label = _("Description"),
+            current_text = preview_text(current.description),
+            new_text = preview_text(proposed.description),
+            apply = function(changes)
+                changes.description = proposed.description
             end,
         },
     }
