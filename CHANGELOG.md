@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/rameezk/rebind.koplugin/compare/v1.1.0...v1.2.0) (2026-07-23)
+
+
+### Features
+
+* sync description from hardcover ([#5](https://github.com/rameezk/rebind.koplugin/issues/5)) ([3826e7a](https://github.com/rameezk/rebind.koplugin/commit/3826e7a28d0a1deee13818106014a99682695c2a))
+
 ## [1.1.0](https://github.com/rameezk/rebind.koplugin/compare/v1.0.0...v1.1.0) (2026-07-23)
 
 
