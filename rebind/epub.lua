@@ -129,14 +129,18 @@ local function set_dc_text(metadata, localname, prefix, value)
     append_child(metadata, new_element(localname, prefix, nil, value))
 end
 
-local function set_creators(metadata, prefix, authors)
+local function remove_dc(metadata, localname)
     local kept = {}
     for _, kid in ipairs(metadata.kids) do
-        if not is_dc(kid, "creator") then
+        if not is_dc(kid, localname) then
             kept[#kept + 1] = kid
         end
     end
     metadata.kids = kept
+end
+
+local function set_creators(metadata, prefix, authors)
+    remove_dc(metadata, "creator")
     for _, author in ipairs(authors) do
         append_child(metadata, new_element("creator", prefix, nil, author))
     end
@@ -219,6 +223,31 @@ local function set_epub3_series(metadata, series, series_index)
             }, idx))
         end
     end
+end
+
+local function clear_series(metadata)
+    remove_meta(metadata, function(el)
+        local name = attr_get(el, "name")
+        return name == "calibre:series" or name == "calibre:series_index"
+    end)
+
+    local refines = {}
+    for _, el in ipairs(child_elements(metadata)) do
+        if is_meta(el) and attr_get(el, "property") == "belongs-to-collection" then
+            local id = attr_get(el, "id")
+            if id and id ~= "" then
+                refines["#" .. id] = true
+            end
+        end
+    end
+
+    remove_meta(metadata, function(el)
+        if attr_get(el, "property") == "belongs-to-collection" then
+            return true
+        end
+        local r = attr_get(el, "refines")
+        return r ~= nil and refines[r] == true
+    end)
 end
 
 local function detect_isbn(txt)
@@ -384,18 +413,30 @@ local function edit_opf(opf_xml, changes)
     end
     local prefix = detect_dc_prefix(metadata)
 
-    if changes.title and changes.title ~= "" then
-        set_dc_text(metadata, "title", prefix, changes.title)
+    if changes.title ~= nil then
+        if changes.title == "" then
+            remove_dc(metadata, "title")
+        else
+            set_dc_text(metadata, "title", prefix, changes.title)
+        end
     end
-    if changes.authors and #changes.authors > 0 then
+    if changes.authors ~= nil then
         set_creators(metadata, prefix, changes.authors)
     end
-    if changes.description and changes.description ~= "" then
-        set_dc_text(metadata, "description", prefix, changes.description)
+    if changes.description ~= nil then
+        if changes.description == "" then
+            remove_dc(metadata, "description")
+        else
+            set_dc_text(metadata, "description", prefix, changes.description)
+        end
     end
-    if changes.series and changes.series ~= "" then
-        set_calibre_series(metadata, changes.series, changes.series_index)
-        set_epub3_series(metadata, changes.series, changes.series_index)
+    if changes.series ~= nil then
+        if changes.series == "" then
+            clear_series(metadata)
+        else
+            set_calibre_series(metadata, changes.series, changes.series_index)
+            set_epub3_series(metadata, changes.series, changes.series_index)
+        end
     end
 
     local ok, out = pcall(function()

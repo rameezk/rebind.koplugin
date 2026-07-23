@@ -5,10 +5,10 @@
 # Rebind
 
 Fix your EPUBs' embedded metadata (title, author, series, and description) from
-[Hardcover](https://hardcover.app), **entirely on your KOReader device**. Long-press
-a book, review the current vs. proposed values side by side, pick what to keep, and
-Rebind rewrites the file in place (Calibre-style, mutating the OPF). No laptop, no
-cables, no Calibre round-trip.
+[Hardcover](https://hardcover.app), or by typing it yourself, **entirely on your
+KOReader device**. Long-press a book, review the current vs. proposed values side by
+side, pick what to keep or edit any field by hand, and Rebind rewrites the file in
+place (Calibre-style, mutating the OPF). No laptop, no cables, no Calibre round-trip.
 
 <table>
   <tr>
@@ -34,13 +34,14 @@ without ever leaving the reader.
 
 ## Install
 
-> **Required dependency: the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
-> Rebind does not work without it. Rebind reuses that plugin's API client instead of
-> talking to Hardcover directly, so you must install it, **enable** it, and configure
-> its API token by following
+> **Required for lookups: the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
+> Rebind reuses that plugin's API client instead of talking to Hardcover directly, so
+> to look books up you must install it, **enable** it, and configure its API token by
+> following
 > [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme)
 > (you'll need a token from <https://hardcover.app/account/api>). If Hardcover is
-> missing, disabled, or unconfigured, Rebind tells you instead of doing anything.
+> missing, disabled, or unconfigured, Rebind says so and offers to let you edit the
+> book's metadata by hand instead.
 
 1. Copy the `rebind.koplugin` folder into your device's KOReader plugins folder:
 
@@ -83,7 +84,8 @@ because everything else is chosen on the rebind screen itself:
 </table>
 
 Rebind looks the book up on Hardcover, by ISBN first (read from the EPUB), falling
-back to a title + author search. If several matches come back, you pick the right one.
+back to a title + author search. If several matches come back, you pick the right one,
+or choose **None of these, edit myself** to fill the fields in by hand instead.
 
 ### The metadata picker
 
@@ -93,6 +95,26 @@ The heart of Rebind. Your book's **current** values sit on the left, Hardcover's
 at the top to decide in one go. An empty field (like a missing series) shows `(none)`,
 so you can see exactly what Rebind would add. Long descriptions are shortened to a
 preview in the picker; the full text is what gets written.
+
+Neither value right? Type your own. **Tap any value** to edit it, or use the **Edit**
+button under a field. The editor opens seeded with the value you tapped: a single line
+for title and author (separate multiple authors with commas), a name + index pair for
+series, and a full-screen editor for the description. Your text then appears as a third
+value under the field, with a **Use mine** button to select it, so all three values
+stay visible and switchable. Clearing an editor and saving **removes** that metadata
+from the book.
+
+The same editors work whenever Hardcover has nothing useful to offer, so no path
+dead-ends:
+
+- **No match**: Rebind offers to let you edit the metadata yourself.
+- **Wrong matches**: the match list carries a **None of these, edit myself** option.
+- **Lookup failed** (no network, API error): choose **Retry** or **Edit myself**.
+- **Hardcover plugin missing or unconfigured**: Rebind says what to install and offers
+  hand-editing in the meantime.
+
+In each case you get the picker with an empty Hardcover column and every field
+editable.
 
 Two toggles in the footer, remembered between runs:
 
@@ -155,19 +177,24 @@ duplicating them:
 - Calibre: `<meta name="calibre:series" .../>` + `calibre:series_index`
 - EPUB3: `belongs-to-collection` / `collection-type` / `group-position`
 
+Emptying a field in the editor removes its tags instead of writing them: the `dc:`
+element for title, author or description, and both series conventions for series.
+`dc:title` is required by the EPUB spec, so a book you deliberately leave title-less
+is technically non-conformant (readers fall back to the filename).
+
 The Hardcover plugin's own queries don't return descriptions, so Rebind asks
 Hardcover for them itself in a single extra query per lookup. If that query fails,
-the rest of the lookup still works — the description just shows as `(none)`.
+the rest of the lookup still works, and the description just shows as `(none)`.
 
 **EPUB only.** Other formats (MOBI/AZW3/PDF) are detected and reported as not
 supported yet. One book at a time, no batch mode. Covers are not written yet.
 
 ## Development
 
-The pure-logic modules (`rebind/epub.lua`, `rebind/hardcover.lua`,
+The pure-logic modules (`rebind/epub.lua`, `rebind/fields.lua`, `rebind/hardcover.lua`,
 `rebind/organize.lua`) have a zero-dependency test suite that runs on plain LuaJIT or
 Lua 5.1, with no luarocks or busted required. It stubs KOReader's `ffi/archiver` with
-an in-memory archive.
+an in-memory archive, and `gettext` with an identity function.
 
 ```
 make test      # run the test suite
@@ -177,8 +204,9 @@ make clean     # remove build artifacts
 
 `./tests/run.sh` runs the suite directly (it tries `luajit`, `lua5.1`, `lua`, then
 `nix run nixpkgs#luajit`). Coverage includes OPF editing (update-in-place, no
-duplicate tags, both series conventions), metadata/ISBN extraction, the destination
-path logic, and the Hardcover lookup/extraction. The UI modules (`main.lua`,
+duplicate tags, both series conventions, clearing a field), metadata/ISBN extraction,
+the field value parsing/formatting behind the editors, the destination path logic, and
+the Hardcover lookup/extraction. The UI modules (`main.lua`,
 `rebind/ui/diffpicker.lua`) need a live KOReader runtime and are exercised on-device.
 `make package` stages only the runtime files under a `rebind.koplugin/` prefix, so
 the zip extracts straight into KOReader's `plugins/` directory.

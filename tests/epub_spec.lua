@@ -159,6 +159,49 @@ T["corrects a reversed calibre series order from the source OPF"] = function(a)
     a.is_true(ps < pi, "reversed order should be corrected to name-then-index")
 end
 
+T["an empty title removes the dc:title element"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { title = "" }))
+    a.not_contains(out, "<dc:title>")
+    a.not_contains(out, "Old Title")
+    a.contains(out, "Old Author")
+end
+
+T["an empty description removes the dc:description element"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_DESC, { description = "" }))
+    a.not_contains(out, "<dc:description>")
+    a.not_contains(out, "Old blurb.")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["an empty author list removes every dc:creator"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { authors = {} }))
+    a.not_contains(out, "<dc:creator")
+    a.not_contains(out, "Old Author")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["an empty series removes the calibre tags"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { series = "" }))
+    a.not_contains(out, "calibre:series")
+    a.not_contains(out, "Old Series")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["an empty series removes the epub3 collection tags"] = function(a)
+    local out = assert(Epub._edit_opf(OPF3, { series = "" }))
+    a.not_contains(out, "belongs-to-collection")
+    a.not_contains(out, "collection-type")
+    a.not_contains(out, "group-position")
+    a.not_contains(out, "Old Series")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["clearing does not touch fields that were not selected"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { series = "" }))
+    a.contains(out, "Old Author")
+    a.contains(out, "978-0-441-01359-3")
+end
+
 T["is_epub matches only epub extensions"] = function(a)
     a.is_true(Epub.is_epub("/x/Book.EPUB"))
     a.is_true(Epub.is_epub("/x/book.epub"))
