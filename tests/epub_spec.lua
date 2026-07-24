@@ -47,6 +47,17 @@ local OPF_DESC = [[<?xml version="1.0" encoding="utf-8"?>
   <manifest></manifest>
 </package>]]
 
+local OPF_GENRES = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+    <dc:creator>Old Author</dc:creator>
+    <dc:subject>Horror</dc:subject>
+    <dc:subject>Thriller</dc:subject>
+  </metadata>
+  <manifest></manifest>
+</package>]]
+
 local OPF_WRONGORDER = [[<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -105,6 +116,34 @@ T["description markup is escaped"] = function(a)
     local out = assert(Epub._edit_opf(OPF2, { description = 'A <b>bold</b> & "quoted" blurb.' }))
     a.contains(out, "A &lt;b&gt;bold&lt;/b&gt; &amp;")
     a.not_contains(out, "<b>bold</b>")
+end
+
+T["genres replace existing subjects without duplicating"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_GENRES, { genres = { "Fantasy", "Adventure" } }))
+    a.count_eq(out, "<dc:subject>", 2)
+    a.contains(out, "<dc:subject>Fantasy</dc:subject>")
+    a.contains(out, "<dc:subject>Adventure</dc:subject>")
+    a.not_contains(out, "Horror")
+    a.not_contains(out, "Thriller")
+end
+
+T["genres are added when the OPF has none"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { genres = { "Science Fiction" } }))
+    a.count_eq(out, "<dc:subject>", 1)
+    a.contains(out, "Science Fiction")
+end
+
+T["genre markup is escaped"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { genres = { 'A & <b>B</b>' } }))
+    a.contains(out, "A &amp; &lt;b&gt;B&lt;/b&gt;")
+    a.not_contains(out, "<b>B</b>")
+end
+
+T["an empty genre list removes every dc:subject"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_GENRES, { genres = {} }))
+    a.not_contains(out, "<dc:subject>")
+    a.not_contains(out, "Horror")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
 end
 
 T["epub2 updates calibre series and adds epub3 series"] = function(a)
@@ -224,6 +263,23 @@ T["read_metadata reads the description"] = function(a)
     seed(OPF_DESC)
     local md = assert(Epub.read_metadata("/fake/book.epub"))
     a.eq(md.description, "Old blurb.")
+    unseed()
+end
+
+T["read_metadata reads genres from dc:subject"] = function(a)
+    seed(OPF_GENRES)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(#md.genres, 2)
+    a.eq(md.genres[1], "Horror")
+    a.eq(md.genres[2], "Thriller")
+    unseed()
+end
+
+T["read_metadata reports no genres as an empty table"] = function(a)
+    seed(OPF2)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(type(md.genres), "table")
+    a.eq(#md.genres, 0)
     unseed()
 end
 

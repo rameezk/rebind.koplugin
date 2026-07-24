@@ -8,6 +8,7 @@ function FakeApi.new(opts)
         by_isbn = opts.by_isbn,
         by_search = opts.by_search or {},
         descriptions = opts.descriptions,
+        genres = opts.genres,
         query_error = opts.query_error,
         calls = {},
     }, FakeApi)
@@ -18,14 +19,15 @@ function FakeApi:query(query, parameters)
     if self.query_error then
         error(self.query_error)
     end
-    if not self.descriptions then
+    if not self.descriptions and not self.genres then
         return nil
     end
     local books = {}
     for _, id in ipairs(parameters and parameters.ids or {}) do
-        local description = self.descriptions[id]
-        if description then
-            books[#books + 1] = { id = id, description = description }
+        local description = self.descriptions and self.descriptions[id]
+        local genres = self.genres and self.genres[id]
+        if description or genres then
+            books[#books + 1] = { id = id, description = description, genres = genres }
         end
     end
     return { books = books }

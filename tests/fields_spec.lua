@@ -4,6 +4,7 @@ local CURRENT = {
     title = "Old Title",
     authors = { "Old Author" },
     description = "Old blurb.",
+    genres = { "Horror" },
     series = "Old Series",
     series_index = "3",
 }
@@ -12,6 +13,7 @@ local PROPOSED = {
     title = "New Title",
     authors = { "New Author", "Co Author" },
     description = "New blurb.",
+    genres = { "Fantasy", "Adventure" },
     series = "New Series",
     series_index = 1,
 }
@@ -33,11 +35,24 @@ local T = {}
 
 T["build exposes one field per editable value"] = function(a)
     local fields = build()
-    a.eq(#fields, 4)
+    a.eq(#fields, 5)
     a.eq(by_key(fields, "title").editor, "text")
     a.eq(by_key(fields, "author").editor, "authors")
     a.eq(by_key(fields, "series").editor, "series")
+    a.eq(by_key(fields, "genre").editor, "genres")
     a.eq(by_key(fields, "description").editor, "longtext")
+end
+
+T["genres round-trip through the editor"] = function(a)
+    local field = by_key(build(), "genre")
+    a.eq(field.to_input(field.new_value), "Fantasy, Adventure")
+    local raw = field.from_input(field.to_input(field.new_value))
+    a.eq(#raw, 2)
+    a.eq(raw[1], "Fantasy")
+    a.eq(raw[2], "Adventure")
+    local changes = {}
+    field.apply(changes, raw)
+    a.eq(changes.genres[1], "Fantasy")
 end
 
 T["split_authors trims and drops empties"] = function(a)
