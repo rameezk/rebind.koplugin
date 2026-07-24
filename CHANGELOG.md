@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/rameezk/rebind.koplugin/compare/v1.3.0...v1.4.0) (2026-07-24)
+
+
+### Features
+
+* add genre ([#12](https://github.com/rameezk/rebind.koplugin/issues/12)) ([1fa3613](https://github.com/rameezk/rebind.koplugin/commit/1fa361396f25d14ffde7523fa030ed432360a962))
+
 ## [1.3.0](https://github.com/rameezk/rebind.koplugin/compare/v1.2.0...v1.3.0) (2026-07-23)
 
 
