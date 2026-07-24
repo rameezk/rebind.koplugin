@@ -1,2 +1,5 @@
 dist/
+.emulator/
+hardcover_token
+hardcover_config.lua
 .DS_Store

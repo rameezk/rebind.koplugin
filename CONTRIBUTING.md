@@ -17,6 +17,50 @@ make test
 `./tests/run.sh` picks the first interpreter it finds, trying `luajit`, `lua5.1`,
 `lua`, and finally `nix run nixpkgs#luajit`. If you have Nix, you need nothing else.
 
+## Testing UI changes in the emulator
+
+The pure-logic modules are covered by the test suite, but `main.lua` and the
+diff picker need a live KOReader runtime. Instead of round-tripping to a real
+device, run KOReader's macOS emulator with Rebind loaded:
+
+```bash
+make emulator          # download the emulator (once), then launch it
+make emulator-update   # re-download the latest KOReader macOS build first
+```
+
+The emulator is KOReader's official macOS build, pulled from the project's CI
+via the `gh` CLI (so `gh auth login` must have been run once) and unpacked into
+`.emulator/` (gitignored). Rebind is **symlinked** into it, so edits to
+`main.lua` and `rebind/*.lua` take effect on the next launch — no rebuild.
+
+KOReader opens in `.emulator/books/`, seeded on first run with a sample EPUB
+whose author is `Unknown` so there's something to rebind immediately. Drop your
+own EPUBs there to test against — Rebind mutates files in place, so keep it away
+from your real library while iterating.
+
+To exercise **live Hardcover lookups** (not just the manual-edit fallback), give
+the script a [Hardcover API token](https://hardcover.app/account/api) — the part
+after `Bearer`. It installs and configures the Hardcover plugin for you:
+
+```bash
+make emulator-token        # prompts for the token (input hidden), saves it locally
+# or, per-session, without saving it to disk:
+HARDCOVER_TOKEN=xxxxx make emulator
+```
+
+The token is read from `$HARDCOVER_TOKEN` or from `.emulator/hardcover_token`
+(`chmod 600`), and the generated `hardcover_config.lua` is written under
+`.emulator/`. **All of this is gitignored** — the token never enters the repo. If
+no token is found, Rebind simply offers manual editing, as it does on-device when
+Hardcover is missing.
+
+For a foreground run that streams KOReader's logs to your terminal (handy when a
+change misbehaves), use `./tools/emulator.sh --console`.
+
+This currently targets macOS (Apple Silicon and Intel). On Linux, use the
+distro's KOReader package or an AppImage and drop the plugin into its `plugins/`
+folder.
+
 ## Available targets
 
 ```
@@ -32,7 +76,7 @@ make clean     # remove build artifacts
 | `rebind/epub.lua` | `tests/epub_spec.lua` | OPF editing, metadata/ISBN extraction |
 | `rebind/hardcover.lua` | `tests/hardcover_spec.lua` | Hardcover lookup and extraction |
 | `rebind/organize.lua` | `tests/organize_spec.lua` | Destination path logic |
-| `main.lua`, `rebind/ui/diffpicker.lua` | — | Need a live KOReader runtime; exercised on-device |
+| `main.lua`, `rebind/ui/diffpicker.lua` | — | Need a live KOReader runtime; exercise via `make emulator` (or on-device) |
 | `rebind/vendor/` | — | Vendored SLAXML; please don't modify locally |
 
 If you change a pure-logic module, add or update its spec. UI changes should be
