@@ -41,6 +41,24 @@ local function authors_from_contributions(c)
     return names
 end
 
+local GENRE_LIMIT = 5
+
+local function genres_from_tags(tags)
+    if type(tags) ~= "table" then
+        return nil
+    end
+    local names = {}
+    for _, entry in ipairs(tags) do
+        if type(entry) == "table" and type(entry.tag) == "string" and entry.tag ~= "" then
+            names[#names + 1] = entry.tag
+            if #names >= GENRE_LIMIT then
+                break
+            end
+        end
+    end
+    return names
+end
+
 local function series_entry(book)
     local bs = book and book.book_series
     if type(bs) == "table" and type(bs[1]) == "table" then
@@ -64,6 +82,7 @@ function Hardcover.extract(book)
         title = book.title,
         authors = authors_from_contributions(book.contributions),
         description = book.description,
+        genres = book.genres or genres_from_tags(book.cached_tags),
         series = series_name,
         series_index = series_index,
         release_year = book.release_year,
@@ -74,16 +93,17 @@ function Hardcover.extract(book)
     }
 end
 
-local DESCRIPTION_QUERY = [[
+local DETAILS_QUERY = [[
     query ($ids: [Int!]) {
       books(where: { id: { _in: $ids }}) {
         id
         description
+        genres: cached_tags(path: "Genre")
       }
     }
 ]]
 
-function Hardcover.attach_descriptions(Api, books)
+function Hardcover.attach_details(Api, books)
     if type(books) ~= "table" or #books == 0 then
         return books
     end
@@ -91,7 +111,7 @@ function Hardcover.attach_descriptions(Api, books)
     local ids = {}
     for _, book in ipairs(books) do
         local id = tonumber(book.book_id)
-        if id and book.description == nil then
+        if id and (book.description == nil or book.genres == nil) then
             ids[#ids + 1] = id
         end
     end
@@ -100,7 +120,7 @@ function Hardcover.attach_descriptions(Api, books)
     end
 
     local ok, result = pcall(function()
-        return Api:query(DESCRIPTION_QUERY, { ids = ids })
+        return Api:query(DETAILS_QUERY, { ids = ids })
     end)
     local rows = ok and type(result) == "table" and result.books
     if type(rows) ~= "table" then
@@ -110,13 +130,19 @@ function Hardcover.attach_descriptions(Api, books)
     local by_id = {}
     for _, row in ipairs(rows) do
         if type(row) == "table" then
-            by_id[tonumber(row.id)] = row.description
+            by_id[tonumber(row.id)] = row
         end
     end
 
     for _, book in ipairs(books) do
-        if book.description == nil then
-            book.description = by_id[tonumber(book.book_id)]
+        local row = by_id[tonumber(book.book_id)]
+        if row then
+            if book.description == nil then
+                book.description = row.description
+            end
+            if book.genres == nil then
+                book.genres = genres_from_tags(row.genres)
+            end
         end
     end
 
@@ -137,7 +163,7 @@ function Hardcover.lookup(Api, meta)
     if next(identifiers) then
         local book = Api:findBookByIdentifiers(identifiers, user_id)
         if book then
-            return Hardcover.attach_descriptions(Api, { book }), "isbn"
+            return Hardcover.attach_details(Api, { book }), "isbn"
         end
     end
 
@@ -145,7 +171,7 @@ function Hardcover.lookup(Api, meta)
         local author = meta.authors and meta.authors[1]
         local books = Api:findBooks(meta.title, author, user_id)
         if type(books) == "table" then
-            return Hardcover.attach_descriptions(Api, books), "search"
+            return Hardcover.attach_details(Api, books), "search"
         end
     end
 

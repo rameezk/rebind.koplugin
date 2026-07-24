@@ -146,6 +146,13 @@ local function set_creators(metadata, prefix, authors)
     end
 end
 
+local function set_subjects(metadata, prefix, genres)
+    remove_dc(metadata, "subject")
+    for _, genre in ipairs(genres) do
+        append_child(metadata, new_element("subject", prefix, nil, genre))
+    end
+end
+
 local function remove_meta(metadata, predicate)
     local kept = {}
     for _, kid in ipairs(metadata.kids) do
@@ -393,12 +400,19 @@ function Epub.read_metadata(path)
             authors[#authors + 1] = get_text(el)
         end
     end
+    local genres = {}
+    for _, el in ipairs(child_elements(metadata)) do
+        if is_dc(el, "subject") then
+            genres[#genres + 1] = get_text(el)
+        end
+    end
     local isbn_13, isbn_10 = extract_isbns(metadata)
 
     return {
         title = title,
         authors = authors,
         description = description,
+        genres = genres,
         series = series,
         series_index = series_index,
         isbn_13 = isbn_13,
@@ -422,6 +436,9 @@ local function edit_opf(opf_xml, changes)
     end
     if changes.authors ~= nil then
         set_creators(metadata, prefix, changes.authors)
+    end
+    if changes.genres ~= nil then
+        set_subjects(metadata, prefix, changes.genres)
     end
     if changes.description ~= nil then
         if changes.description == "" then

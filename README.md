@@ -4,7 +4,7 @@
 
 # Rebind
 
-Fix your EPUBs' embedded metadata (title, author, series, and description) from
+Fix your EPUBs' embedded metadata (title, author, series, genre, and description) from
 [Hardcover](https://hardcover.app), or by typing it yourself, **entirely on your
 KOReader device**. Long-press a book, review the current vs. proposed values side by
 side, pick what to keep or edit any field by hand, and Rebind rewrites the file in
@@ -90,7 +90,7 @@ or choose **None of these, edit myself** to fill the fields in by hand instead.
 ### The metadata picker
 
 The heart of Rebind. Your book's **current** values sit on the left, Hardcover's
-**new** values on the right, field by field (title, author, series, description). Tap
+**new** values on the right, field by field (title, author, series, genre, description). Tap
 **Keep current** or **Use new** per field, or **Keep all current** / **Use all new**
 at the top to decide in one go. An empty field (like a missing series) shows `(none)`,
 so you can see exactly what Rebind would add. Long descriptions are shortened to a
@@ -98,8 +98,8 @@ preview in the picker; the full text is what gets written.
 
 Neither value right? Type your own. **Tap any value** to edit it, or use the **Edit**
 button under a field. The editor opens seeded with the value you tapped: a single line
-for title and author (separate multiple authors with commas), a name + index pair for
-series, and a full-screen editor for the description. Your text then appears as a third
+for title, author and genre (separate multiple authors or genres with commas), a name +
+index pair for series, and a full-screen editor for the description. Your text then appears as a third
 value under the field, with a **Use mine** button to select it, so all three values
 stay visible and switchable. Clearing an editor and saving **removes** that metadata
 from the book.
@@ -169,22 +169,26 @@ browser shows the new values without a restart.
 
 ### What gets written
 
-Only **title, author(s), series, series index, and description**. Title, authors and
-description are written as their `dc:` elements; series is written in **both**
-conventions for maximum compatibility, updating existing tags in place rather than
-duplicating them:
+Only **title, author(s), series, series index, genre(s), and description**. Title,
+authors, genres and description are written as their `dc:` elements — genres as
+`dc:subject`, the same tags Calibre shows under **Tags**, replacing any existing ones.
+Series is written in **both** conventions for maximum compatibility, updating existing
+tags in place rather than duplicating them:
 
 - Calibre: `<meta name="calibre:series" .../>` + `calibre:series_index`
 - EPUB3: `belongs-to-collection` / `collection-type` / `group-position`
 
-Emptying a field in the editor removes its tags instead of writing them: the `dc:`
-element for title, author or description, and both series conventions for series.
-`dc:title` is required by the EPUB spec, so a book you deliberately leave title-less
-is technically non-conformant (readers fall back to the filename).
+Hardcover ranks genres by popularity; Rebind proposes the **top 5** so the tag list
+stays meaningful. Trim or add your own in the editor before applying.
 
-The Hardcover plugin's own queries don't return descriptions, so Rebind asks
+Emptying a field in the editor removes its tags instead of writing them: the `dc:`
+element for title, author, genre or description, and both series conventions for
+series. `dc:title` is required by the EPUB spec, so a book you deliberately leave
+title-less is technically non-conformant (readers fall back to the filename).
+
+The Hardcover plugin's own queries don't return descriptions or genres, so Rebind asks
 Hardcover for them itself in a single extra query per lookup. If that query fails,
-the rest of the lookup still works, and the description just shows as `(none)`.
+the rest of the lookup still works, and those fields just show as `(none)`.
 
 **EPUB only.** Other formats (MOBI/AZW3/PDF) are detected and reported as not
 supported yet. One book at a time, no batch mode. Covers are not written yet.

@@ -44,6 +44,9 @@ function Fields.split_authors(text)
     return out
 end
 
+Fields.join_list = Fields.join_authors
+Fields.split_list = Fields.split_authors
+
 function Fields.format_index(v)
     if v == nil or v == "" then
         return ""
@@ -136,6 +139,25 @@ local function author_field(current, proposed)
     }
 end
 
+local function genres_field(current, proposed)
+    return {
+        key = "genre",
+        label = _("Genre(s)"),
+        editor = "genres",
+        current_value = type(current.genres) == "table" and current.genres or {},
+        new_value = type(proposed.genres) == "table" and proposed.genres or {},
+        is_empty = function(raw)
+            return type(raw) ~= "table" or #raw == 0
+        end,
+        display = Fields.join_list,
+        to_input = Fields.join_list,
+        from_input = Fields.split_list,
+        apply = function(changes, raw)
+            changes.genres = type(raw) == "table" and raw or {}
+        end,
+    }
+end
+
 local function series_field(current, proposed)
     return {
         key = "series",
@@ -186,6 +208,7 @@ function Fields.build(current, proposed)
         title_field(current, proposed),
         author_field(current, proposed),
         series_field(current, proposed),
+        genres_field(current, proposed),
         description_field(current, proposed),
     }
 end

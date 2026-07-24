@@ -257,6 +257,8 @@ function DiffPicker:_edit(field, seed)
     }
     if field.editor == "authors" then
         opts.description = _("Separate multiple authors with commas.")
+    elseif field.editor == "genres" then
+        opts.description = _("Separate multiple genres with commas.")
     end
     if long then
         opts.fullscreen = true

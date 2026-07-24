@@ -39,6 +39,23 @@ T["extract carries the description through"] = function(a)
     a.eq(m.description, "A blurb.")
 end
 
+T["extract carries attached genres through"] = function(a)
+    local m = Hardcover.extract({ title = "X", contributions = {}, genres = { "Fantasy", "Adventure" } })
+    a.eq(m.genres[1], "Fantasy")
+    a.eq(m.genres[2], "Adventure")
+end
+
+T["extract reads genres from raw cached_tags, capped at five"] = function(a)
+    local tags = {}
+    for i = 1, 8 do
+        tags[i] = { tag = "G" .. i }
+    end
+    local m = Hardcover.extract({ title = "X", contributions = {}, cached_tags = tags })
+    a.eq(#m.genres, 5)
+    a.eq(m.genres[1], "G1")
+    a.eq(m.genres[5], "G5")
+end
+
 T["lookup attaches descriptions to ISBN matches"] = function(a)
     Hardcover._user_id = nil
     local book = { book_id = 7, title = "Dune", contributions = {}, book_series = {} }
@@ -46,6 +63,18 @@ T["lookup attaches descriptions to ISBN matches"] = function(a)
     local results = Hardcover.lookup(api, { isbn_13 = "9780441013593", title = "Dune" })
     a.eq(results[1].description, "Spice.")
     a.eq(api.calls.query.parameters.ids[1], 7)
+end
+
+T["lookup attaches genres to ISBN matches"] = function(a)
+    Hardcover._user_id = nil
+    local book = { book_id = 7, title = "Dune", contributions = {}, book_series = {} }
+    local api = FakeApi.new({
+        by_isbn = book,
+        genres = { [7] = { { tag = "Science Fiction" }, { tag = "Adventure" } } },
+    })
+    local results = Hardcover.lookup(api, { isbn_13 = "9780441013593", title = "Dune" })
+    a.eq(results[1].genres[1], "Science Fiction")
+    a.eq(results[1].genres[2], "Adventure")
 end
 
 T["lookup attaches descriptions to every search result"] = function(a)
@@ -59,16 +88,28 @@ T["lookup attaches descriptions to every search result"] = function(a)
     a.eq(results[2].description, "Only the second.")
 end
 
-T["attach_descriptions leaves results intact when the query fails"] = function(a)
-    local api = FakeApi.new({ query_error = "boom" })
-    local books = Hardcover.attach_descriptions(api, { { book_id = 3, title = "C" } })
-    a.eq(#books, 1)
-    a.eq(books[1].description, nil)
+T["attach_details caps genres at five per book"] = function(a)
+    local tags = {}
+    for i = 1, 9 do
+        tags[i] = { tag = "G" .. i }
+    end
+    local api = FakeApi.new({ genres = { [5] = tags } })
+    local books = Hardcover.attach_details(api, { { book_id = 5, title = "E" } })
+    a.eq(#books[1].genres, 5)
+    a.eq(books[1].genres[1], "G1")
 end
 
-T["attach_descriptions skips the query when there is nothing to fetch"] = function(a)
+T["attach_details leaves results intact when the query fails"] = function(a)
+    local api = FakeApi.new({ query_error = "boom" })
+    local books = Hardcover.attach_details(api, { { book_id = 3, title = "C" } })
+    a.eq(#books, 1)
+    a.eq(books[1].description, nil)
+    a.eq(books[1].genres, nil)
+end
+
+T["attach_details skips the query when there is nothing to fetch"] = function(a)
     local api = FakeApi.new({ descriptions = { [4] = "Unused." } })
-    Hardcover.attach_descriptions(api, { { book_id = 4, description = "Already here." } })
+    Hardcover.attach_details(api, { { book_id = 4, description = "Already here.", genres = {} } })
     a.eq(api.calls.query, nil)
 end
 
