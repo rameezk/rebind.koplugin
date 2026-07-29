@@ -1,3 +1,5 @@
+local _ = require("gettext")
+
 local Hardcover = {
     _user_id = nil,
 }
@@ -67,6 +69,32 @@ local function series_entry(book)
     return nil
 end
 
+local function language_code(language)
+    if type(language) == "string" then
+        return language ~= "" and language or nil
+    end
+    if type(language) ~= "table" then
+        return nil
+    end
+    for _, key in ipairs({ "code2", "code3", "language" }) do
+        local value = language[key]
+        if type(value) == "string" and value ~= "" then
+            return value
+        end
+    end
+    return nil
+end
+
+local function publisher_name(publisher)
+    if type(publisher) == "string" then
+        return publisher ~= "" and publisher or nil
+    end
+    if type(publisher) == "table" and type(publisher.name) == "string" and publisher.name ~= "" then
+        return publisher.name
+    end
+    return nil
+end
+
 function Hardcover.extract(book)
     local series_name, series_index
     local se = series_entry(book)
@@ -79,6 +107,7 @@ function Hardcover.extract(book)
 
     return {
         book_id = book.book_id,
+        edition_id = book.edition_id,
         title = book.title,
         authors = authors_from_contributions(book.contributions),
         description = book.description,
@@ -87,10 +116,35 @@ function Hardcover.extract(book)
         series_index = series_index,
         release_year = book.release_year,
         edition_format = book.edition_format or book.filetype,
+        language = language_code(book.language),
+        publisher = publisher_name(book.publisher),
         pages = book.pages,
         users_count = book.users_count,
         users_read_count = book.users_read_count,
     }
+end
+
+function Hardcover.edition_label(m)
+    local parts = {}
+    if m.edition_format and m.edition_format ~= "" then
+        parts[#parts + 1] = tostring(m.edition_format)
+    end
+    if m.release_year then
+        parts[#parts + 1] = tostring(m.release_year)
+    end
+    if m.publisher then
+        parts[#parts + 1] = m.publisher
+    end
+    if tonumber(m.pages) then
+        parts[#parts + 1] = tostring(math.floor(tonumber(m.pages))) .. _("pp")
+    end
+    if m.language then
+        parts[#parts + 1] = m.language
+    end
+    if #parts == 0 then
+        return ""
+    end
+    return table.concat(parts, " · ")
 end
 
 local DETAILS_QUERY = [[
@@ -147,6 +201,100 @@ function Hardcover.attach_details(Api, books)
     end
 
     return books
+end
+
+local EDITION_LIMIT = 30
+
+local AUDIOBOOK_FORMAT_ID = 2
+
+local EDITIONS_QUERY = [[
+    query ($book_id: Int!, $limit: Int!) {
+      editions(
+        where: {
+          book_id: { _eq: $book_id },
+          _or: [
+            { reading_format_id: { _is_null: true }},
+            { reading_format_id: { _neq: ]] .. AUDIOBOOK_FORMAT_ID .. [[ }}
+          ]
+        },
+        order_by: { users_count: desc_nulls_last },
+        limit: $limit
+      ) {
+        id
+        title
+        edition_format
+        reading_format_id
+        pages
+        users_count
+        release_date
+        publisher { name }
+        language { code2 language }
+      }
+    }
+]]
+
+local READING_FORMAT_NAMES = {
+    [1] = "Physical Book",
+    [4] = "E-Book",
+}
+
+local function edition_format_name(row)
+    if type(row.edition_format) == "string" and row.edition_format ~= "" then
+        return row.edition_format
+    end
+    return READING_FORMAT_NAMES[tonumber(row.reading_format_id)]
+end
+
+local function release_year_of(release_date)
+    if type(release_date) ~= "string" then
+        return nil
+    end
+    return release_date:match("^(%d%d%d%d)%-")
+end
+
+function Hardcover.list_editions(Api, book)
+    if type(book) ~= "table" or type(Api) ~= "table" or type(Api.query) ~= "function" then
+        return {}, false
+    end
+    local book_id = tonumber(book.book_id)
+    if not book_id then
+        return {}, false
+    end
+
+    local ok, result = pcall(function()
+        return Api:query(EDITIONS_QUERY, { book_id = book_id, limit = EDITION_LIMIT + 1 })
+    end)
+    local rows = ok and type(result) == "table" and result.editions
+    if type(rows) ~= "table" then
+        return {}, false
+    end
+
+    local out = {}
+    for _, row in ipairs(rows) do
+        if type(row) == "table" then
+            if #out >= EDITION_LIMIT then
+                return out, true
+            end
+            out[#out + 1] = {
+                book_id = book_id,
+                edition_id = row.id,
+                title = row.title or book.title,
+                contributions = book.contributions,
+                book_series = book.book_series,
+                description = book.description,
+                genres = book.genres,
+                cached_tags = book.cached_tags,
+                users_read_count = book.users_read_count,
+                edition_format = edition_format_name(row),
+                release_year = release_year_of(row.release_date),
+                language = row.language,
+                publisher = row.publisher,
+                pages = row.pages,
+                users_count = row.users_count,
+            }
+        end
+    end
+    return out, false
 end
 
 function Hardcover.lookup(Api, meta)

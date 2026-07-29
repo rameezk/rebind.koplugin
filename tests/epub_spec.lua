@@ -58,6 +58,17 @@ local OPF_GENRES = [[<?xml version="1.0" encoding="utf-8"?>
   <manifest></manifest>
 </package>]]
 
+local OPF_LANGPUB = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+    <dc:creator>Old Author</dc:creator>
+    <dc:language>fr</dc:language>
+    <dc:publisher>Old House</dc:publisher>
+  </metadata>
+  <manifest></manifest>
+</package>]]
+
 local OPF_WRONGORDER = [[<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -144,6 +155,43 @@ T["an empty genre list removes every dc:subject"] = function(a)
     a.not_contains(out, "<dc:subject>")
     a.not_contains(out, "Horror")
     a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["language and publisher replace existing ones without duplicating"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_LANGPUB, { language = "en", publisher = "Penguin" }))
+    a.count_eq(out, "<dc:language>", 1)
+    a.count_eq(out, "<dc:publisher>", 1)
+    a.contains(out, "<dc:language>en</dc:language>")
+    a.contains(out, "<dc:publisher>Penguin</dc:publisher>")
+    a.not_contains(out, "Old House")
+    a.not_contains(out, "<dc:language>fr<")
+end
+
+T["language and publisher are added when the OPF has neither"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { language = "en", publisher = "Chilton Books" }))
+    a.count_eq(out, "<dc:language>", 1)
+    a.contains(out, "<dc:language>en</dc:language>")
+    a.contains(out, "<dc:publisher>Chilton Books</dc:publisher>")
+end
+
+T["publisher markup is escaped"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { publisher = 'Head & <b>Shoulders</b>' }))
+    a.contains(out, "Head &amp; &lt;b&gt;Shoulders&lt;/b&gt;")
+    a.not_contains(out, "<b>Shoulders</b>")
+end
+
+T["an empty language removes the dc:language element"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_LANGPUB, { language = "" }))
+    a.not_contains(out, "<dc:language>")
+    a.contains(out, "<dc:publisher>Old House</dc:publisher>")
+    a.contains(out, "<dc:title>Old Title</dc:title>")
+end
+
+T["an empty publisher removes the dc:publisher element"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_LANGPUB, { publisher = "" }))
+    a.not_contains(out, "<dc:publisher>")
+    a.not_contains(out, "Old House")
+    a.contains(out, "<dc:language>fr</dc:language>")
 end
 
 T["epub2 updates calibre series and adds epub3 series"] = function(a)
@@ -263,6 +311,22 @@ T["read_metadata reads the description"] = function(a)
     seed(OPF_DESC)
     local md = assert(Epub.read_metadata("/fake/book.epub"))
     a.eq(md.description, "Old blurb.")
+    unseed()
+end
+
+T["read_metadata reads the language and publisher"] = function(a)
+    seed(OPF_LANGPUB)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.language, "fr")
+    a.eq(md.publisher, "Old House")
+    unseed()
+end
+
+T["read_metadata reports a missing language and publisher as nil"] = function(a)
+    seed(OPF2)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.language, nil)
+    a.eq(md.publisher, nil)
     unseed()
 end
 

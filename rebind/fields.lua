@@ -158,6 +158,20 @@ local function genres_field(current, proposed)
     }
 end
 
+local function language_field(current, proposed)
+    return text_field("language", _("Language"), "text", current.language, proposed.language,
+        function(changes, raw)
+            changes.language = trim(raw)
+        end)
+end
+
+local function publisher_field(current, proposed)
+    return text_field("publisher", _("Publisher"), "text", current.publisher, proposed.publisher,
+        function(changes, raw)
+            changes.publisher = trim(raw)
+        end)
+end
+
 local function series_field(current, proposed)
     return {
         key = "series",
@@ -209,6 +223,8 @@ function Fields.build(current, proposed)
         author_field(current, proposed),
         series_field(current, proposed),
         genres_field(current, proposed),
+        language_field(current, proposed),
+        publisher_field(current, proposed),
         description_field(current, proposed),
     }
 end

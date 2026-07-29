@@ -56,6 +56,158 @@ T["extract reads genres from raw cached_tags, capped at five"] = function(a)
     a.eq(m.genres[5], "G5")
 end
 
+T["extract reads the edition language code and publisher name"] = function(a)
+    local m = Hardcover.extract({
+        title = "X",
+        contributions = {},
+        language = { code2 = "en", language = "English" },
+        publisher = { name = "Penguin" },
+    })
+    a.eq(m.language, "en")
+    a.eq(m.publisher, "Penguin")
+end
+
+T["extract falls back to the language name when no code is given"] = function(a)
+    local m = Hardcover.extract({ title = "X", contributions = {}, language = { language = "Icelandic" } })
+    a.eq(m.language, "Icelandic")
+end
+
+T["extract leaves language and publisher nil when the edition has neither"] = function(a)
+    local m = Hardcover.extract({ title = "X", contributions = {} })
+    a.eq(m.language, nil)
+    a.eq(m.publisher, nil)
+end
+
+T["extract carries the edition id through"] = function(a)
+    local m = Hardcover.extract({ title = "X", contributions = {}, edition_id = 99 })
+    a.eq(m.edition_id, 99)
+end
+
+T["edition_label describes format, year, publisher, pages and language"] = function(a)
+    local label = Hardcover.edition_label({
+        edition_format = "Paperback",
+        release_year = "2010",
+        publisher = "Penguin",
+        pages = 412,
+        language = "en",
+    })
+    a.eq(label, "Paperback · 2010 · Penguin · 412pp · en")
+end
+
+T["edition_label skips the parts an edition does not have"] = function(a)
+    a.eq(Hardcover.edition_label({ edition_format = "Ebook", pages = 300 }), "Ebook · 300pp")
+    a.eq(Hardcover.edition_label({}), "")
+end
+
+T["list_editions asks the API for one more edition than it shows"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1, title = "Dune" } } })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(#editions, 1)
+    a.eq(editions[1].edition_id, 1)
+    a.eq(editions[1].book_id, 7)
+    a.eq(api.calls.editions_query.parameters.book_id, 7)
+    a.eq(api.calls.editions_query.parameters.limit, 31)
+end
+
+T["list_editions leaves audiobooks out of the query"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1 } } })
+    Hardcover.list_editions(api, { book_id = 7 })
+    a.contains(api.calls.editions_query.query, "reading_format_id: { _neq: 2 }")
+end
+
+T["list_editions takes the description, genres and series from the book"] = function(a)
+    local api = FakeApi.new({
+        editions = {
+            { id = 1 },
+            { id = 2, description = "Ignored: editions have no description." },
+        },
+    })
+    local editions = Hardcover.list_editions(api, {
+        book_id = 7,
+        description = "Book blurb.",
+        genres = { "Science Fiction" },
+        book_series = { { position = 1, series = { name = "Dune" } } },
+        contributions = { { author = { name = "Frank Herbert" } } },
+    })
+    a.eq(editions[1].description, "Book blurb.")
+    a.eq(editions[1].genres[1], "Science Fiction")
+    a.eq(editions[2].description, "Book blurb.")
+    local m = Hardcover.extract(editions[2])
+    a.eq(m.series, "Dune")
+    a.eq(m.series_index, 1)
+    a.eq(m.authors[1], "Frank Herbert")
+end
+
+T["list_editions reads the year out of the release date"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1, release_date = "2010-09-14" }, { id = 2 } } })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(editions[1].release_year, "2010")
+    a.eq(editions[2].release_year, nil)
+end
+
+T["list_editions names the format when the edition does not"] = function(a)
+    local api = FakeApi.new({
+        editions = {
+            { id = 1, edition_format = "Mass Market Paperback", reading_format_id = 1 },
+            { id = 2, edition_format = "", reading_format_id = 4 },
+            { id = 3, reading_format_id = 1 },
+            { id = 4 },
+        },
+    })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(editions[1].edition_format, "Mass Market Paperback")
+    a.eq(editions[2].edition_format, "E-Book")
+    a.eq(editions[3].edition_format, "Physical Book")
+    a.eq(editions[4].edition_format, nil)
+end
+
+T["list_editions falls back to the book title when an edition has none"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1 }, { id = 2, title = "Aprendiz de asesino" } } })
+    local editions = Hardcover.list_editions(api, { book_id = 7, title = "Assassin's Apprentice" })
+    a.eq(editions[1].title, "Assassin's Apprentice")
+    a.eq(editions[2].title, "Aprendiz de asesino")
+end
+
+T["list_editions is empty when the Hardcover plugin cannot list editions"] = function(a)
+    local editions, truncated = Hardcover.list_editions({}, { book_id = 7 })
+    a.eq(#editions, 0)
+    a.eq(truncated, false)
+end
+
+T["list_editions is empty without a book id"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1 } } })
+    a.eq(#Hardcover.list_editions(api, { title = "No id" }), 0)
+    a.eq(api.calls.editions_query, nil)
+end
+
+T["list_editions survives an API error"] = function(a)
+    local api = FakeApi.new({ editions_error = "boom" })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(#editions, 0)
+end
+
+T["list_editions caps the list and reports the truncation"] = function(a)
+    local many = {}
+    for i = 1, 42 do
+        many[i] = { id = i }
+    end
+    local api = FakeApi.new({ editions = many })
+    local editions, truncated = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(#editions, 30)
+    a.eq(truncated, true)
+end
+
+T["list_editions reports no truncation when the book has exactly the cap"] = function(a)
+    local exactly = {}
+    for i = 1, 30 do
+        exactly[i] = { id = i }
+    end
+    local api = FakeApi.new({ editions = exactly })
+    local editions, truncated = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(#editions, 30)
+    a.eq(truncated, false)
+end
+
 T["lookup attaches descriptions to ISBN matches"] = function(a)
     Hardcover._user_id = nil
     local book = { book_id = 7, title = "Dune", contributions = {}, book_series = {} }
