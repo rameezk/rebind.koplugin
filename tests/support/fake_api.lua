@@ -9,12 +9,33 @@ function FakeApi.new(opts)
         by_search = opts.by_search or {},
         descriptions = opts.descriptions,
         genres = opts.genres,
+        editions = opts.editions,
+        editions_error = opts.editions_error,
         query_error = opts.query_error,
         calls = {},
     }, FakeApi)
 end
 
 function FakeApi:query(query, parameters)
+    if query:match("editions") then
+        self.calls.editions_query = { query = query, parameters = parameters }
+        if self.editions_error then
+            error(self.editions_error)
+        end
+        if not self.editions then
+            return nil
+        end
+        local limit = parameters and parameters.limit
+        local rows = {}
+        for i, edition in ipairs(self.editions) do
+            if limit and i > limit then
+                break
+            end
+            rows[i] = edition
+        end
+        return { editions = rows }
+    end
+
     self.calls.query = { query = query, parameters = parameters }
     if self.query_error then
         error(self.query_error)

@@ -60,6 +60,8 @@ local DiffPicker = InputContainer:extend{
     new_label = nil,
     keep_backup = nil,
     move_to_sorted = nil,
+    edition_label = nil,
+    on_choose_edition = nil,
 }
 
 function DiffPicker:init()
@@ -81,15 +83,28 @@ function DiffPicker:init()
 
     self.selection = {}
     self.custom = {}
-    for _, f in ipairs(self.fields) do
-        if not f.is_empty(f.new_value) and f.display(f.new_value) ~= f.display(f.current_value) then
-            self.selection[f.key] = "new"
-        else
-            self.selection[f.key] = "current"
-        end
-    end
+    self:_default_selection()
 
     self:_build()
+end
+
+function DiffPicker:_default_selection()
+    for _, f in ipairs(self.fields) do
+        if self.selection[f.key] ~= "custom" then
+            if not f.is_empty(f.new_value) and f.display(f.new_value) ~= f.display(f.current_value) then
+                self.selection[f.key] = "new"
+            else
+                self.selection[f.key] = "current"
+            end
+        end
+    end
+end
+
+function DiffPicker:setFields(fields, edition_label)
+    self.fields = fields
+    self.edition_label = edition_label
+    self:_default_selection()
+    self:_refresh()
 end
 
 function DiffPicker:_value_box(text, width, dim, on_tap)
@@ -346,28 +361,49 @@ function DiffPicker:_build()
         end,
     }
 
+    local header_group = VerticalGroup:new{
+        align = "left",
+        TextWidget:new{
+            text = _("Update metadata"),
+            face = Font:getFace("tfont", 22),
+        },
+        VerticalSpan:new{ width = sc(2) },
+        TextWidget:new{
+            text = self.subtitle or _("Choose current or new for each field"),
+            face = Font:getFace("cfont", 15),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        },
+        VerticalSpan:new{ width = sc(6) },
+        HorizontalGroup:new{
+            keep_all_btn,
+            HorizontalSpan:new{ width = sc(8) },
+            use_all_btn,
+        },
+    }
+
+    if self.on_choose_edition then
+        local label = self.edition_label
+        if label == nil or label == "" then
+            label = _("default")
+        end
+        table.insert(header_group, VerticalSpan:new{ width = sc(6) })
+        table.insert(header_group, Button:new{
+            text = _("Edition: ") .. label .. " ▸",
+            radius = sc(4),
+            padding = sc(8),
+            bordersize = Size.border.button,
+            width = content_inner,
+            show_parent = self,
+            callback = function()
+                self.on_choose_edition(self)
+            end,
+        })
+    end
+
     local header = FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
-        VerticalGroup:new{
-            align = "left",
-            TextWidget:new{
-                text = _("Update metadata"),
-                face = Font:getFace("tfont", 22),
-            },
-            VerticalSpan:new{ width = sc(2) },
-            TextWidget:new{
-                text = self.subtitle or _("Choose current or new for each field"),
-                face = Font:getFace("cfont", 15),
-                fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-            },
-            VerticalSpan:new{ width = sc(6) },
-            HorizontalGroup:new{
-                keep_all_btn,
-                HorizontalSpan:new{ width = sc(8) },
-                use_all_btn,
-            },
-        },
+        header_group,
     }
 
     local function col_head(text)

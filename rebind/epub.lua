@@ -313,6 +313,15 @@ local function read_series(metadata)
     return nil, nil
 end
 
+local function first_dc_text(metadata, localname)
+    for _, el in ipairs(child_elements(metadata)) do
+        if is_dc(el, localname) then
+            return get_text(el)
+        end
+    end
+    return nil
+end
+
 local function opf_path_from_container(container)
     return container:match('full%-path%s*=%s*"([^"]+)"')
         or container:match("full%-path%s*=%s*'([^']+)'")
@@ -380,20 +389,10 @@ function Epub.read_metadata(path)
     end
 
     local series, series_index = read_series(metadata)
-    local title
-    for _, el in ipairs(child_elements(metadata)) do
-        if is_dc(el, "title") then
-            title = get_text(el)
-            break
-        end
-    end
-    local description
-    for _, el in ipairs(child_elements(metadata)) do
-        if is_dc(el, "description") then
-            description = get_text(el)
-            break
-        end
-    end
+    local title = first_dc_text(metadata, "title")
+    local description = first_dc_text(metadata, "description")
+    local language = first_dc_text(metadata, "language")
+    local publisher = first_dc_text(metadata, "publisher")
     local authors = {}
     for _, el in ipairs(child_elements(metadata)) do
         if is_dc(el, "creator") then
@@ -415,6 +414,8 @@ function Epub.read_metadata(path)
         genres = genres,
         series = series,
         series_index = series_index,
+        language = language,
+        publisher = publisher,
         isbn_13 = isbn_13,
         isbn_10 = isbn_10,
     }
@@ -427,26 +428,27 @@ local function edit_opf(opf_xml, changes)
     end
     local prefix = detect_dc_prefix(metadata)
 
-    if changes.title ~= nil then
-        if changes.title == "" then
-            remove_dc(metadata, "title")
+    local function apply_dc_text(localname, value)
+        if value == nil then
+            return
+        end
+        if value == "" then
+            remove_dc(metadata, localname)
         else
-            set_dc_text(metadata, "title", prefix, changes.title)
+            set_dc_text(metadata, localname, prefix, value)
         end
     end
+
+    apply_dc_text("title", changes.title)
     if changes.authors ~= nil then
         set_creators(metadata, prefix, changes.authors)
     end
     if changes.genres ~= nil then
         set_subjects(metadata, prefix, changes.genres)
     end
-    if changes.description ~= nil then
-        if changes.description == "" then
-            remove_dc(metadata, "description")
-        else
-            set_dc_text(metadata, "description", prefix, changes.description)
-        end
-    end
+    apply_dc_text("description", changes.description)
+    apply_dc_text("language", changes.language)
+    apply_dc_text("publisher", changes.publisher)
     if changes.series ~= nil then
         if changes.series == "" then
             clear_series(metadata)

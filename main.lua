@@ -1,6 +1,7 @@
 local ButtonDialog = require("ui/widget/buttondialog")
 local ConfirmBox = require("ui/widget/confirmbox")
 local DataStorage = require("datastorage")
+local Device = require("device")
 local Dispatcher = require("dispatcher")
 local Event = require("ui/event")
 local InfoMessage = require("ui/widget/infomessage")
@@ -20,6 +21,10 @@ local Organize = require("rebind/organize")
 
 local function info(text, timeout)
     UIManager:show(InfoMessage:new{ text = text, timeout = timeout })
+end
+
+local function editions_button_width()
+    return Device.screen:scaleBySize(110)
 end
 
 local Rebind = WidgetContainer:extend{
@@ -171,9 +176,9 @@ function Rebind:_lookup(file, current, Api)
         end
 
         if #results == 1 then
-            self:_showDiff(file, current, results[1])
+            self:_showDiff(file, current, results[1], Api)
         else
-            self:_showChooser(file, current, results)
+            self:_showChooser(file, current, results, Api)
         end
     end)
 
@@ -204,7 +209,61 @@ function Rebind:_offerManualEdit(file, current, text)
     })
 end
 
-function Rebind:_showChooser(file, current, results)
+function Rebind:_showEditions(book, Api, on_pick)
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            Trapper:info(_("Loading editions…"))
+            local ok, editions, truncated = pcall(function()
+                return Hardcover.list_editions(Api, book)
+            end)
+            Trapper:clear()
+
+            if not ok or type(editions) ~= "table" or #editions == 0 then
+                info(_("No editions found for this book on Hardcover."))
+                return
+            end
+
+            local dialog
+            local buttons = {}
+            for _, edition in ipairs(editions) do
+                local m = Hardcover.extract(edition)
+                local label = Hardcover.edition_label(m)
+                if label == "" then
+                    label = m.title or _("Unknown edition")
+                elseif m.title and m.title ~= "" then
+                    label = m.title .. " — " .. label
+                end
+                buttons[#buttons + 1] = {
+                    {
+                        text = label,
+                        callback = function()
+                            UIManager:close(dialog)
+                            on_pick(edition)
+                        end,
+                    },
+                }
+            end
+            buttons[#buttons + 1] = {
+                {
+                    text = _("Cancel"),
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+            }
+
+            dialog = ButtonDialog:new{
+                title = truncated and _("Select an edition (most popular first)")
+                    or _("Select an edition"),
+                title_align = "center",
+                buttons = buttons,
+            }
+            UIManager:show(dialog)
+        end)
+    end)
+end
+
+function Rebind:_showChooser(file, current, results, Api)
     local chooser
     local buttons = {}
     for i, book in ipairs(results) do
@@ -226,15 +285,28 @@ function Rebind:_showChooser(file, current, results)
         if #extra > 0 then
             label = label .. " (" .. table.concat(extra, ", ") .. ")"
         end
-        buttons[#buttons + 1] = {
+        local row = {
             {
                 text = label,
                 callback = function()
                     UIManager:close(chooser)
-                    self:_showDiff(file, current, book)
+                    self:_showDiff(file, current, book, Api)
                 end,
             },
         }
+        if Api and tonumber(book.book_id) then
+            row[#row + 1] = {
+                text = _("Editions"),
+                width = editions_button_width(),
+                callback = function()
+                    self:_showEditions(book, Api, function(edition)
+                        UIManager:close(chooser)
+                        self:_showDiff(file, current, edition, Api)
+                    end)
+                end,
+            }
+        end
+        buttons[#buttons + 1] = row
     end
 
     buttons[#buttons + 1] = {
@@ -255,15 +327,27 @@ function Rebind:_showChooser(file, current, results)
     UIManager:show(chooser)
 end
 
-function Rebind:_showDiff(file, current, book)
+function Rebind:_showDiff(file, current, book, Api)
     local proposed = book and Hardcover.extract(book) or {}
     local manual = book == nil
+
+    local on_choose_edition
+    if Api and tonumber(proposed.book_id) then
+        on_choose_edition = function(picker)
+            self:_showEditions(book, Api, function(edition)
+                local m = Hardcover.extract(edition)
+                picker:setFields(Fields.build(current, m), Hardcover.edition_label(m))
+            end)
+        end
+    end
 
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
         subtitle = manual and _("Tap a value to edit it")
             or _("Pick a value per field, or tap one to edit it"),
         new_label = manual and _("Hardcover (not used)") or nil,
+        edition_label = proposed.edition_id and Hardcover.edition_label(proposed) or nil,
+        on_choose_edition = on_choose_edition,
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         on_apply = function(changes, opts)

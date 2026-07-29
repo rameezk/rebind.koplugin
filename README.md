@@ -4,11 +4,12 @@
 
 # Rebind
 
-Fix your EPUBs' embedded metadata (title, author, series, genre, and description) from
-[Hardcover](https://hardcover.app), or by typing it yourself, **entirely on your
-KOReader device**. Long-press a book, review the current vs. proposed values side by
-side, pick what to keep or edit any field by hand, and Rebind rewrites the file in
-place (Calibre-style, mutating the OPF). No laptop, no cables, no Calibre round-trip.
+Fix your EPUBs' embedded metadata from [Hardcover](https://hardcover.app), or by typing
+it yourself, **entirely on your KOReader device**. Long-press a book, review the current
+vs. proposed values side by side, pick the right edition, pick what to keep or edit any
+field by hand, and Rebind rewrites the file in place (Calibre-style, mutating the OPF).
+No laptop, no cables, no Calibre round-trip.
+See [what gets written](#what-gets-written) for the fields it touches.
 
 <table>
   <tr>
@@ -87,19 +88,49 @@ Rebind looks the book up on Hardcover, by ISBN first (read from the EPUB), falli
 back to a title + author search. If several matches come back, you pick the right one,
 or choose **None of these, edit myself** to fill the fields in by hand instead.
 
+### Choosing an edition
+
+A book on Hardcover usually has many editions, and they disagree about the things
+Rebind writes: the title (subtitles and series suffixes come and go), the publisher,
+the language of a translation. Rebind starts from the edition your ISBN matched, or
+from Hardcover's default edition when the match came from a search, and lets you
+switch:
+
+- **From the match list**: tap **Editions** next to any result to see that book's
+  editions before committing to one.
+- **From the metadata picker**: the **Edition:** button under the header shows the
+  edition currently feeding the Hardcover column. Tap it to swap to another one; the
+  proposed values update in place, and any values you typed yourself are kept.
+
+Editions are listed most-popular first and labelled with what tells them apart —
+format, year, publisher, page count and language (`Paperback · 2010 · Penguin ·
+412pp · en`). The title, publisher and language come from the edition. The author,
+series, genres and description come from the book, because Hardcover stores those
+per work rather than per edition — so a translated edition keeps the original-language
+description. Picking the Spanish edition of an English novel gets you a Spanish title
+and publisher, but the English blurb, and the same author spelling as before.
+
+Switching to a translated edition also proposes a new `dc:language`, which changes how
+KOReader hyphenates the text and which voice reads it aloud. Leave that row on
+**◂ Keep current** if you only wanted the edition's title.
+
+Rebind asks Hardcover for the 30 most popular editions, skipping audiobooks, and says
+so in the dialog title when a book has more.
+
 ### The metadata picker
 
 The heart of Rebind. Your book's **current** values sit on the left, Hardcover's
-**new** values on the right, field by field (title, author, series, genre, description). Tap
+**new** values on the right, one row per field. Tap
 **Keep current** or **Use new** per field, or **Keep all current** / **Use all new**
 at the top to decide in one go. An empty field (like a missing series) shows `(none)`,
 so you can see exactly what Rebind would add. Long descriptions are shortened to a
 preview in the picker; the full text is what gets written.
 
 Neither value right? Type your own. **Tap any value** to edit it, or use the **Edit**
-button under a field. The editor opens seeded with the value you tapped: a single line
-for title, author and genre (separate multiple authors or genres with commas), a name +
-index pair for series, and a full-screen editor for the description. Your text then appears as a third
+button under a field. The editor opens seeded with the value you tapped: a name + index
+pair for series, a full-screen editor for the description, and a single line for
+everything else (separate multiple authors or genres with commas).
+Your text then appears as a third
 value under the field, with a **Use mine** button to select it, so all three values
 stay visible and switchable. Clearing an editor and saving **removes** that metadata
 from the book.
@@ -169,26 +200,30 @@ browser shows the new values without a restart.
 
 ### What gets written
 
-Only **title, author(s), series, series index, genre(s), and description**. Title,
-authors, genres and description are written as their `dc:` elements — genres as
-`dc:subject`, the same tags Calibre shows under **Tags**, replacing any existing ones.
-Series is written in **both** conventions for maximum compatibility, updating existing
-tags in place rather than duplicating them:
+These fields, and nothing else:
 
-- Calibre: `<meta name="calibre:series" .../>` + `calibre:series_index`
-- EPUB3: `belongs-to-collection` / `collection-type` / `group-position`
+| Field | Written as | Notes |
+|-------|-----------|-------|
+| Title | `dc:title` | |
+| Author(s) | `dc:creator`, one per author | Comma-separated in the editor; the same for every edition |
+| Series + index | `calibre:series` + `calibre:series_index`, **and** `belongs-to-collection` / `collection-type` / `group-position` | Both conventions, for maximum compatibility |
+| Genre(s) | `dc:subject`, one per genre | What Calibre shows under **Tags**; Hardcover's top 5 by popularity |
+| Language | `dc:language` | From the chosen edition, as a two-letter code (`en`, `fr`); edit by hand for `en-GB` |
+| Publisher | `dc:publisher` | From the chosen edition |
+| Description | `dc:description` | From the book, not the edition |
 
-Hardcover ranks genres by popularity; Rebind proposes the **top 5** so the tag list
-stays meaningful. Trim or add your own in the editor before applying.
-
-Emptying a field in the editor removes its tags instead of writing them: the `dc:`
-element for title, author, genre or description, and both series conventions for
-series. `dc:title` is required by the EPUB spec, so a book you deliberately leave
-title-less is technically non-conformant (readers fall back to the filename).
+Existing tags are updated **in place** rather than duplicated, and emptying a field in
+the editor removes its tags instead of writing them. `dc:title` and `dc:language` are
+required by the EPUB spec, so a book you deliberately leave title-less or language-less
+is technically non-conformant (readers fall back to the filename, and to guessing the
+language).
 
 The Hardcover plugin's own queries don't return descriptions or genres, so Rebind asks
 Hardcover for them itself in a single extra query per lookup. If that query fails,
-the rest of the lookup still works, and those fields just show as `(none)`.
+the rest of the lookup still works, and those fields just show as `(none)`. The edition
+list is a separate query, made only when you ask for it and limited to the editions the
+list can actually show — a popular book can have hundreds, and fetching them all is slow
+enough to notice on an e-reader.
 
 **EPUB only.** Other formats (MOBI/AZW3/PDF) are detected and reported as not
 supported yet. One book at a time, no batch mode. Covers are not written yet.
@@ -210,7 +245,7 @@ make clean     # remove build artifacts
 `nix run nixpkgs#luajit`). Coverage includes OPF editing (update-in-place, no
 duplicate tags, both series conventions, clearing a field), metadata/ISBN extraction,
 the field value parsing/formatting behind the editors, the destination path logic, and
-the Hardcover lookup/extraction. The UI modules (`main.lua`,
+the Hardcover lookup/extraction/edition listing. The UI modules (`main.lua`,
 `rebind/ui/diffpicker.lua`) need a live KOReader runtime and are exercised on-device.
 `make package` stages only the runtime files under a `rebind.koplugin/` prefix, so
 the zip extracts straight into KOReader's `plugins/` directory.

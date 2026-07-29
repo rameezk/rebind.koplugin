@@ -7,6 +7,8 @@ local CURRENT = {
     genres = { "Horror" },
     series = "Old Series",
     series_index = "3",
+    language = "en",
+    publisher = "Old House",
 }
 
 local PROPOSED = {
@@ -16,6 +18,8 @@ local PROPOSED = {
     genres = { "Fantasy", "Adventure" },
     series = "New Series",
     series_index = 1,
+    language = "fr",
+    publisher = "New House",
 }
 
 local function by_key(fields, key)
@@ -35,12 +39,40 @@ local T = {}
 
 T["build exposes one field per editable value"] = function(a)
     local fields = build()
-    a.eq(#fields, 5)
+    a.eq(#fields, 7)
     a.eq(by_key(fields, "title").editor, "text")
     a.eq(by_key(fields, "author").editor, "authors")
     a.eq(by_key(fields, "series").editor, "series")
     a.eq(by_key(fields, "genre").editor, "genres")
+    a.eq(by_key(fields, "language").editor, "text")
+    a.eq(by_key(fields, "publisher").editor, "text")
     a.eq(by_key(fields, "description").editor, "longtext")
+end
+
+T["language and publisher carry both sides of the diff"] = function(a)
+    local fields = build()
+    local language = by_key(fields, "language")
+    a.eq(language.display(language.current_value), "en")
+    a.eq(language.display(language.new_value), "fr")
+    local publisher = by_key(fields, "publisher")
+    a.eq(publisher.display(publisher.current_value), "Old House")
+    a.eq(publisher.display(publisher.new_value), "New House")
+end
+
+T["language trims and applies edited text"] = function(a)
+    local field = by_key(build(), "language")
+    local changes = {}
+    field.apply(changes, field.from_input("  de  "))
+    a.eq(changes.language, "de")
+end
+
+T["an emptied publisher applies as a clear"] = function(a)
+    local field = by_key(build(), "publisher")
+    local raw = field.from_input("   ")
+    a.is_true(field.is_empty(raw))
+    local changes = {}
+    field.apply(changes, raw)
+    a.eq(changes.publisher, "")
 end
 
 T["genres round-trip through the editor"] = function(a)
