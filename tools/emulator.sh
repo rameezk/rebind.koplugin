@@ -124,6 +124,36 @@ install_hardcover() {
     rm -rf "$staging"
 }
 
+# The Hardcover plugin runs every API call inside Trapper:dismissableRunInSubprocess.
+# That fork()s, and on macOS the child segfaults the first time it touches Apple's
+# Network.framework (SIGSEGV in nwlog_legacy_init -> os_log_create), because that
+# framework is not fork-safe. The parent survives, gets nothing back, and every lookup
+# silently reports "No match found". Run the query in-process instead, which the
+# emulator can do safely. Emulator-only: the plugin on a real device is untouched.
+patch_hardcover_fork() {
+    local api="$HC_CACHE/hardcover/lib/hardcover_api.lua"
+    [ -f "$api" ] || return 0
+    grep -q "dismissableRunInSubprocess" "$api" || return 0
+    python3 - "$api" <<'PY'
+import re, sys
+path = sys.argv[1]
+src = open(path, encoding="utf-8").read()
+patched = re.sub(
+    r"completed, content = Trapper:dismissableRunInSubprocess\(function\(\)\s*\n"
+    r"\s*return self:_query\(query, parameters\)\s*\n"
+    r"\s*end, true, true\)",
+    "completed, content = true, self:_query(query, parameters)",
+    src,
+)
+if patched == src:
+    sys.stderr.write("emulator.sh: could not patch the Hardcover fork call; "
+                     "lookups may crash on macOS.\n")
+    sys.exit(0)
+open(path, "w", encoding="utf-8").write(patched)
+print("Patched the Hardcover plugin to query in-process (macOS fork safety).")
+PY
+}
+
 resolve_token() {
     if [ -n "${HARDCOVER_TOKEN:-}" ]; then
         printf '%s' "$HARDCOVER_TOKEN"; return 0
@@ -137,6 +167,7 @@ resolve_token() {
 configure_hardcover() {
     local token="$1"
     [ -d "$HC_CACHE" ] || install_hardcover
+    patch_hardcover_fork
     printf "return {\n  token = '%s'\n}\n" "$token" > "$HC_CACHE/hardcover_config.lua"
     chmod 600 "$HC_CACHE/hardcover_config.lua"
     ln -sfn "$HC_CACHE" "$HC_LINK"

@@ -48,6 +48,15 @@ make emulator-token        # prompts for the token (input hidden), saves it loca
 HARDCOVER_TOKEN=xxxxx make emulator
 ```
 
+> **macOS note.** The Hardcover plugin runs every API call inside
+> `Trapper:dismissableRunInSubprocess`, which `fork()`s. On macOS the forked child
+> segfaults the moment it touches Apple's `Network.framework` (`SIGSEGV` in
+> `nwlog_legacy_init`), so the parent gets nothing back and **every lookup reports
+> "No match found"** while quietly filling `~/Library/Logs/DiagnosticReports` with
+> koreader crash reports. `tools/emulator.sh` patches the downloaded copy to query
+> in-process so the emulator works. This only touches `.emulator/` - the plugin on a
+> real device is untouched, and the bug belongs upstream in hardcoverapp.koplugin.
+
 The token is read from `$HARDCOVER_TOKEN` or from `.emulator/hardcover_token`
 (`chmod 600`), and the generated `hardcover_config.lua` is written under
 `.emulator/`. **All of this is gitignored** - the token never enters the repo. If
