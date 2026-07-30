@@ -5,7 +5,7 @@ Thanks for your interest in contributing to Rebind!
 ## Development setup
 
 There is nothing to install beyond a Lua interpreter. The test suite is
-zero-dependency — no luarocks, no busted — and stubs KOReader's `ffi/archiver`
+zero-dependency - no luarocks, no busted - and stubs KOReader's `ffi/archiver`
 with an in-memory archive so the pure-logic modules can be exercised off-device.
 
 ```bash
@@ -31,15 +31,15 @@ make emulator-update   # re-download the latest KOReader macOS build first
 The emulator is KOReader's official macOS build, pulled from the project's CI
 via the `gh` CLI (so `gh auth login` must have been run once) and unpacked into
 `.emulator/` (gitignored). Rebind is **symlinked** into it, so edits to
-`main.lua` and `rebind/*.lua` take effect on the next launch — no rebuild.
+`main.lua` and `rebind/*.lua` take effect on the next launch - no rebuild.
 
 KOReader opens in `.emulator/books/`, seeded on first run with a sample EPUB
 whose author is `Unknown` so there's something to rebind immediately. Drop your
-own EPUBs there to test against — Rebind mutates files in place, so keep it away
+own EPUBs there to test against - Rebind mutates files in place, so keep it away
 from your real library while iterating.
 
 To exercise **live Hardcover lookups** (not just the manual-edit fallback), give
-the script a [Hardcover API token](https://hardcover.app/account/api) — the part
+the script a [Hardcover API token](https://hardcover.app/account/api) - the part
 after `Bearer`. It installs and configures the Hardcover plugin for you:
 
 ```bash
@@ -50,7 +50,7 @@ HARDCOVER_TOKEN=xxxxx make emulator
 
 The token is read from `$HARDCOVER_TOKEN` or from `.emulator/hardcover_token`
 (`chmod 600`), and the generated `hardcover_config.lua` is written under
-`.emulator/`. **All of this is gitignored** — the token never enters the repo. If
+`.emulator/`. **All of this is gitignored** - the token never enters the repo. If
 no token is found, Rebind simply offers manual editing, as it does on-device when
 Hardcover is missing.
 
@@ -76,14 +76,15 @@ make clean     # remove build artifacts
 | `rebind/epub.lua` | `tests/epub_spec.lua` | OPF editing, metadata/ISBN extraction |
 | `rebind/hardcover.lua` | `tests/hardcover_spec.lua` | Hardcover lookup and extraction |
 | `rebind/organize.lua` | `tests/organize_spec.lua` | Destination path logic |
-| `main.lua`, `rebind/ui/diffpicker.lua` | — | Need a live KOReader runtime; exercise via `make emulator` (or on-device) |
-| `rebind/vendor/` | — | Vendored SLAXML; please don't modify locally |
+| `rebind/translate.lua` | `tests/translate_spec.lua` | Language targets, batching, text chunking |
+| `main.lua`, `rebind/ui/diffpicker.lua` | - | Need a live KOReader runtime; exercise via `make emulator` (or on-device) |
+| `rebind/vendor/` | - | Vendored SLAXML; please don't modify locally |
 
 If you change a pure-logic module, add or update its spec. UI changes should be
 tested on a real device (or a desktop KOReader install) and described in the PR.
 
 Rebind mutates EPUB files in place, so changes touching the write path deserve
-extra care — see the **Safety** section of the README for the temp-file, validate,
+extra care - see the **Safety** section of the README for the temp-file, validate,
 backup, atomic-replace sequence that must be preserved.
 
 ## Commit messages
@@ -133,19 +134,19 @@ docs: clarify the Hardcover token setup
 5. Push to your fork and open a pull request
 
 CI runs the test suite on every pull request. First-time contributors need a
-maintainer to approve the workflow run before it starts — that's a GitHub
+maintainer to approve the workflow run before it starts - that's a GitHub
 default, not a comment on your patch.
 
 ## Releasing
 
 Maintainers only. Releases are automated and cut from `main`, and gated on the
-test suite — nothing is tagged or published unless `make test` passes on the
+test suite - nothing is tagged or published unless `make test` passes on the
 commit being released.
 
 1. Merging a conventional commit into `main` causes release-please to open (or
    update) a release pull request titled `chore(main): release X.Y.Z`, containing
    the computed version bump and the `CHANGELOG.md` entries.
-2. Review that pull request. It is the changelog — edit it there if the generated
+2. Review that pull request. It is the changelog - edit it there if the generated
    notes need wording help.
 3. Merging it tags the release, publishes the GitHub Release, and the same
    workflow builds `dist/rebind.koplugin.zip` and attaches it to that release.

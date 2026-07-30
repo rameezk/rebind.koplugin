@@ -102,6 +102,17 @@ local function text_field(key, label, editor, current_value, new_value, apply)
     }
 end
 
+local function translates_as_one_string(field)
+    field.translatable = true
+    field.to_translate = function(raw)
+        return { type(raw) == "string" and raw or "" }
+    end
+    field.from_translated = function(_, texts)
+        return trim(texts[1])
+    end
+    return field
+end
+
 local function title_field(current, proposed)
     local field = text_field("title", _("Title"), "text", current.title, proposed.title,
         function(changes, raw)
@@ -117,7 +128,7 @@ local function description_field(current, proposed)
             changes.description = trim(raw)
         end)
     field.display = Fields.preview_text
-    return field
+    return translates_as_one_string(field)
 end
 
 local function author_field(current, proposed)
@@ -152,6 +163,20 @@ local function genres_field(current, proposed)
         display = Fields.join_list,
         to_input = Fields.join_list,
         from_input = Fields.split_list,
+        translatable = true,
+        to_translate = function(raw)
+            return type(raw) == "table" and raw or {}
+        end,
+        from_translated = function(_, texts)
+            local out = {}
+            for _, text in ipairs(texts) do
+                local name = trim(text)
+                if name ~= "" then
+                    out[#out + 1] = name
+                end
+            end
+            return out
+        end,
         apply = function(changes, raw)
             changes.genres = type(raw) == "table" and raw or {}
         end,

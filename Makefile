@@ -9,7 +9,7 @@ RUNTIME := _meta.lua main.lua README.md LICENSE CHANGELOG.md
 .PHONY: help test emulator emulator-update emulator-token package clean
 
 help:
-	@echo "Rebind — available targets:"
+	@echo "Rebind - available targets:"
 	@echo "  make test             Run the test suite"
 	@echo "  make emulator         Launch the KOReader macOS emulator with Rebind loaded"
 	@echo "  make emulator-update  Re-download the latest KOReader macOS build, then launch"

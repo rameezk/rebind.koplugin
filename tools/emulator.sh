@@ -31,16 +31,16 @@ Launch KOReader's macOS emulator with Rebind loaded.
   ./tools/emulator.sh --set-token save a Hardcover API token (prompted, never echoed)
 
 The emulator lives in .emulator/ (gitignored). Rebind is symlinked into it, so edits
-to main.lua and rebind/*.lua take effect on the next launch — no rebuild needed.
+to main.lua and rebind/*.lua take effect on the next launch - no rebuild needed.
 
 KOReader opens in .emulator/books/ (seeded with a sample EPUB on first run). Drop
-your own EPUBs there to test against — they never touch your real library.
+your own EPUBs there to test against - they never touch your real library.
 
 Hardcover lookups: provide an API token and the script installs and configures the
 Hardcover plugin for you. The token is read from the HARDCOVER_TOKEN environment
 variable, or from .emulator/hardcover_token (chmod 600, and .emulator/ is gitignored).
 Get a token at https://hardcover.app/account/api (the part after "Bearer"). The token
-is only ever written under .emulator/ — it never enters the repo.
+is only ever written under .emulator/ - it never enters the repo.
 USAGE
             exit 0 ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
@@ -223,7 +223,7 @@ fi
 if [ ! -d "$BOOKS" ]; then
     mkdir -p "$BOOKS"
     seed_sample_book
-    echo "Seeded $BOOKS with a sample book to rebind (author is \"Unknown\" — fix it)."
+    echo "Seeded $BOOKS with a sample book to rebind (author is \"Unknown\" - fix it)."
 fi
 
 rm -rf "$LINK"; mkdir -p "$LINK"
@@ -235,10 +235,10 @@ echo "Linked Rebind into the emulator."
 TOKEN="$(resolve_token)"
 if [ -n "$TOKEN" ]; then
     configure_hardcover "$TOKEN"
-    echo "Hardcover: configured — lookups are live."
+    echo "Hardcover: configured - lookups are live."
 else
     rm -rf "$HC_LINK"
-    echo "Hardcover: no token found — Rebind will offer manual editing only."
+    echo "Hardcover: no token found - Rebind will offer manual editing only."
     echo "  Set one with: ./tools/emulator.sh --set-token   (or export HARDCOVER_TOKEN=...)"
 fi
 unset TOKEN

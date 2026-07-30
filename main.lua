@@ -9,18 +9,39 @@ local LuaSettings = require("luasettings")
 local MultiConfirmBox = require("ui/widget/multiconfirmbox")
 local NetworkMgr = require("ui/network/manager")
 local Trapper = require("ui/trapper")
+local Translator = require("ui/translator")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local _ = require("gettext")
+local T = require("ffi/util").template
 
 local DiffPicker = require("rebind/ui/diffpicker")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local Hardcover = require("rebind/hardcover")
 local Organize = require("rebind/organize")
+local Translate = require("rebind/translate")
 
 local function info(text, timeout)
     UIManager:show(InfoMessage:new{ text = text, timeout = timeout })
+end
+
+local function resolve_language(code)
+    local name, supported = Translator:getLanguageName(code, nil)
+    if supported then
+        return code, name
+    end
+    local ok, ReaderTypography = pcall(require, "apps/reader/modules/readertypography")
+    local aliases = ok and ReaderTypography and ReaderTypography.LANG_ALIAS_TO_LANG_TAG
+    local alias = aliases and Translate.normalize(aliases[code])
+    if not alias then
+        return nil
+    end
+    name, supported = Translator:getLanguageName(alias, nil)
+    if supported then
+        return alias, name
+    end
+    return nil
 end
 
 local function editions_button_width()
@@ -231,7 +252,7 @@ function Rebind:_showEditions(book, Api, on_pick)
                 if label == "" then
                     label = m.title or _("Unknown edition")
                 elseif m.title and m.title ~= "" then
-                    label = m.title .. " — " .. label
+                    label = m.title .. " - " .. label
                 end
                 buttons[#buttons + 1] = {
                     {
@@ -270,7 +291,7 @@ function Rebind:_showChooser(file, current, results, Api)
         local m = Hardcover.extract(book)
         local label = m.title or _("Unknown title")
         if m.authors and m.authors[1] then
-            label = label .. " — " .. m.authors[1]
+            label = label .. " - " .. m.authors[1]
         end
         local extra = {}
         if m.release_year then
@@ -327,15 +348,185 @@ function Rebind:_showChooser(file, current, results, Api)
     UIManager:show(chooser)
 end
 
+function Rebind:_translateTargets(current, shown)
+    return function()
+        local preferred = {}
+        local function prefer(code)
+            if code and code ~= "" then
+                preferred[#preferred + 1] = code
+            end
+        end
+        prefer(self.settings:readSetting("preferred_language"))
+        prefer(shown.proposed and shown.proposed.language)
+        prefer(current and current.language)
+        prefer(Translator:getTargetLanguage())
+        return Translate.targets{ resolve = resolve_language, preferred = preferred }
+    end
+end
+
+function Rebind:_chooseLanguage(picker, current, book, Api, shown)
+    picker:chooseLanguage(function(code)
+        local name = select(2, resolve_language(code)) or code
+        self.settings:saveSetting("preferred_language", code)
+        self.settings:flush()
+
+        if not (Api and book and tonumber(book.book_id)) then
+            self:_offerGapTranslation(picker, code, name,
+                _("Rebind has no Hardcover match for this book, so it cannot look for a %1 edition."))
+            return
+        end
+        self:_pickEditionInLanguage(picker, current, book, Api, code, name, shown)
+    end)
+end
+
+function Rebind:_pickEditionInLanguage(picker, current, book, Api, code, name, shown)
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            Trapper:info(T(_("Looking for a %1 edition…"), name))
+            local ok, editions = pcall(function()
+                return Hardcover.list_editions(Api, book, code)
+            end)
+            Trapper:clear()
+
+            if not ok or type(editions) ~= "table" or #editions == 0 then
+                self:_offerGapTranslation(picker, code, name,
+                    _("Hardcover has no %1 edition of this book."))
+                return
+            end
+
+            self:_showEditionList(editions, name, function(edition)
+                local m = Hardcover.extract(edition)
+                shown.proposed = m
+                picker:setFields(Fields.build(current, m), Hardcover.edition_label(m))
+                self:_offerGapTranslation(picker, code, name,
+                    _("Hardcover has no %1 description or genres. Those exist per book, not per edition."))
+            end)
+        end)
+    end)
+end
+
+function Rebind:_showEditionList(editions, name, on_pick)
+    local dialog
+    local buttons = {}
+    for _, edition in ipairs(editions) do
+        local m = Hardcover.extract(edition)
+        local label = Hardcover.edition_label(m, true)
+        if label == "" then
+            label = m.title or _("Unknown edition")
+        elseif m.title and m.title ~= "" then
+            label = m.title .. " - " .. label
+        end
+        buttons[#buttons + 1] = {
+            {
+                text = label,
+                callback = function()
+                    UIManager:close(dialog)
+                    on_pick(edition)
+                end,
+            },
+        }
+    end
+    buttons[#buttons + 1] = {
+        {
+            text = _("Cancel"),
+            callback = function()
+                UIManager:close(dialog)
+            end,
+        },
+    }
+
+    dialog = ButtonDialog:new{
+        title = T(_("Select a %1 edition"), name),
+        title_align = "center",
+        buttons = buttons,
+    }
+    UIManager:show(dialog)
+end
+
+function Rebind:_offerGapTranslation(picker, code, name, reason)
+    local items = picker:translatableItems()
+    if #items == 0 then
+        info(T(reason, name))
+        return
+    end
+
+    local labels = {}
+    for _, item in ipairs(items) do
+        labels[#labels + 1] = item.field.label
+    end
+
+    UIManager:show(ConfirmBox:new{
+        text = T(reason, name) .. "\n\n"
+            .. T(_("Translate %1 with Google Translate instead?"), table.concat(labels, ", "))
+            .. "\n\n"
+            .. _("Machine translation is not the publisher's own text. You can review it before applying."),
+        ok_text = _("Translate"),
+        cancel_text = _("Leave as is"),
+        ok_callback = function()
+            picker:translateInto(items, code)
+        end,
+    })
+end
+
+function Rebind:_translateHandler()
+    return function(items, target, on_done)
+        NetworkMgr:runWhenOnline(function()
+            Trapper:wrap(function()
+                local plan = Translate.plan(items)
+                local translated, failure = {}, nil
+                for i, text in ipairs(plan.texts) do
+                    if text:match("%S") then
+                        Trapper:info(T(_("Translating %1 of %2…"), i, #plan.texts))
+                        local rendered, err = self:_translateText(text, target)
+                        if not rendered then
+                            failure = err
+                            break
+                        end
+                        translated[i] = rendered
+                    end
+                end
+                Trapper:clear()
+
+                if failure then
+                    info(_("Translation failed:\n") .. failure)
+                    return
+                end
+                self.settings:saveSetting("preferred_language", target)
+                self.settings:flush()
+                on_done(Translate.collect(plan, translated))
+            end)
+        end)
+    end
+end
+
+function Rebind:_translateText(text, target)
+    local parts = {}
+    for _, chunk in ipairs(Translate.chunks(text)) do
+        local ok, rendered = pcall(function()
+            return Translator:translate(chunk.text, target)
+        end)
+        if not ok then
+            return nil, tostring(rendered)
+        end
+        if not rendered or rendered == "" then
+            return nil, _("the translation service returned nothing")
+        end
+        parts[#parts + 1] = rendered .. chunk.sep
+    end
+    return table.concat(parts)
+end
+
 function Rebind:_showDiff(file, current, book, Api)
     local proposed = book and Hardcover.extract(book) or {}
     local manual = book == nil
+    local shown = { proposed = proposed }
 
     local on_choose_edition
     if Api and tonumber(proposed.book_id) then
         on_choose_edition = function(picker)
             self:_showEditions(book, Api, function(edition)
                 local m = Hardcover.extract(edition)
+                shown.proposed = m
                 picker:setFields(Fields.build(current, m), Hardcover.edition_label(m))
             end)
         end
@@ -348,6 +539,11 @@ function Rebind:_showDiff(file, current, book, Api)
         new_label = manual and _("Hardcover (not used)") or nil,
         edition_label = proposed.edition_id and Hardcover.edition_label(proposed) or nil,
         on_choose_edition = on_choose_edition,
+        translate_targets = self:_translateTargets(current, shown),
+        on_translate = self:_translateHandler(),
+        on_choose_language = function(picker)
+            self:_chooseLanguage(picker, current, book, Api, shown)
+        end,
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         on_apply = function(changes, opts)
