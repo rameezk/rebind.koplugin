@@ -115,6 +115,46 @@ T["list_editions leaves audiobooks out of the query"] = function(a)
     a.contains(api.calls.editions_query.query, "reading_format_id: { _neq: 2 }")
 end
 
+T["edition_label can leave the language out"] = function(a)
+    local m = { edition_format = "Paperback", release_year = "1999", language = "es" }
+    a.eq(Hardcover.edition_label(m), "Paperback · 1999 · es")
+    a.eq(Hardcover.edition_label(m, true), "Paperback · 1999")
+end
+
+T["list_editions drops audiobooks the server filter lets through"] = function(a)
+    local api = FakeApi.new({
+        editions = {
+            { id = 1, edition_format = "Paperback" },
+            { id = 2, edition_format = "Audiobook" },
+            { id = 3, edition_format = "Audio CD" },
+            { id = 4, reading_format_id = 2 },
+            { id = 5, edition_format = "Hardcover" },
+        },
+    })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(#editions, 2, "only the two non-audio editions survive")
+    a.eq(editions[1].edition_id, 1)
+    a.eq(editions[2].edition_id, 5)
+end
+
+T["list_editions filters by language when one is asked for"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1 } } })
+    Hardcover.list_editions(api, { book_id = 7 }, "es")
+    a.contains(api.calls.editions_query.query, "language: { code2: { _eq: $language }}")
+    a.eq(api.calls.editions_query.parameters.language, "es")
+    a.contains(api.calls.editions_query.query, "reading_format_id: { _neq: 2 }",
+        "the language filter must not drop the audiobook exclusion")
+end
+
+T["list_editions asks for every language when none is given"] = function(a)
+    for _, language in ipairs({ false, "" }) do
+        local api = FakeApi.new({ editions = { { id = 1 } } })
+        Hardcover.list_editions(api, { book_id = 7 }, language or nil)
+        a.not_contains(api.calls.editions_query.query, "$language")
+        a.eq(api.calls.editions_query.parameters.language, nil)
+    end
+end
+
 T["list_editions takes the description, genres and series from the book"] = function(a)
     local api = FakeApi.new({
         editions = {

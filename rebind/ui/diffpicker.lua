@@ -1,5 +1,6 @@
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
+local ButtonDialog = require("ui/widget/buttondialog")
 local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
@@ -7,6 +8,7 @@ local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
+local InfoMessage = require("ui/widget/infomessage")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local InputDialog = require("ui/widget/inputdialog")
 local LeftContainer = require("ui/widget/container/leftcontainer")
@@ -20,6 +22,8 @@ local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
+
+local Translate = require("rebind/translate")
 
 local Screen = Device.screen
 
@@ -62,6 +66,9 @@ local DiffPicker = InputContainer:extend{
     move_to_sorted = nil,
     edition_label = nil,
     on_choose_edition = nil,
+    translate_targets = nil,
+    on_translate = nil,
+    on_choose_language = nil,
 }
 
 function DiffPicker:init()
@@ -207,11 +214,13 @@ function DiffPicker:_field_row(field, col_w)
         end))
     end
 
-    table.insert(group, VerticalSpan:new{ width = sc(6) })
+    local can_translate = field.translatable and self.on_translate ~= nil
+    local action_w = can_translate and col_w or full_w
+    local action
     if custom == nil then
-        table.insert(group, Button:new{
+        action = Button:new{
             text = _("Edit"),
-            width = full_w,
+            width = action_w,
             radius = sc(4),
             bordersize = Size.border.button,
             padding = sc(8),
@@ -219,12 +228,34 @@ function DiffPicker:_field_row(field, col_w)
             callback = function()
                 self:_edit(field, self:_selected_value(field))
             end,
-        })
+        }
     else
-        table.insert(group, self:_select_button(_("Use mine"), full_w, sel == "custom", function()
+        action = self:_select_button(_("Use mine"), action_w, sel == "custom", function()
             self.selection[field.key] = "custom"
             self:_refresh()
-        end))
+        end)
+    end
+
+    table.insert(group, VerticalSpan:new{ width = sc(6) })
+    if can_translate then
+        table.insert(group, HorizontalGroup:new{
+            action,
+            HorizontalSpan:new{ width = sc(8) },
+            Button:new{
+                text = _("Translate ▸"),
+                width = action_w,
+                radius = sc(4),
+                bordersize = Size.border.button,
+                padding = sc(8),
+                enabled = not field.is_empty(self:_selected_value(field)),
+                show_parent = self,
+                callback = function()
+                    self:_translate({ field })
+                end,
+            },
+        })
+    else
+        table.insert(group, action)
     end
 
     return FrameContainer:new{
@@ -232,6 +263,80 @@ function DiffPicker:_field_row(field, col_w)
         padding = Size.padding.default,
         group,
     }
+end
+
+function DiffPicker:translatableItems(fields)
+    return Translate.translatable(fields or self.fields, function(field)
+        return self:_selected_value(field)
+    end)
+end
+
+function DiffPicker:translateInto(items, target)
+    if not self.on_translate or #items == 0 then
+        return
+    end
+    self.on_translate(items, target, function(results)
+        for _, result in ipairs(results or {}) do
+            self.custom[result.field.key] = result.raw
+            self.selection[result.field.key] = "custom"
+        end
+        self:_refresh()
+    end)
+end
+
+function DiffPicker:_translate(fields)
+    if not self.on_translate then
+        return
+    end
+    local items = self:translatableItems(fields)
+    if #items == 0 then
+        UIManager:show(InfoMessage:new{ text = _("Nothing to translate in this field.") })
+        return
+    end
+    self:_choose_language(function(target)
+        self:translateInto(items, target)
+    end, _("Translate to"))
+end
+
+function DiffPicker:chooseLanguage(on_pick)
+    self:_choose_language(on_pick, _("Show this book in"))
+end
+
+function DiffPicker:_choose_language(on_pick, title)
+    local targets = self.translate_targets and self.translate_targets() or {}
+    if #targets == 0 then
+        UIManager:show(InfoMessage:new{ text = _("No translation languages are available.") })
+        return
+    end
+
+    local dialog
+    local buttons = {}
+    for _, target in ipairs(targets) do
+        buttons[#buttons + 1] = {
+            {
+                text = target.name,
+                callback = function()
+                    UIManager:close(dialog)
+                    on_pick(target.code)
+                end,
+            },
+        }
+    end
+    buttons[#buttons + 1] = {
+        {
+            text = _("Cancel"),
+            callback = function()
+                UIManager:close(dialog)
+            end,
+        },
+    }
+
+    dialog = ButtonDialog:new{
+        title = title or _("Translate to"),
+        title_align = "center",
+        buttons = buttons,
+    }
+    UIManager:show(dialog)
 end
 
 function DiffPicker:_commit(field, raw)
@@ -380,6 +485,21 @@ function DiffPicker:_build()
             use_all_btn,
         },
     }
+
+    if self.on_choose_language then
+        table.insert(header_group, VerticalSpan:new{ width = sc(6) })
+        table.insert(header_group, Button:new{
+            text = _("Another language ▸"),
+            radius = sc(4),
+            padding = sc(8),
+            bordersize = Size.border.button,
+            width = content_inner,
+            show_parent = self,
+            callback = function()
+                self.on_choose_language(self)
+            end,
+        })
+    end
 
     if self.on_choose_edition then
         local label = self.edition_label

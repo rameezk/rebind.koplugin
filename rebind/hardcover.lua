@@ -124,7 +124,7 @@ function Hardcover.extract(book)
     }
 end
 
-function Hardcover.edition_label(m)
+function Hardcover.edition_label(m, omit_language)
     local parts = {}
     if m.edition_format and m.edition_format ~= "" then
         parts[#parts + 1] = tostring(m.edition_format)
@@ -138,7 +138,7 @@ function Hardcover.edition_label(m)
     if tonumber(m.pages) then
         parts[#parts + 1] = tostring(math.floor(tonumber(m.pages))) .. _("pp")
     end
-    if m.language then
+    if m.language and not omit_language then
         parts[#parts + 1] = m.language
     end
     if #parts == 0 then
@@ -207,19 +207,14 @@ local EDITION_LIMIT = 30
 
 local AUDIOBOOK_FORMAT_ID = 2
 
-local EDITIONS_QUERY = [[
-    query ($book_id: Int!, $limit: Int!) {
-      editions(
-        where: {
-          book_id: { _eq: $book_id },
+local NOT_AUDIOBOOK = [[
           _or: [
             { reading_format_id: { _is_null: true }},
             { reading_format_id: { _neq: ]] .. AUDIOBOOK_FORMAT_ID .. [[ }}
           ]
-        },
-        order_by: { users_count: desc_nulls_last },
-        limit: $limit
-      ) {
+]]
+
+local EDITION_FIELDS = [[
         id
         title
         edition_format
@@ -229,6 +224,35 @@ local EDITIONS_QUERY = [[
         release_date
         publisher { name }
         language { code2 language }
+]]
+
+local EDITIONS_QUERY = [[
+    query ($book_id: Int!, $limit: Int!) {
+      editions(
+        where: {
+          book_id: { _eq: $book_id },
+]] .. NOT_AUDIOBOOK .. [[
+        },
+        order_by: { users_count: desc_nulls_last },
+        limit: $limit
+      ) {
+]] .. EDITION_FIELDS .. [[
+      }
+    }
+]]
+
+local EDITIONS_IN_LANGUAGE_QUERY = [[
+    query ($book_id: Int!, $limit: Int!, $language: String!) {
+      editions(
+        where: {
+          book_id: { _eq: $book_id },
+          language: { code2: { _eq: $language }},
+]] .. NOT_AUDIOBOOK .. [[
+        },
+        order_by: { users_count: desc_nulls_last },
+        limit: $limit
+      ) {
+]] .. EDITION_FIELDS .. [[
       }
     }
 ]]
@@ -245,6 +269,14 @@ local function edition_format_name(row)
     return READING_FORMAT_NAMES[tonumber(row.reading_format_id)]
 end
 
+local function is_audiobook(row)
+    if tonumber(row.reading_format_id) == AUDIOBOOK_FORMAT_ID then
+        return true
+    end
+    local format = edition_format_name(row)
+    return type(format) == "string" and format:lower():find("audio", 1, true) ~= nil
+end
+
 local function release_year_of(release_date)
     if type(release_date) ~= "string" then
         return nil
@@ -252,7 +284,7 @@ local function release_year_of(release_date)
     return release_date:match("^(%d%d%d%d)%-")
 end
 
-function Hardcover.list_editions(Api, book)
+function Hardcover.list_editions(Api, book, language)
     if type(book) ~= "table" or type(Api) ~= "table" or type(Api.query) ~= "function" then
         return {}, false
     end
@@ -261,8 +293,14 @@ function Hardcover.list_editions(Api, book)
         return {}, false
     end
 
+    local query, vars = EDITIONS_QUERY, { book_id = book_id, limit = EDITION_LIMIT + 1 }
+    if type(language) == "string" and language ~= "" then
+        query = EDITIONS_IN_LANGUAGE_QUERY
+        vars.language = language
+    end
+
     local ok, result = pcall(function()
-        return Api:query(EDITIONS_QUERY, { book_id = book_id, limit = EDITION_LIMIT + 1 })
+        return Api:query(query, vars)
     end)
     local rows = ok and type(result) == "table" and result.editions
     if type(rows) ~= "table" then
@@ -271,7 +309,7 @@ function Hardcover.list_editions(Api, book)
 
     local out = {}
     for _, row in ipairs(rows) do
-        if type(row) == "table" then
+        if type(row) == "table" and not is_audiobook(row) then
             if #out >= EDITION_LIMIT then
                 return out, true
             end

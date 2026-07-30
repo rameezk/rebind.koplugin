@@ -6,8 +6,10 @@
 
 Fix your EPUBs' embedded metadata from [Hardcover](https://hardcover.app), or by typing
 it yourself, **entirely on your KOReader device**. Long-press a book, review the current
-vs. proposed values side by side, pick the right edition, pick what to keep or edit any
-field by hand, and Rebind rewrites the file in place (Calibre-style, mutating the OPF).
+vs. proposed values side by side, pick the right edition, pick what to keep, edit any
+field by hand or pull the book up
+[in another language](#getting-a-book-in-another-language), and Rebind rewrites the file
+in place (Calibre-style, mutating the OPF).
 No laptop, no cables, no Calibre round-trip.
 See [what gets written](#what-gets-written) for the fields it touches.
 
@@ -102,11 +104,11 @@ switch:
   edition currently feeding the Hardcover column. Tap it to swap to another one; the
   proposed values update in place, and any values you typed yourself are kept.
 
-Editions are listed most-popular first and labelled with what tells them apart —
+Editions are listed most-popular first and labelled with what tells them apart -
 format, year, publisher, page count and language (`Paperback · 2010 · Penguin ·
 412pp · en`). The title, publisher and language come from the edition. The author,
 series, genres and description come from the book, because Hardcover stores those
-per work rather than per edition — so a translated edition keeps the original-language
+per work rather than per edition - so a translated edition keeps the original-language
 description. Picking the Spanish edition of an English novel gets you a Spanish title
 and publisher, but the English blurb, and the same author spelling as before.
 
@@ -134,6 +136,43 @@ Your text then appears as a third
 value under the field, with a **Use mine** button to select it, so all three values
 stay visible and switchable. Clearing an editor and saving **removes** that metadata
 from the book.
+
+### Getting a book in another language
+
+Tap **Another language** and pick one. Rebind asks Hardcover for a real published
+edition in that language, so you get the title a translator actually chose:
+*Harry Potter y la piedra filosofal* in Spanish, *Harry Potter à l'école des sorciers*
+in French. Title, publisher and language always come from the edition, never from a
+translator, which is what keeps proper nouns intact.
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/language-picker.png" width="230" alt="Language list"><br><sub><b>Pick a language</b></sub></td>
+    <td align="center"><img src="screenshots/language-editions.png" width="230" alt="Spanish editions of the book"><br><sub><b>Pick an edition</b></sub></td>
+    <td align="center"><img src="screenshots/translate-gaps.png" width="230" alt="Prompt offering to translate the remaining fields"><br><sub><b>Translate the rest</b></sub></td>
+  </tr>
+</table>
+
+Hardcover stores descriptions and genres per *book*, not per edition, so those stay
+English however many editions a book has. Rebind says so and offers to run just those
+two fields through KOReader's built-in translator:
+
+> Hardcover has no Spanish description or genres. Those exist per book, not per edition.
+> Translate Genre(s), Description with Google Translate instead?
+
+The same offer appears when Hardcover has no edition in that language at all. The picker
+marks which is which: **Use new** is Hardcover's, **Use mine** is machine-translated, and
+nothing is written until you hit **Apply**.
+
+<p align="center">
+  <img src="screenshots/language-result.png" width="320" alt="Translated genres beside a language and publisher taken from the Spanish edition">
+</p>
+
+Genres are translated one at a time so the list stays a list, and long descriptions are
+split on paragraph and sentence boundaries before being sent. Translation uses
+KOReader's built-in translator: no API key, but it needs a network connection and the
+text goes to Google. It is a fallback for text Hardcover does not have, not an
+improvement on text it does.
 
 The same editors work whenever Hardcover has nothing useful to offer, so no path
 dead-ends:
@@ -222,7 +261,7 @@ The Hardcover plugin's own queries don't return descriptions or genres, so Rebin
 Hardcover for them itself in a single extra query per lookup. If that query fails,
 the rest of the lookup still works, and those fields just show as `(none)`. The edition
 list is a separate query, made only when you ask for it and limited to the editions the
-list can actually show — a popular book can have hundreds, and fetching them all is slow
+list can actually show - a popular book can have hundreds, and fetching them all is slow
 enough to notice on an e-reader.
 
 **EPUB only.** Other formats (MOBI/AZW3/PDF) are detected and reported as not
