@@ -608,43 +608,54 @@ function DiffPicker:_build()
             self:_refresh()
         end,
     }
-    local footer = FrameContainer:new{
+    local toggles = FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
-        VerticalGroup:new{
-            align = "left",
-            HorizontalGroup:new{
-                backup_btn,
-                HorizontalSpan:new{ width = sc(8) },
-                move_btn,
-            },
-            VerticalSpan:new{ width = sc(6) },
-            HorizontalGroup:new{
-                apply_btn,
-                HorizontalSpan:new{ width = sc(12) },
-                cancel_btn,
-            },
+        HorizontalGroup:new{
+            backup_btn,
+            HorizontalSpan:new{ width = sc(8) },
+            move_btn,
+        },
+    }
+    local action_bar = FrameContainer:new{
+        bordersize = 0,
+        padding = Size.padding.default,
+        HorizontalGroup:new{
+            apply_btn,
+            HorizontalSpan:new{ width = sc(12) },
+            cancel_btn,
         },
     }
 
-    local header_h = header:getSize().h
-    local col_header_h = col_header:getSize().h
-    local footer_h = footer:getSize().h
-    local body_h = self.height - header_h - col_header_h - footer_h - 3 * sc(2)
-    if body_h < math.floor(self.height * 0.4) then
-        body_h = math.floor(self.height * 0.4)
-    end
+    local scroll_content = VerticalGroup:new{
+        align = "left",
+        header,
+        LineWidget:new{
+            background = Blitbuffer.COLOR_DARK_GRAY,
+            dimen = Geom:new{ w = self.width, h = Size.line.thin },
+        },
+        col_header,
+        body,
+        LineWidget:new{
+            background = Blitbuffer.COLOR_DARK_GRAY,
+            dimen = Geom:new{ w = self.width, h = Size.line.thin },
+        },
+        toggles,
+    }
+
+    local action_h = action_bar:getSize().h
+    local scroll_h = self.height - action_h - Size.line.thin
 
     local previous = self.cropping_widget
     local scroller = ScrollableContainer:new{
-        dimen = Geom:new{ w = self.width, h = body_h },
+        dimen = Geom:new{ w = self.width, h = scroll_h },
         show_parent = self,
         bordersize = 0,
         padding = 0,
         FrameContainer:new{
             bordersize = 0,
             padding = 0,
-            body,
+            scroll_content,
         },
     }
     if previous then
@@ -655,18 +666,12 @@ function DiffPicker:_build()
 
     local content = VerticalGroup:new{
         align = "left",
-        header,
-        LineWidget:new{
-            background = Blitbuffer.COLOR_DARK_GRAY,
-            dimen = Geom:new{ w = self.width, h = Size.line.thin },
-        },
-        col_header,
         scroller,
         LineWidget:new{
             background = Blitbuffer.COLOR_DARK_GRAY,
             dimen = Geom:new{ w = self.width, h = Size.line.thin },
         },
-        footer,
+        action_bar,
     }
 
     self[1] = FrameContainer:new{
