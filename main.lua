@@ -112,6 +112,10 @@ function Rebind:keepBackup()
     return self.settings:nilOrTrue("keep_backup")
 end
 
+function Rebind:renameFile()
+    return self.settings:nilOrTrue("rename_file")
+end
+
 function Rebind:currentFile()
     if self.ui and self.ui.document and self.ui.document.file then
         return self.ui.document.file
@@ -546,6 +550,7 @@ function Rebind:_showDiff(file, current, book, Api)
         end,
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
+        rename_file = self:renameFile(),
         on_apply = function(changes, opts)
             opts = opts or {}
             local keep = opts.keep_backup
@@ -553,8 +558,13 @@ function Rebind:_showDiff(file, current, book, Api)
                 keep = self:keepBackup()
             end
             local move = opts.move_to_sorted == true
+            local rename = opts.rename_file
+            if rename == nil then
+                rename = self:renameFile()
+            end
             self.settings:saveSetting("keep_backup", keep)
             self.settings:saveSetting("move_after_rebind", move)
+            self.settings:saveSetting("rename_file", rename)
             self.settings:flush()
             self:_write(file, changes, keep, move)
         end,
@@ -587,7 +597,14 @@ end
 
 function Rebind:_afterRewrite(file, is_open_book, backup, move_enabled)
     if not move_enabled then
-        self:_finish(file, is_open_book, backup, nil)
+        if self:renameFile() then
+            local meta = Epub.read_metadata(file)
+            local authors = meta and meta.authors or {}
+            local title = meta and meta.title
+            self:_doMove(file, is_open_book, backup, Organize.dirname(file), authors, title, "flat")
+        else
+            self:_finish(file, is_open_book, backup, nil)
+        end
         return
     end
 
@@ -685,7 +702,7 @@ function Rebind:_doMove(file, is_open_book, backup, root, authors, title, struct
         self:_relocateOpenBook(file, root, authors, title, backup, structure)
         return
     end
-    local moved, moved_result = Organize.move(file, root, authors, title, structure)
+    local moved, moved_result = Organize.move(file, root, authors, title, structure, self:renameFile())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
@@ -703,7 +720,7 @@ function Rebind:_relocateOpenBook(file, root, authors, title, backup, structure)
     ui:handleEvent(Event:new("CloseConfigMenu"))
     ui:onClose(false)
 
-    local moved, moved_result = Organize.move(file, root, authors, title, structure)
+    local moved, moved_result = Organize.move(file, root, authors, title, structure, self:renameFile())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))

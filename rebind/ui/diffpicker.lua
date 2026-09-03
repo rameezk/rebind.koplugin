@@ -64,6 +64,7 @@ local DiffPicker = InputContainer:extend{
     new_label = nil,
     keep_backup = nil,
     move_to_sorted = nil,
+    rename_file = nil,
     edition_label = nil,
     on_choose_edition = nil,
     translate_targets = nil,
@@ -82,6 +83,9 @@ function DiffPicker:init()
     end
     if self.move_to_sorted == nil then
         self.move_to_sorted = false
+    end
+    if self.rename_file == nil then
+        self.rename_file = true
     end
 
     if Device:hasKeys() then
@@ -608,13 +612,49 @@ function DiffPicker:_build()
             self:_refresh()
         end,
     }
+    local rename_info_btn = Button:new{
+        icon = "info",
+        icon_width = sc(18),
+        icon_height = sc(18),
+        radius = sc(4),
+        padding = sc(8),
+        bordersize = Size.border.button,
+        show_parent = self,
+        callback = function()
+            UIManager:show(InfoMessage:new{
+                text = _("Rename the book file to:\n\nAuthor, Surname-first - Title.epub\n\nExample:\nHerbert, Frank - Dune.epub\n\nThe original extension is kept. With Sort book off, the file is renamed in place."),
+            })
+        end,
+    }
+    local rename_btn = Button:new{
+        text = self.rename_file and _("Rename file: On") or _("Rename file: Off"),
+        radius = sc(4),
+        padding = sc(8),
+        bordersize = Size.border.button,
+        width = content_inner - rename_info_btn:getSize().w - sc(8),
+        show_parent = self,
+        callback = function()
+            self.rename_file = not self.rename_file
+            self:_refresh()
+        end,
+    }
     local toggles = FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
-        HorizontalGroup:new{
-            backup_btn,
-            HorizontalSpan:new{ width = sc(8) },
-            move_btn,
+        VerticalGroup:new{
+            align = "left",
+            HorizontalGroup:new{
+                backup_btn,
+                HorizontalSpan:new{ width = sc(8) },
+                move_btn,
+            },
+            VerticalSpan:new{ width = sc(6) },
+            HorizontalGroup:new{
+                align = "center",
+                rename_btn,
+                HorizontalSpan:new{ width = sc(8) },
+                rename_info_btn,
+            },
         },
     }
     local action_bar = FrameContainer:new{
@@ -715,6 +755,7 @@ function DiffPicker:_apply()
         self.on_apply(changes, {
             keep_backup = self.keep_backup,
             move_to_sorted = self.move_to_sorted,
+            rename_file = self.rename_file,
         })
     end
 end
