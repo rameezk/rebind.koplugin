@@ -186,10 +186,11 @@ dead-ends:
 In each case you get the picker with an empty Hardcover column and every field
 editable.
 
-Two toggles in the footer, remembered between runs:
+Three toggles in the footer, remembered between runs:
 
 - **Keep backup**: leave a `.rebind.bak` copy of the original next to the book.
 - **Sort book**: move the file into your sorted library after applying (below).
+- **Rename file**: rename the book to `<Author, Surname-first> - <Title>.epub` (on by default), whether or not it's sorted - with **Sort book** off it's renamed in place.
 
 Hit **Apply** and Rebind rewrites the file. The library refreshes on its own. If you
 rebind the book you're reading, it offers to reopen so the new metadata takes effect.
@@ -208,10 +209,14 @@ and remembered per device. Then you pick the layout:
 - **Directly in this folder**: just move the file into the chosen folder
 - **Keep here**: don't move
 
-The `.sdr` sidecar (reading progress, bookmarks, highlights) travels with the book.
-Sort the book you're currently reading and Rebind relocates it and reopens it at the
-new path, position intact. Author folders are surname-first (e.g. `Herbert, Frank`),
-and folder names are sanitized for filesystem-illegal characters.
+With **Rename file** on (the default), the book is renamed to
+`<Author, Surname-first> - <Title>.epub`, keeping its original extension; turn it off to
+keep the source filename. Rename is independent of sorting: with **Sort book** off, the
+book is renamed in place in its current folder. The `.sdr` sidecar (reading progress,
+bookmarks, highlights) travels with the book and follows the new name. Rename or sort the
+book you're currently reading and Rebind relocates it and reopens it at the new path,
+position intact. Author folders and filenames are surname-first (e.g. `Herbert, Frank`),
+sanitized for filesystem-illegal characters.
 
 <p align="center">
   <img src="screenshots/sort-move-dialog.png" width="320" alt="The move prompt: file the book by Author/Title, directly in the folder, or keep it">

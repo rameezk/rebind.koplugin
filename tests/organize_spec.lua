@@ -45,24 +45,41 @@ T["author_folder uses the first author, surname-first"] = function(a)
     a.eq(Organize.author_folder({}), "Unknown Author")
 end
 
-T["target_path builds root/Author/Title/filename"] = function(a)
+T["target_path builds root/Author/Title/Author - Title.ext"] = function(a)
     local p = Organize.target_path("/books/Sorted", { "Frank Herbert" }, "Dune", "dune.epub")
-    a.eq(p, "/books/Sorted/Herbert, Frank/Dune/dune.epub")
+    a.eq(p, "/books/Sorted/Herbert, Frank/Dune/Herbert, Frank - Dune.epub")
 end
 
 T["target_path strips a trailing slash from the root"] = function(a)
     local p = Organize.target_path("/books/Sorted/", { "Isaac Asimov" }, "Foundation", "f.epub")
-    a.eq(p, "/books/Sorted/Asimov, Isaac/Foundation/f.epub")
+    a.eq(p, "/books/Sorted/Asimov, Isaac/Foundation/Asimov, Isaac - Foundation.epub")
 end
 
 T["target_path sanitizes a title with a slash"] = function(a)
     local p = Organize.target_path("/r", { "A B" }, "Vol 1/2", "x.epub")
-    a.eq(p, "/r/B, A/Vol 1_2/x.epub")
+    a.eq(p, "/r/B, A/Vol 1_2/B, A - Vol 1_2.epub")
+end
+
+T["target_path keeps the original filename when rename is off"] = function(a)
+    local p = Organize.target_path("/books/Sorted", { "Frank Herbert" }, "Dune", "dune.epub", "nested", false)
+    a.eq(p, "/books/Sorted/Herbert, Frank/Dune/dune.epub")
 end
 
 T["basename returns the final path component"] = function(a)
     a.eq(Organize.basename("/a/b/c/book.epub"), "book.epub")
     a.eq(Organize.basename("book.epub"), "book.epub")
+end
+
+T["dirname returns the parent directory"] = function(a)
+    a.eq(Organize.dirname("/a/b/c/book.epub"), "/a/b/c")
+    a.eq(Organize.dirname("/books/dune.epub"), "/books")
+    a.eq(Organize.dirname("book.epub"), ".")
+end
+
+T["a flat move into the source folder renames in place"] = function(a)
+    local dir = Organize.dirname("/books/incoming/assassin.epub")
+    local p = Organize.target_path(dir, { "Robin Hobb" }, "Assassin's Apprentice", "assassin.epub", "flat")
+    a.eq(p, "/books/incoming/Hobb, Robin - Assassin's Apprentice.epub")
 end
 
 T["target_dir omits the filename"] = function(a)
@@ -71,12 +88,33 @@ end
 
 T["flat structure moves the file directly into the root"] = function(a)
     a.eq(Organize.target_dir("/r/", { "Frank Herbert" }, "Dune", "flat"), "/r")
-    a.eq(Organize.target_path("/r", { "Frank Herbert" }, "Dune", "d.epub", "flat"), "/r/d.epub")
+    a.eq(Organize.target_path("/r", { "Frank Herbert" }, "Dune", "d.epub", "flat"),
+        "/r/Herbert, Frank - Dune.epub")
 end
 
 T["nested is the default structure"] = function(a)
     a.eq(Organize.target_path("/r", { "Frank Herbert" }, "Dune", "d.epub"),
         Organize.target_path("/r", { "Frank Herbert" }, "Dune", "d.epub", "nested"))
+end
+
+T["extension returns the trailing extension"] = function(a)
+    a.eq(Organize.extension("dune.epub"), ".epub")
+    a.eq(Organize.extension("a.b.epub"), ".epub")
+    a.eq(Organize.extension("noext"), "")
+end
+
+T["filename builds Author - Title.ext, surname first"] = function(a)
+    a.eq(Organize.filename({ "Frank Herbert" }, "Dune", "dune.epub"), "Herbert, Frank - Dune.epub")
+    a.eq(Organize.filename({ "Frank Herbert", "Kevin J. Anderson" }, "Dune", "d.epub"),
+        "Herbert, Frank - Dune.epub")
+end
+
+T["filename sanitizes illegal characters in the title"] = function(a)
+    a.eq(Organize.filename({ "A B" }, "Vol: 1/2", "x.epub"), "B, A - Vol_ 1_2.epub")
+end
+
+T["filename falls back for missing author and title"] = function(a)
+    a.eq(Organize.filename({}, nil, "x.epub"), "Unknown Author - Unknown Title.epub")
 end
 
 return T

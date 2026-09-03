@@ -55,6 +55,20 @@ function Organize.basename(path)
     return path:match("[^/]+$") or path
 end
 
+function Organize.dirname(path)
+    return path:match("^(.*)/[^/]+$") or "."
+end
+
+function Organize.extension(filename)
+    return filename:match("%.[^.]+$") or ""
+end
+
+function Organize.filename(authors, title, source_filename)
+    local author = Organize.author_folder(authors)
+    local book_title = Organize.sanitize(title, "Unknown Title")
+    return author .. " - " .. book_title .. Organize.extension(source_filename)
+end
+
 function Organize.target_dir(root, authors, title, structure)
     root = root:gsub("/+$", "")
     if structure == "flat" then
@@ -65,8 +79,12 @@ function Organize.target_dir(root, authors, title, structure)
     return table.concat({ root, author_dir, title_dir }, "/")
 end
 
-function Organize.target_path(root, authors, title, source_filename, structure)
-    return Organize.target_dir(root, authors, title, structure) .. "/" .. source_filename
+function Organize.target_path(root, authors, title, source_filename, structure, rename)
+    local name = source_filename
+    if rename ~= false then
+        name = Organize.filename(authors, title, source_filename)
+    end
+    return Organize.target_dir(root, authors, title, structure) .. "/" .. name
 end
 
 local function move_file(from, to)
@@ -82,12 +100,12 @@ local function move_file(from, to)
     return true
 end
 
-function Organize.move(source_path, root, authors, title, structure)
+function Organize.move(source_path, root, authors, title, structure, rename)
     local util = require("util")
     local lfs = require("libs/libkoreader-lfs")
     local DocSettings = require("docsettings")
 
-    local dest = Organize.target_path(root, authors, title, Organize.basename(source_path), structure)
+    local dest = Organize.target_path(root, authors, title, Organize.basename(source_path), structure, rename)
     if dest == source_path then
         return true, dest
     end
