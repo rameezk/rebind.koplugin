@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/rameezk/rebind.koplugin/compare/v1.5.0...v1.6.0) (2026-09-03)
+
+
+### Features
+
+* rename the EPUB to "Author - Title" when filing a book ([#24](https://github.com/rameezk/rebind.koplugin/issues/24)) ([92ccd81](https://github.com/rameezk/rebind.koplugin/commit/92ccd817927262d24bd6b121118296da8620e711))
+
+
+### Bug Fixes
+
+* make the whole rebind picker scroll as one view ([#23](https://github.com/rameezk/rebind.koplugin/issues/23)) ([1df6b96](https://github.com/rameezk/rebind.koplugin/commit/1df6b96647621ffd76dab6725d9d1ccde50b2a76))
+
 ## [1.5.0](https://github.com/rameezk/rebind.koplugin/compare/v1.4.0...v1.5.0) (2026-07-30)
 
 
