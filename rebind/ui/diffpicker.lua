@@ -70,6 +70,8 @@ local DiffPicker = InputContainer:extend{
     current_metadata = nil,
     filename_template = nil,
     on_filename_template = nil,
+    folder_template = nil,
+    on_folder_template = nil,
     edition_label = nil,
     on_choose_edition = nil,
     translate_targets = nil,
@@ -94,6 +96,9 @@ function DiffPicker:init()
     end
     if self.filename_template == nil then
         self.filename_template = Organize.DEFAULT_FILENAME_TEMPLATE
+    end
+    if self.folder_template == nil then
+        self.folder_template = Organize.DEFAULT_FOLDER_TEMPLATE
     end
 
     if Device:hasKeys() then
@@ -768,13 +773,20 @@ end
 function DiffPicker:_show_naming()
     Naming.show{
         filename_template = self.filename_template,
+        folder_template = self.folder_template,
         metadata = function()
             return Organize.with_changes(self.current_metadata, self:_selected_changes())
         end,
-        on_select = function(template)
+        on_select_filename = function(template)
             self.filename_template = template
             if self.on_filename_template then
                 self.on_filename_template(template)
+            end
+        end,
+        on_select_folder = function(template)
+            self.folder_template = template
+            if self.on_folder_template then
+                self.on_folder_template(template)
             end
         end,
     }

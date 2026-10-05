@@ -191,7 +191,7 @@ Three toggles in the footer, remembered between runs:
 - **Keep backup**: leave a `.rebind.bak` copy of the original next to the book.
 - **Sort book**: move the file into your sorted library after applying (below).
 - **Rename file**: rename the book using the chosen filename preset (on by default, `<Author, Surname-first> - <Title>.epub`), whether or not it's sorted - with **Sort book** off it's renamed in place.
-- **Naming…**: choose the filename preset from a list, each shown with an example from the values currently selected.
+- **Naming…**: choose the filename preset and the folder preset (**Sort folders**) from lists, each shown with an example from the values currently selected.
 
 Hit **Apply** and Rebind rewrites the file. The library refreshes on its own. If you
 rebind the book you're reading, it offers to reopen so the new metadata takes effect.
@@ -206,7 +206,7 @@ Turn on **Sort book** and, after applying, Rebind offers to file the book away. 
 first time, it asks for a destination folder, prefilled to your KOReader home folder
 and remembered per device. Then you pick the layout:
 
-- **Author / Title / book**: a sorted tree, `<root>/<Author, Surname-first>/<Title>/<file.epub>`
+- **The folder path** (`Author / Title /` by default): a sorted tree, `<root>/<Author, Surname-first>/<Title>/<file.epub>`. The button shows the path rendered for this book. Pick the layout under **Naming…**, **Sort folders**: `Author / Title`, `Author`, `Author / Series` or `Author / Series / Title`. A series folder is left out when the book has no series.
 - **Directly in this folder**: just move the file into the chosen folder
 - **Keep here**: don't move
 
