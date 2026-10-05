@@ -240,4 +240,10 @@ T["Sort into the nested layout keeps the template's filename"] = function(a)
     a.eq(p, "/lib/Herbert, Frank/Dune/Dune - Frank Herbert.epub")
 end
 
+T["dots and spaces together never leave a dot-only name"] = function(a)
+    a.eq(named("%title", { title = ".. ." }), "Unknown Title.epub")
+    a.eq(Organize.sanitize(".. .", "Unknown"), "Unknown")
+    a.eq(Organize.target_dir("/root", { title = ".. .", authors = { "A B" } }, "nested"), "/root/B, A/Unknown Title")
+end
+
 return T

@@ -43,8 +43,7 @@ function Organize.sanitize(component, fallback)
     local s = component:gsub('[/\\:%*%?"<>|]', "_")
     s = s:gsub("%c", "_")
     s = s:gsub("^%s+", ""):gsub("%s+$", "")
-    s = s:gsub("%.+$", "")
-    s = s:gsub("%s+$", "")
+    s = s:gsub("[%s%.]+$", "")
     if s == "" then
         return fallback
     end
@@ -93,7 +92,7 @@ local function present(value)
     if value == nil then
         return nil
     end
-    value = clean(tostring(value)):gsub("^%s+", ""):gsub("%.+$", ""):gsub("%s+$", "")
+    value = clean(tostring(value)):gsub("^%s+", ""):gsub("[%s%.]+$", "")
     if value == "" then
         return nil
     end
