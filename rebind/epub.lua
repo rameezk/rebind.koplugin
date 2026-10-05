@@ -139,6 +139,46 @@ local function remove_dc(metadata, localname)
     metadata.kids = kept
 end
 
+local function is_publication_date(el)
+    return attr_get(el, "event") == "publication" or attr_get(el, "opf:event") == "publication"
+end
+
+local function publication_date_element(metadata)
+    local first
+    for _, el in ipairs(child_elements(metadata)) do
+        if is_dc(el, "date") then
+            if is_publication_date(el) then
+                return el
+            end
+            first = first or el
+        end
+    end
+    return first
+end
+
+local function remove_element(metadata, target)
+    local kept = {}
+    for _, kid in ipairs(metadata.kids) do
+        if kid ~= target then
+            kept[#kept + 1] = kid
+        end
+    end
+    metadata.kids = kept
+end
+
+local function set_first_published(metadata, prefix, year)
+    local el = publication_date_element(metadata)
+    if year == "" then
+        if el then
+            remove_element(metadata, el)
+        end
+    elseif el then
+        set_text(el, year)
+    else
+        append_child(metadata, new_element("date", prefix, nil, year))
+    end
+end
+
 local function set_creators(metadata, prefix, authors)
     remove_dc(metadata, "creator")
     for _, author in ipairs(authors) do
@@ -322,6 +362,11 @@ local function first_dc_text(metadata, localname)
     return nil
 end
 
+local function read_first_published(metadata)
+    local el = publication_date_element(metadata)
+    return el and get_text(el):match("^%s*(%d%d%d%d)") or nil
+end
+
 local function opf_path_from_container(container)
     return container:match('full%-path%s*=%s*"([^"]+)"')
         or container:match("full%-path%s*=%s*'([^']+)'")
@@ -408,6 +453,7 @@ function Epub.read_metadata(path)
     local isbn_13, isbn_10 = extract_isbns(metadata)
 
     return {
+        first_published = read_first_published(metadata),
         title = title,
         authors = authors,
         description = description,
@@ -449,6 +495,9 @@ local function edit_opf(opf_xml, changes)
     apply_dc_text("description", changes.description)
     apply_dc_text("language", changes.language)
     apply_dc_text("publisher", changes.publisher)
+    if changes.first_published ~= nil then
+        set_first_published(metadata, prefix, changes.first_published)
+    end
     if changes.series ~= nil then
         if changes.series == "" then
             clear_series(metadata)

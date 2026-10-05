@@ -362,6 +362,11 @@ function DiffPicker:_edit(field, seed)
         is_enter_default = not long,
         callback = function()
             local text = dialog:getInputText()
+            local problem = field.validate and field.validate(text)
+            if problem then
+                UIManager:show(InfoMessage:new{ text = problem })
+                return
+            end
             UIManager:close(dialog)
             self:_commit(field, field.from_input(text))
         end,
@@ -383,6 +388,8 @@ function DiffPicker:_edit(field, seed)
         opts.description = _("Separate multiple authors with commas.")
     elseif field.editor == "genres" then
         opts.description = _("Separate multiple genres with commas.")
+    elseif field.key == "first_published" then
+        opts.description = _("A 4-digit year. Leave empty to clear.")
     end
     if long then
         opts.fullscreen = true
