@@ -21,8 +21,12 @@ A Book returned by a Hardcover lookup, before an Edition has been chosen.
 _Avoid_: result
 
 **Field**:
-One piece of metadata Rebind can write: Title, Author(s), Series, Genre(s), Language, Publisher or Description.
+One piece of metadata Rebind can write: Title, Author(s), Series, Genre(s), Language, Publisher, Description or First published.
 _Avoid_: tag, property
+
+**First published**:
+The year a Book was originally published, regardless of which Edition is chosen.
+_Avoid_: publication date, release date, pubdate
 
 **Current value**:
 A Field's value as the EPUB holds it before the Rebind.
@@ -54,3 +58,19 @@ _Avoid_: file, move
 
 **Backup**:
 The `.rebind.bak` copy of the original EPUB taken before it is replaced.
+
+**Filename template**:
+The user-chosen pattern a book's file is renamed to, built from Tokens.
+_Avoid_: naming scheme, rename pattern
+
+**Folder template**:
+The user-chosen pattern for the folders a book is Sorted into under the Sorted library, built from Tokens.
+_Avoid_: structure, layout
+
+**Token**:
+A `%name` placeholder in a template that stands for one Field's value, such as `%title`.
+_Avoid_: variable, placeholder
+
+**Preset**:
+A built-in template offered for the user to pick instead of writing their own.
+_Avoid_: profile
