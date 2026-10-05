@@ -116,6 +116,10 @@ function Rebind:renameFile()
     return self.settings:nilOrTrue("rename_file")
 end
 
+function Rebind:filenameTemplate()
+    return self.settings:readSetting("filename_template") or Organize.DEFAULT_FILENAME_TEMPLATE
+end
+
 function Rebind:currentFile()
     if self.ui and self.ui.document and self.ui.document.file then
         return self.ui.document.file
@@ -551,6 +555,12 @@ function Rebind:_showDiff(file, current, book, Api)
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         rename_file = self:renameFile(),
+        current_metadata = current,
+        filename_template = self:filenameTemplate(),
+        on_filename_template = function(template)
+            self.settings:saveSetting("filename_template", template)
+            self.settings:flush()
+        end,
         on_apply = function(changes, opts)
             opts = opts or {}
             local keep = opts.keep_backup
@@ -598,10 +608,8 @@ end
 function Rebind:_afterRewrite(file, is_open_book, backup, move_enabled)
     if not move_enabled then
         if self:renameFile() then
-            local meta = Epub.read_metadata(file)
-            local authors = meta and meta.authors or {}
-            local title = meta and meta.title
-            self:_doMove(file, is_open_book, backup, Organize.dirname(file), authors, title, "flat")
+            local meta = Epub.read_metadata(file) or {}
+            self:_doMove(file, is_open_book, backup, Organize.dirname(file), meta, "flat")
         else
             self:_finish(file, is_open_book, backup, nil)
         end
@@ -657,9 +665,7 @@ function Rebind:_withSortedRoot(on_ready, on_cancel)
 end
 
 function Rebind:_chooseStructureAndMove(file, is_open_book, backup, root)
-    local meta = Epub.read_metadata(file)
-    local authors = meta and meta.authors or {}
-    local title = meta and meta.title
+    local meta = Epub.read_metadata(file) or {}
     local dialog
     dialog = ButtonDialog:new{
         title = _("Move into:\n") .. root,
@@ -670,7 +676,7 @@ function Rebind:_chooseStructureAndMove(file, is_open_book, backup, root)
                     text = _("Author / Title / book"),
                     callback = function()
                         UIManager:close(dialog)
-                        self:_doMove(file, is_open_book, backup, root, authors, title, "nested")
+                        self:_doMove(file, is_open_book, backup, root, meta, "nested")
                     end,
                 },
             },
@@ -679,7 +685,7 @@ function Rebind:_chooseStructureAndMove(file, is_open_book, backup, root)
                     text = _("Directly in this folder"),
                     callback = function()
                         UIManager:close(dialog)
-                        self:_doMove(file, is_open_book, backup, root, authors, title, "flat")
+                        self:_doMove(file, is_open_book, backup, root, meta, "flat")
                     end,
                 },
             },
@@ -697,12 +703,12 @@ function Rebind:_chooseStructureAndMove(file, is_open_book, backup, root)
     UIManager:show(dialog)
 end
 
-function Rebind:_doMove(file, is_open_book, backup, root, authors, title, structure)
+function Rebind:_doMove(file, is_open_book, backup, root, meta, structure)
     if is_open_book then
-        self:_relocateOpenBook(file, root, authors, title, backup, structure)
+        self:_relocateOpenBook(file, root, meta, backup, structure)
         return
     end
-    local moved, moved_result = Organize.move(file, root, authors, title, structure, self:renameFile())
+    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile(), self:filenameTemplate())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
@@ -712,7 +718,7 @@ function Rebind:_doMove(file, is_open_book, backup, root, authors, title, struct
     end
 end
 
-function Rebind:_relocateOpenBook(file, root, authors, title, backup, structure)
+function Rebind:_relocateOpenBook(file, root, meta, backup, structure)
     local ReaderUI = require("apps/reader/readerui")
     local ui = self.ui
     ui.tearing_down = true
@@ -720,7 +726,7 @@ function Rebind:_relocateOpenBook(file, root, authors, title, backup, structure)
     ui:handleEvent(Event:new("CloseConfigMenu"))
     ui:onClose(false)
 
-    local moved, moved_result = Organize.move(file, root, authors, title, structure, self:renameFile())
+    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile(), self:filenameTemplate())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
