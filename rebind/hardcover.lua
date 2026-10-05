@@ -95,6 +95,20 @@ local function publisher_name(publisher)
     return nil
 end
 
+local function year_text(year)
+    if year == nil then
+        return nil
+    end
+    return tostring(year)
+end
+
+local function first_published_of(book)
+    if book.is_edition then
+        return year_text(book.book_release_year)
+    end
+    return year_text(book.release_year)
+end
+
 function Hardcover.extract(book)
     local series_name, series_index
     local se = series_entry(book)
@@ -115,6 +129,7 @@ function Hardcover.extract(book)
         series = series_name,
         series_index = series_index,
         release_year = book.release_year,
+        first_published = first_published_of(book),
         edition_format = book.edition_format or book.filetype,
         language = language_code(book.language),
         publisher = publisher_name(book.publisher),
@@ -316,6 +331,8 @@ function Hardcover.list_editions(Api, book, language)
             out[#out + 1] = {
                 book_id = book_id,
                 edition_id = row.id,
+                is_edition = true,
+                book_release_year = book.book_release_year or book.release_year,
                 title = row.title or book.title,
                 contributions = book.contributions,
                 book_series = book.book_series,

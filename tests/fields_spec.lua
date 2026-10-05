@@ -39,7 +39,7 @@ local T = {}
 
 T["build exposes one field per editable value"] = function(a)
     local fields = build()
-    a.eq(#fields, 7)
+    a.eq(#fields, 8)
     a.eq(by_key(fields, "title").editor, "text")
     a.eq(by_key(fields, "author").editor, "authors")
     a.eq(by_key(fields, "series").editor, "series")
@@ -47,6 +47,50 @@ T["build exposes one field per editable value"] = function(a)
     a.eq(by_key(fields, "language").editor, "text")
     a.eq(by_key(fields, "publisher").editor, "text")
     a.eq(by_key(fields, "description").editor, "longtext")
+    a.eq(by_key(fields, "first_published").editor, "text")
+end
+
+T["First published sits directly after Series"] = function(a)
+    local fields = build()
+    local keys = {}
+    for i, f in ipairs(fields) do
+        keys[i] = f.key
+    end
+    local at
+    for i, key in ipairs(keys) do
+        if key == "series" then
+            at = i
+        end
+    end
+    a.eq(keys[at + 1], "first_published")
+end
+
+T["First published carries the Current and Proposed years"] = function(a)
+    local fields = build({ first_published = "2012" }, { first_published = "1983" })
+    local f = by_key(fields, "first_published")
+    a.eq(f.display(f.current_value), "2012")
+    a.eq(f.display(f.new_value), "1983")
+end
+
+T["First published applies a year and clears on empty"] = function(a)
+    local f = by_key(build(), "first_published")
+    local changes = {}
+    f.apply(changes, "1983")
+    a.eq(changes.first_published, "1983")
+    f.apply(changes, "")
+    a.eq(changes.first_published, "")
+    a.is_true(f.is_empty(""))
+end
+
+T["First published refuses an Own value that is not a year"] = function(a)
+    local f = by_key(build(), "first_published")
+    a.is_true(f.validate("circa 1983") ~= nil)
+    a.is_true(f.validate("83") ~= nil)
+    a.is_true(f.validate("19831") ~= nil)
+    a.eq(f.validate("1983"), nil)
+    a.eq(f.validate(""), nil)
+    a.eq(f.validate("  1983 "), nil)
+    a.eq(f.from_input("  1983 "), "1983")
 end
 
 T["language and publisher carry both sides of the diff"] = function(a)

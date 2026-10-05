@@ -340,4 +340,24 @@ T["available is false when the Hardcover plugin is not installed"] = function(a)
     a.eq(Hardcover.available(), false)
 end
 
+T["extract takes First published from the Book's release year"] = function(a)
+    local m = Hardcover.extract({ book_id = 7, title = "Neuromancer", release_year = 1984 })
+    a.eq(m.first_published, "1984")
+    a.eq(Hardcover.extract({ book_id = 7 }).first_published, nil)
+end
+
+T["an Edition keeps the Book's First published while its label shows its own year"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1, release_date = "2012-05-24" } } })
+    local editions = Hardcover.list_editions(api, { book_id = 7, release_year = 1983 })
+    local m = Hardcover.extract(editions[1])
+    a.eq(m.first_published, "1983")
+    a.contains(Hardcover.edition_label(m), "2012")
+end
+
+T["an Edition of a Book with no release year proposes no First published"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 1, release_date = "2012-05-24" } } })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(Hardcover.extract(editions[1]).first_published, nil)
+end
+
 return T

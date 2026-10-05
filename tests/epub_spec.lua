@@ -80,6 +80,25 @@ local OPF_WRONGORDER = [[<?xml version="1.0" encoding="utf-8"?>
   <manifest></manifest>
 </package>]]
 
+local OPF_DATES = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+    <dc:date opf:event="modification">2020-01-02T03:04:05Z</dc:date>
+    <dc:date opf:event="publication">2012-05-24T00:00:00Z</dc:date>
+  </metadata>
+  <manifest></manifest>
+</package>]]
+
+local OPF_UNMARKED_DATE = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+    <dc:date>1999-03-01</dc:date>
+  </metadata>
+  <manifest></manifest>
+</package>]]
+
 local function seed(opf)
     _G.__TEST_FS = {
         ["META-INF/container.xml"] = CONTAINER,
@@ -396,6 +415,45 @@ T["read_metadata finds container.xml when it is not the first entry"] = function
     a.eq(md.title, "Old Title")
     a.eq(md.isbn_13, "9780441013593")
     unseed()
+end
+
+T["read_metadata reads First published from the publication dc:date"] = function(a)
+    seed(OPF_DATES)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.first_published, "2012")
+    unseed()
+end
+
+T["read_metadata falls back to the first dc:date when none is marked publication"] = function(a)
+    seed(OPF_UNMARKED_DATE)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.first_published, "1999")
+    unseed()
+end
+
+T["writing First published replaces only the publication dc:date"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_DATES, { first_published = "1983" }))
+    a.contains(out, '<dc:date opf:event="publication">1983</dc:date>')
+    a.contains(out, '<dc:date opf:event="modification">2020-01-02T03:04:05Z</dc:date>')
+    a.not_contains(out, "2012")
+end
+
+T["writing First published adds a dc:date when the OPF has none"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { first_published = "1983" }))
+    a.count_eq(out, "<dc:date", 1)
+    a.contains(out, "<dc:date>1983</dc:date>")
+end
+
+T["clearing First published removes only the publication dc:date"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_DATES, { first_published = "" }))
+    a.count_eq(out, "<dc:date", 1)
+    a.not_contains(out, "2012")
+    a.contains(out, '<dc:date opf:event="modification">2020-01-02T03:04:05Z</dc:date>')
+end
+
+T["leaving First published unselected keeps a full date"] = function(a)
+    local out = assert(Epub._edit_opf(OPF_UNMARKED_DATE, { title = "New" }))
+    a.contains(out, "<dc:date>1999-03-01</dc:date>")
 end
 
 return T

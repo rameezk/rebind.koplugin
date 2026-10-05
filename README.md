@@ -251,6 +251,7 @@ These fields, and nothing else:
 | Title | `dc:title` | |
 | Author(s) | `dc:creator`, one per author | Comma-separated in the editor; the same for every edition |
 | Series + index | `calibre:series` + `calibre:series_index`, **and** `belongs-to-collection` / `collection-type` / `group-position` | Both conventions, for maximum compatibility |
+| First published | `dc:date` | The Book's original year as `YYYY`, whichever edition is chosen; only the publication `dc:date` (or the first one) is touched, and Keep current leaves a full date alone |
 | Genre(s) | `dc:subject`, one per genre | What Calibre shows under **Tags**; Hardcover's top 5 by popularity |
 | Language | `dc:language` | From the chosen edition, as a two-letter code (`en`, `fr`); edit by hand for `en-GB` |
 | Publisher | `dc:publisher` | From the chosen edition |

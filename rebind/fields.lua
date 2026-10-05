@@ -240,6 +240,22 @@ local function series_field(current, proposed)
     }
 end
 
+local function first_published_field(current, proposed)
+    local field = text_field("first_published", _("First published"), "text",
+        current.first_published, proposed.first_published,
+        function(changes, raw)
+            changes.first_published = trim(raw)
+        end)
+    field.validate = function(input)
+        local text = trim(input)
+        if text ~= "" and not text:match("^%d%d%d%d$") then
+            return _("Enter a 4-digit year, or leave it empty to clear.")
+        end
+        return nil
+    end
+    return field
+end
+
 function Fields.build(current, proposed)
     current = current or {}
     proposed = proposed or {}
@@ -247,6 +263,7 @@ function Fields.build(current, proposed)
         title_field(current, proposed),
         author_field(current, proposed),
         series_field(current, proposed),
+        first_published_field(current, proposed),
         genres_field(current, proposed),
         language_field(current, proposed),
         publisher_field(current, proposed),
