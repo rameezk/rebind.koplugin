@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   test:
+    permissions:
+      contents: read
     uses: ./.github/workflows/tests.yml
 
   release:
@@ -27,8 +29,10 @@ jobs:
 
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
+        with:
+          persist-credentials: false
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
         if: ${{ steps.release.outputs.release_created }}
 
       - name: Build package

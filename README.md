@@ -285,8 +285,8 @@ make package   # run tests, then build dist/rebind.koplugin.zip
 make clean     # remove build artifacts
 ```
 
-`./tests/run.sh` runs the suite directly (it tries `luajit`, `lua5.1`, `lua`, then
-`nix run nixpkgs#luajit`). Coverage includes OPF editing (update-in-place, no
+`./tests/run.sh` runs the suite directly (it tries `luajit`, `lua5.1`, then `lua`, and
+points you to `nix develop` if none is found). Coverage includes OPF editing (update-in-place, no
 duplicate tags, both series conventions, clearing a field), metadata/ISBN extraction,
 the field value parsing/formatting behind the editors, the destination path logic, and
 the Hardcover lookup/extraction/edition listing. The UI modules (`main.lua`,
