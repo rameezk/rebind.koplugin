@@ -14,7 +14,7 @@ function Naming.show(opts)
 
     local function open()
         local buttons = {}
-        for _, template in ipairs(Organize.FILENAME_PRESETS) do
+        for _i, template in ipairs(Organize.FILENAME_PRESETS) do
             local marker = template == selected and "● " or "○ "
             buttons[#buttons + 1] = {
                 {

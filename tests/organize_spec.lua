@@ -223,4 +223,21 @@ T["with_changes overlays the chosen values onto the current metadata"] = functio
     a.eq(current.title, "Colour")
 end
 
+T["a token value ending in a dot loses it, as the default naming always did"] = function(a)
+    a.eq(Organize.filename({ title = "Vol 1.", authors = { "J. R. R. Tolkien" } }, "x.epub"),
+        "Tolkien, J. R. R - Vol 1.epub")
+    a.eq(named("%title", { title = "..." }), "Unknown Title.epub")
+end
+
+T["a preset's optional series group is dropped without a series"] = function(a)
+    local m = { title = "Dune", authors = { "Frank Herbert" } }
+    a.eq(named(Organize.FILENAME_PRESETS[4], m), "Dune.epub")
+end
+
+T["Sort into the nested layout keeps the template's filename"] = function(a)
+    local p = Organize.target_path("/lib", { title = "Dune", authors = { "Frank Herbert" } }, "d.epub", "nested", true,
+        "%title - %author")
+    a.eq(p, "/lib/Herbert, Frank/Dune/Dune - Frank Herbert.epub")
+end
+
 return T

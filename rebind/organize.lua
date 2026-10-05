@@ -93,7 +93,7 @@ local function present(value)
     if value == nil then
         return nil
     end
-    value = tostring(value):gsub("^%s+", ""):gsub("%s+$", "")
+    value = clean(tostring(value)):gsub("^%s+", ""):gsub("%.+$", ""):gsub("%s+$", "")
     if value == "" then
         return nil
     end
