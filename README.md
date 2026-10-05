@@ -190,7 +190,8 @@ Three toggles in the footer, remembered between runs:
 
 - **Keep backup**: leave a `.rebind.bak` copy of the original next to the book.
 - **Sort book**: move the file into your sorted library after applying (below).
-- **Rename file**: rename the book to `<Author, Surname-first> - <Title>.epub` (on by default), whether or not it's sorted - with **Sort book** off it's renamed in place.
+- **Rename file**: rename the book using the chosen filename preset (on by default, `<Author, Surname-first> - <Title>.epub`), whether or not it's sorted - with **Sort book** off it's renamed in place.
+- **Naming…**: choose the filename preset from a list, each shown with an example from the values currently selected.
 
 Hit **Apply** and Rebind rewrites the file. The library refreshes on its own. If you
 rebind the book you're reading, it offers to reopen so the new metadata takes effect.
@@ -210,7 +211,8 @@ and remembered per device. Then you pick the layout:
 - **Keep here**: don't move
 
 With **Rename file** on (the default), the book is renamed to
-`<Author, Surname-first> - <Title>.epub`, keeping its original extension; turn it off to
+`<Author, Surname-first> - <Title>.epub` by default, or any other preset chosen under
+**Naming…**, keeping its original extension; turn it off to
 keep the source filename. Rename is independent of sorting: with **Sort book** off, the
 book is renamed in place in its current folder. The `.sdr` sidecar (reading progress,
 bookmarks, highlights) travels with the book and follows the new name. Rename or sort the
