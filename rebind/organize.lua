@@ -63,28 +63,28 @@ function Organize.extension(filename)
     return filename:match("%.[^.]+$") or ""
 end
 
-function Organize.filename(authors, title, source_filename)
-    local author = Organize.author_folder(authors)
-    local book_title = Organize.sanitize(title, "Unknown Title")
+function Organize.filename(meta, source_filename)
+    local author = Organize.author_folder(meta.authors)
+    local book_title = Organize.sanitize(meta.title, "Unknown Title")
     return author .. " - " .. book_title .. Organize.extension(source_filename)
 end
 
-function Organize.target_dir(root, authors, title, structure)
+function Organize.target_dir(root, meta, structure)
     root = root:gsub("/+$", "")
     if structure == "flat" then
         return root
     end
-    local author_dir = Organize.author_folder(authors)
-    local title_dir = Organize.sanitize(title, "Unknown Title")
+    local author_dir = Organize.author_folder(meta.authors)
+    local title_dir = Organize.sanitize(meta.title, "Unknown Title")
     return table.concat({ root, author_dir, title_dir }, "/")
 end
 
-function Organize.target_path(root, authors, title, source_filename, structure, rename)
+function Organize.target_path(root, meta, source_filename, structure, rename)
     local name = source_filename
     if rename ~= false then
-        name = Organize.filename(authors, title, source_filename)
+        name = Organize.filename(meta, source_filename)
     end
-    return Organize.target_dir(root, authors, title, structure) .. "/" .. name
+    return Organize.target_dir(root, meta, structure) .. "/" .. name
 end
 
 local function move_file(from, to)
@@ -100,19 +100,19 @@ local function move_file(from, to)
     return true
 end
 
-function Organize.move(source_path, root, authors, title, structure, rename)
+function Organize.move(source_path, root, meta, structure, rename)
     local util = require("util")
     local lfs = require("libs/libkoreader-lfs")
     local DocSettings = require("docsettings")
 
-    local dest = Organize.target_path(root, authors, title, Organize.basename(source_path), structure, rename)
+    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename)
     if dest == source_path then
         return true, dest
     end
     if lfs.attributes(dest, "mode") ~= nil then
         return false, "A file already exists at:\n" .. dest
     end
-    local ok_dir, mkerr = util.makePath(Organize.target_dir(root, authors, title, structure))
+    local ok_dir, mkerr = util.makePath(Organize.target_dir(root, meta, structure))
     if not ok_dir then
         return false, "Could not create folder:\n" .. tostring(mkerr)
     end
