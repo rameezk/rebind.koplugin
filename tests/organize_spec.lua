@@ -29,26 +29,6 @@ T["surname_first returns nil for empty input"] = function(a)
     a.eq(Organize.surname_first("   "), nil)
 end
 
-T["sanitize replaces filesystem-illegal characters"] = function(a)
-    a.eq(Organize.sanitize("A/B:C*D?"), "A_B_C_D_")
-    a.eq(Organize.sanitize('quote"lt<gt>pipe|'), "quote_lt_gt_pipe_")
-end
-
-T["sanitize trims trailing dots and whitespace"] = function(a)
-    a.eq(Organize.sanitize("  Dune.  "), "Dune")
-end
-
-T["sanitize falls back when empty"] = function(a)
-    a.eq(Organize.sanitize("", "Unknown Title"), "Unknown Title")
-    a.eq(Organize.sanitize(nil, "Unknown Author"), "Unknown Author")
-end
-
-T["author_folder uses the first author, surname-first"] = function(a)
-    a.eq(Organize.author_folder({ "Frank Herbert", "Kevin J. Anderson" }), "Herbert, Frank")
-    a.eq(Organize.author_folder("Leigh Bardugo"), "Bardugo, Leigh")
-    a.eq(Organize.author_folder({}), "Unknown Author")
-end
-
 T["target_path builds root/Author/Title/Author - Title.ext"] = function(a)
     local p = Organize.target_path("/books/Sorted", meta({ "Frank Herbert" }, "Dune"), "dune.epub")
     a.eq(p, "/books/Sorted/Herbert, Frank/Dune/Herbert, Frank - Dune.epub")
@@ -242,8 +222,122 @@ end
 
 T["dots and spaces together never leave a dot-only name"] = function(a)
     a.eq(named("%title", { title = ".. ." }), "Unknown Title.epub")
-    a.eq(Organize.sanitize(".. .", "Unknown"), "Unknown")
     a.eq(Organize.target_dir("/root", { title = ".. .", authors = { "A B" } }, "nested"), "/root/B, A/Unknown Title")
+end
+
+T["Folder Preset 4 files a series book under its series"] = function(a)
+    local p = Organize.target_path("/lib", COLOUR_OF_MAGIC, "x.epub", "nested", true, nil, "%author_sort/{%series/}%title")
+    a.eq(p, "/lib/Pratchett, Terry/Discworld/The Colour of Magic/Pratchett, Terry - The Colour of Magic.epub")
+end
+
+local function folders(template, m)
+    return Organize.target_dir("/lib", m, "nested", template)
+end
+
+T["Folder Preset 3 drops the empty series segment"] = function(a)
+    local m = { title = "Enshittification", authors = { "Cory Doctorow" } }
+    a.eq(folders(Organize.FOLDER_PRESETS[3], m), "/lib/Doctorow, Cory")
+end
+
+T["a token value cannot add folders"] = function(a)
+    a.eq(folders(Organize.FOLDER_PRESETS[2], { authors = { "AC/DC" } }), "/lib/AC_DC")
+end
+
+T["a literal dot-dot segment cannot climb out of the Sorted library"] = function(a)
+    a.eq(folders("../%author_sort/./%title", { title = "Dune", authors = { "Frank Herbert" } }),
+        "/lib/Herbert, Frank/Dune")
+end
+
+T["each folder segment is capped at 200 bytes"] = function(a)
+    local dir = folders("%title/%title", { title = string.rep("a", 300) })
+    a.eq(dir, "/lib/" .. string.rep("a", 200) .. "/" .. string.rep("a", 200))
+end
+
+T["no saved folder template files a book as Author/Title/Author - Title"] = function(a)
+    local p = Organize.target_path("/lib", { title = "Dune", authors = { "Frank Herbert" } }, "dune.epub")
+    a.eq(p, "/lib/Herbert, Frank/Dune/Herbert, Frank - Dune.epub")
+end
+
+T["every folder preset renders for The Colour of Magic"] = function(a)
+    local want = {
+        "/lib/Pratchett, Terry/The Colour of Magic",
+        "/lib/Pratchett, Terry",
+        "/lib/Pratchett, Terry/Discworld",
+        "/lib/Pratchett, Terry/Discworld/The Colour of Magic",
+    }
+    for i, template in ipairs(Organize.FOLDER_PRESETS) do
+        a.eq(folders(template, COLOUR_OF_MAGIC), want[i])
+    end
+end
+
+T["the Sort dialog label shows the folder path rendered for the book"] = function(a)
+    a.eq(Organize.folder_label(COLOUR_OF_MAGIC, Organize.FOLDER_PRESETS[3]), "Pratchett, Terry / Discworld /")
+    a.eq(Organize.folder_label(COLOUR_OF_MAGIC), "Pratchett, Terry / The Colour of Magic /")
+end
+
+local function mkdir(path)
+    local ok = os.execute(string.format("mkdir -p '%s'", path))
+    return ok == 0 or ok == true
+end
+
+local function with_fake_koreader(fn)
+    local saved = {}
+    local names = { "util", "libs/libkoreader-lfs", "docsettings", "ffi/util" }
+    for _i, name in ipairs(names) do
+        saved[name] = package.loaded[name]
+    end
+    package.loaded["util"] = {
+        makePath = mkdir,
+    }
+    package.loaded["libs/libkoreader-lfs"] = {
+        attributes = function(path, what)
+            local f = io.open(path, "r")
+            if not f then
+                return nil
+            end
+            f:close()
+            return what == "mode" and "file" or {}
+        end,
+    }
+    package.loaded["docsettings"] = { updateLocation = function() end }
+    package.loaded["ffi/util"] = { copyFile = function() return "no copy in tests" end }
+    local ok, err = pcall(fn)
+    for _i, name in ipairs(names) do
+        package.loaded[name] = saved[name]
+    end
+    if not ok then
+        error(err, 0)
+    end
+end
+
+local function write(path, text)
+    local f = assert(io.open(path, "w"))
+    f:write(text)
+    f:close()
+end
+
+T["Sort refuses to overwrite a file already at the rendered folder destination"] = function(a)
+    with_fake_koreader(function()
+        local root = os.tmpname()
+        os.remove(root)
+        mkdir(root .. "/incoming")
+        mkdir(root .. "/lib/Pratchett, Terry/Discworld")
+        local source = root .. "/incoming/x.epub"
+        local existing = root .. "/lib/Pratchett, Terry/Discworld/Pratchett, Terry - The Colour of Magic.epub"
+        write(source, "new")
+        write(existing, "old")
+        local ok, err = Organize.move(source, root .. "/lib", COLOUR_OF_MAGIC, "nested", true, nil,
+            Organize.FOLDER_PRESETS[3])
+        local f = io.open(source, "r")
+        local still_there = f ~= nil
+        if f then
+            f:close()
+        end
+        os.execute(string.format("rm -rf '%s'", root))
+        a.eq(ok, false)
+        a.eq(still_there, true)
+        a.eq(err, "A file already exists at:\n" .. existing)
+    end)
 end
 
 return T

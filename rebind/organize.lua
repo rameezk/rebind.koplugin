@@ -13,6 +13,15 @@ Organize.FILENAME_PRESETS = {
 
 Organize.DEFAULT_FILENAME_TEMPLATE = Organize.FILENAME_PRESETS[1]
 
+Organize.FOLDER_PRESETS = {
+    "%author_sort/%title",
+    "%author_sort",
+    "%author_sort/{%series/}",
+    "%author_sort/{%series/}%title",
+}
+
+Organize.DEFAULT_FOLDER_TEMPLATE = Organize.FOLDER_PRESETS[1]
+
 function Organize.surname_first(name)
     if not name or name == "" then
         return nil
@@ -33,34 +42,6 @@ function Organize.surname_first(name)
     end
     local last = table.remove(words)
     return last .. ", " .. table.concat(words, " ")
-end
-
-function Organize.sanitize(component, fallback)
-    fallback = fallback or "Unknown"
-    if not component then
-        return fallback
-    end
-    local s = component:gsub('[/\\:%*%?"<>|]', "_")
-    s = s:gsub("%c", "_")
-    s = s:gsub("^%s+", ""):gsub("%s+$", "")
-    s = s:gsub("[%s%.]+$", "")
-    if s == "" then
-        return fallback
-    end
-    if #s > 200 then
-        s = s:sub(1, 200):gsub("%s+$", "")
-    end
-    return s
-end
-
-function Organize.author_folder(authors)
-    local first
-    if type(authors) == "table" then
-        first = authors[1]
-    elseif type(authors) == "string" then
-        first = authors
-    end
-    return Organize.sanitize(Organize.surname_first(first), "Unknown Author")
 end
 
 function Organize.basename(path)
@@ -149,7 +130,7 @@ local function truncate_bytes(text, limit)
     return text:sub(1, cut)
 end
 
-function Organize.render(template, meta)
+local function render_text(template, meta, keep_slash)
     meta = meta or {}
     local out = {}
     local group, group_empty
@@ -190,15 +171,33 @@ function Organize.render(template, meta)
             end
             i = i + 1
         else
-            emit(clean(c))
+            emit(keep_slash and c == "/" and c or clean(c))
             i = i + 1
         end
     end
     if group and not group_empty then
         out[#out + 1] = table.concat(group)
     end
-    local text = table.concat(out):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+    return (table.concat(out):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
+end
+
+local function cap(text)
     return (truncate_bytes(text, SEGMENT_LIMIT):gsub(" $", ""))
+end
+
+function Organize.render(template, meta)
+    return cap(render_text(template, meta, false))
+end
+
+function Organize.folder_segments(meta, template)
+    local segments = {}
+    for part in render_text(template or Organize.DEFAULT_FOLDER_TEMPLATE, meta, true):gmatch("[^/]+") do
+        local segment = cap(part:gsub("^%s+", ""):gsub("[%s%.]+$", ""))
+        if segment ~= "" then
+            segments[#segments + 1] = segment
+        end
+    end
+    return segments
 end
 
 function Organize.with_changes(current, changes)
@@ -215,6 +214,14 @@ function Organize.with_changes(current, changes)
     return merged
 end
 
+function Organize.folder_label(meta, folder_template)
+    local segments = Organize.folder_segments(meta, folder_template)
+    if #segments == 0 then
+        return "/"
+    end
+    return table.concat(segments, " / ") .. " /"
+end
+
 function Organize.filename(meta, source_filename, template)
     local name = Organize.render(template or Organize.DEFAULT_FILENAME_TEMPLATE, meta)
     if name == "" then
@@ -223,22 +230,22 @@ function Organize.filename(meta, source_filename, template)
     return name .. Organize.extension(source_filename)
 end
 
-function Organize.target_dir(root, meta, structure)
+function Organize.target_dir(root, meta, structure, folder_template)
     root = root:gsub("/+$", "")
     if structure == "flat" then
         return root
     end
-    local author_dir = Organize.author_folder(meta.authors)
-    local title_dir = Organize.sanitize(meta.title, "Unknown Title")
-    return table.concat({ root, author_dir, title_dir }, "/")
+    local parts = Organize.folder_segments(meta, folder_template)
+    table.insert(parts, 1, root)
+    return table.concat(parts, "/")
 end
 
-function Organize.target_path(root, meta, source_filename, structure, rename, template)
+function Organize.target_path(root, meta, source_filename, structure, rename, template, folder_template)
     local name = source_filename
     if rename ~= false then
         name = Organize.filename(meta, source_filename, template)
     end
-    return Organize.target_dir(root, meta, structure) .. "/" .. name
+    return Organize.target_dir(root, meta, structure, folder_template) .. "/" .. name
 end
 
 local function move_file(from, to)
@@ -254,19 +261,19 @@ local function move_file(from, to)
     return true
 end
 
-function Organize.move(source_path, root, meta, structure, rename, template)
+function Organize.move(source_path, root, meta, structure, rename, template, folder_template)
     local util = require("util")
     local lfs = require("libs/libkoreader-lfs")
     local DocSettings = require("docsettings")
 
-    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename, template)
+    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename, template, folder_template)
     if dest == source_path then
         return true, dest
     end
     if lfs.attributes(dest, "mode") ~= nil then
         return false, "A file already exists at:\n" .. dest
     end
-    local ok_dir, mkerr = util.makePath(Organize.target_dir(root, meta, structure))
+    local ok_dir, mkerr = util.makePath(Organize.target_dir(root, meta, structure, folder_template))
     if not ok_dir then
         return false, "Could not create folder:\n" .. tostring(mkerr)
     end
