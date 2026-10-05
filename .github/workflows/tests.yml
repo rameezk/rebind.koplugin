@@ -10,8 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LuaJIT
-        run: sudo apt-get update && sudo apt-get install -y luajit
+      - uses: DeterminateSystems/nix-installer-action@main
 
       - name: Run tests
-        run: make test
+        run: nix develop -c make test

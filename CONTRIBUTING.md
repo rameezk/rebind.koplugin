@@ -4,18 +4,23 @@ Thanks for your interest in contributing to Rebind!
 
 ## Development setup
 
-There is nothing to install beyond a Lua interpreter. The test suite is
-zero-dependency - no luarocks, no busted - and stubs KOReader's `ffi/archiver`
-with an in-memory archive so the pure-logic modules can be exercised off-device.
+The repo's Nix flake devshell provides the pinned toolchain (LuaJIT, make, zip,
+git and gh). Enter it with `nix develop`, or let [direnv](https://direnv.net)
+load it through the committed `.envrc`. CI and forge use the same devshell.
+
+The test suite is zero-dependency - no luarocks, no busted - and stubs
+KOReader's `ffi/archiver` with an in-memory archive so the pure-logic modules can
+be exercised off-device.
 
 ```bash
 git clone https://github.com/rameezk/rebind.koplugin.git
 cd rebind.koplugin
-make test
+nix develop -c make test
 ```
 
-`./tests/run.sh` picks the first interpreter it finds, trying `luajit`, `lua5.1`,
-`lua`, and finally `nix run nixpkgs#luajit`. If you have Nix, you need nothing else.
+Without Nix, install LuaJIT yourself (`luajit`, `lua5.1` or `lua` on your
+`PATH`) and run `make test`. `./tests/run.sh` exits with an error pointing to
+`nix develop` when it finds no interpreter.
 
 ## Testing UI changes in the emulator
 
