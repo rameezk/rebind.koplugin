@@ -17,13 +17,20 @@
     {
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShellNoCC {
-          packages = with pkgs; [
-            luajit
-            gnumake
-            zip
-            git
-            gh
-          ];
+          packages =
+            with pkgs;
+            [
+              luajit
+              gnumake
+              zip
+              git
+              gh
+            ]
+            ++ lib.optionals stdenv.hostPlatform.isDarwin [
+              _7zz
+              unzip
+              python3
+            ];
         };
       });
 
