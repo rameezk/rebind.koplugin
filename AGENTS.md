@@ -16,6 +16,7 @@
   Instead, prefer quality, simplicity, robustness, scalability, and long term maintainability.
 - Apply a high standard to engineering excellence: lint, test failures, and test flakiness.
   If you see one, even if it is not caused by what you are working on right now, still get it fixed.
+- Run build and test commands inside the devshell (`nix develop -c <cmd>`) unless it is already active.
 
 ## Bug fixes and E2E testing
 
