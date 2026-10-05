@@ -23,6 +23,8 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
+local Naming = require("rebind/ui/naming")
+local Organize = require("rebind/organize")
 local Translate = require("rebind/translate")
 
 local Screen = Device.screen
@@ -65,6 +67,9 @@ local DiffPicker = InputContainer:extend{
     keep_backup = nil,
     move_to_sorted = nil,
     rename_file = nil,
+    current_metadata = nil,
+    filename_template = nil,
+    on_filename_template = nil,
     edition_label = nil,
     on_choose_edition = nil,
     translate_targets = nil,
@@ -86,6 +91,9 @@ function DiffPicker:init()
     end
     if self.rename_file == nil then
         self.rename_file = true
+    end
+    if self.filename_template == nil then
+        self.filename_template = Organize.DEFAULT_FILENAME_TEMPLATE
     end
 
     if Device:hasKeys() then
@@ -619,18 +627,15 @@ function DiffPicker:_build()
             self:_refresh()
         end,
     }
-    local rename_info_btn = Button:new{
-        icon = "info",
-        icon_width = sc(18),
-        icon_height = sc(18),
+    local naming_btn = Button:new{
+        text = _("Naming…"),
         radius = sc(4),
         padding = sc(8),
         bordersize = Size.border.button,
+        width = math.floor((content_inner - sc(8)) / 2),
         show_parent = self,
         callback = function()
-            UIManager:show(InfoMessage:new{
-                text = _("Rename the book file to:\n\nAuthor, Surname-first - Title.epub\n\nExample:\nHerbert, Frank - Dune.epub\n\nThe original extension is kept. With Sort book off, the file is renamed in place."),
-            })
+            self:_show_naming()
         end,
     }
     local rename_btn = Button:new{
@@ -638,7 +643,7 @@ function DiffPicker:_build()
         radius = sc(4),
         padding = sc(8),
         bordersize = Size.border.button,
-        width = content_inner - rename_info_btn:getSize().w - sc(8),
+        width = math.floor((content_inner - sc(8)) / 2),
         show_parent = self,
         callback = function()
             self.rename_file = not self.rename_file
@@ -660,7 +665,7 @@ function DiffPicker:_build()
                 align = "center",
                 rename_btn,
                 HorizontalSpan:new{ width = sc(8) },
-                rename_info_btn,
+                naming_btn,
             },
         },
     }
@@ -747,7 +752,7 @@ function DiffPicker:_refresh()
     UIManager:setDirty(self, "ui")
 end
 
-function DiffPicker:_apply()
+function DiffPicker:_selected_changes()
     local changes = {}
     for _, f in ipairs(self.fields) do
         local sel = self.selection[f.key]
@@ -757,6 +762,26 @@ function DiffPicker:_apply()
             f.apply(changes, self.custom[f.key])
         end
     end
+    return changes
+end
+
+function DiffPicker:_show_naming()
+    Naming.show{
+        filename_template = self.filename_template,
+        metadata = function()
+            return Organize.with_changes(self.current_metadata, self:_selected_changes())
+        end,
+        on_select = function(template)
+            self.filename_template = template
+            if self.on_filename_template then
+                self.on_filename_template(template)
+            end
+        end,
+    }
+end
+
+function DiffPicker:_apply()
+    local changes = self:_selected_changes()
     UIManager:close(self, "ui")
     if self.on_apply then
         self.on_apply(changes, {

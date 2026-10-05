@@ -116,6 +116,10 @@ function Rebind:renameFile()
     return self.settings:nilOrTrue("rename_file")
 end
 
+function Rebind:filenameTemplate()
+    return self.settings:readSetting("filename_template") or Organize.DEFAULT_FILENAME_TEMPLATE
+end
+
 function Rebind:currentFile()
     if self.ui and self.ui.document and self.ui.document.file then
         return self.ui.document.file
@@ -551,6 +555,12 @@ function Rebind:_showDiff(file, current, book, Api)
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         rename_file = self:renameFile(),
+        current_metadata = current,
+        filename_template = self:filenameTemplate(),
+        on_filename_template = function(template)
+            self.settings:saveSetting("filename_template", template)
+            self.settings:flush()
+        end,
         on_apply = function(changes, opts)
             opts = opts or {}
             local keep = opts.keep_backup
@@ -698,7 +708,7 @@ function Rebind:_doMove(file, is_open_book, backup, root, meta, structure)
         self:_relocateOpenBook(file, root, meta, backup, structure)
         return
     end
-    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile())
+    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile(), self:filenameTemplate())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
@@ -716,7 +726,7 @@ function Rebind:_relocateOpenBook(file, root, meta, backup, structure)
     ui:handleEvent(Event:new("CloseConfigMenu"))
     ui:onClose(false)
 
-    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile())
+    local moved, moved_result = Organize.move(file, root, meta, structure, self:renameFile(), self:filenameTemplate())
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
