@@ -18,38 +18,37 @@ function Naming.show(opts)
     end
 
     local function open()
-        local buttons = { header(_("File name")) }
-        for _i, template in ipairs(Organize.FILENAME_PRESETS) do
-            local marker = template == selected_filename and "● " or "○ "
-            buttons[#buttons + 1] = {
-                {
-                    text = marker .. Organize.filename(opts.metadata(), EXAMPLE_FILE, template),
-                    align = "left",
-                    callback = function()
-                        selected_filename = template
-                        opts.on_select_filename(template)
-                        UIManager:close(dialog)
-                        open()
-                    end,
-                },
-            }
+        local function add_section(buttons, title, presets, selected, label, choose)
+            buttons[#buttons + 1] = header(title)
+            for _i, template in ipairs(presets) do
+                local marker = template == selected and "● " or "○ "
+                buttons[#buttons + 1] = {
+                    {
+                        text = marker .. label(template),
+                        align = "left",
+                        callback = function()
+                            choose(template)
+                            UIManager:close(dialog)
+                            open()
+                        end,
+                    },
+                }
+            end
         end
-        buttons[#buttons + 1] = header(_("Sort folders"))
-        for _i, template in ipairs(Organize.FOLDER_PRESETS) do
-            local marker = template == selected_folder and "● " or "○ "
-            buttons[#buttons + 1] = {
-                {
-                    text = marker .. Organize.folder_label(opts.metadata(), template),
-                    align = "left",
-                    callback = function()
-                        selected_folder = template
-                        opts.on_select_folder(template)
-                        UIManager:close(dialog)
-                        open()
-                    end,
-                },
-            }
-        end
+
+        local buttons = {}
+        add_section(buttons, _("File name"), Organize.FILENAME_PRESETS, selected_filename, function(template)
+            return Organize.filename(opts.metadata(), EXAMPLE_FILE, template)
+        end, function(template)
+            selected_filename = template
+            opts.on_select_filename(template)
+        end)
+        add_section(buttons, _("Sort folders"), Organize.FOLDER_PRESETS, selected_folder, function(template)
+            return Organize.folder_label(opts.metadata(), template)
+        end, function(template)
+            selected_folder = template
+            opts.on_select_folder(template)
+        end)
         buttons[#buttons + 1] = {
             {
                 text = _("Close"),
