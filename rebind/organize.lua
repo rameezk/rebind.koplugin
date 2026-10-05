@@ -1,4 +1,17 @@
+local Fields = require("rebind/fields")
+
 local Organize = {}
+
+local SEGMENT_LIMIT = 200
+
+Organize.FILENAME_PRESETS = {
+    "%author_sort - %title",
+    "%title - %author",
+    "%title{ - %series #%series_index} - %author{ (%year)}",
+    "{%series %series_index - }%title",
+}
+
+Organize.DEFAULT_FILENAME_TEMPLATE = Organize.FILENAME_PRESETS[1]
 
 function Organize.surname_first(name)
     if not name or name == "" then
@@ -63,10 +76,152 @@ function Organize.extension(filename)
     return filename:match("%.[^.]+$") or ""
 end
 
-function Organize.filename(meta, source_filename)
-    local author = Organize.author_folder(meta.authors)
-    local book_title = Organize.sanitize(meta.title, "Unknown Title")
-    return author .. " - " .. book_title .. Organize.extension(source_filename)
+local function clean(text)
+    return (text:gsub('[/\\:%*%?"<>|]', "_"):gsub("%c", "_"))
+end
+
+local function first_author(authors)
+    if type(authors) == "table" then
+        return authors[1]
+    elseif type(authors) == "string" then
+        return authors
+    end
+    return nil
+end
+
+local function present(value)
+    if value == nil then
+        return nil
+    end
+    value = tostring(value):gsub("^%s+", ""):gsub("%s+$", "")
+    if value == "" then
+        return nil
+    end
+    return value
+end
+
+local TOKENS = {
+    title = function(meta)
+        return present(meta.title) or "Unknown Title"
+    end,
+    author = function(meta)
+        return present(first_author(meta.authors)) or "Unknown Author"
+    end,
+    author_sort = function(meta)
+        return present(Organize.surname_first(first_author(meta.authors))) or "Unknown Author"
+    end,
+    authors = function(meta)
+        if type(meta.authors) == "table" and #meta.authors > 0 then
+            return present(table.concat(meta.authors, " & ")) or "Unknown Author"
+        end
+        return present(first_author(meta.authors)) or "Unknown Author"
+    end,
+    series = function(meta)
+        return present(meta.series)
+    end,
+    series_index = function(meta)
+        return present(Fields.format_index(meta.series_index))
+    end,
+    year = function(meta)
+        return present(meta.first_published)
+    end,
+    language = function(meta)
+        return present(meta.language)
+    end,
+    publisher = function(meta)
+        return present(meta.publisher)
+    end,
+}
+
+local ESCAPES = { ["%"] = "%", ["{"] = "{", ["}"] = "}" }
+
+local function truncate_bytes(text, limit)
+    if #text <= limit then
+        return text
+    end
+    local cut = limit
+    while cut > 0 do
+        local b = text:byte(cut + 1)
+        if not b or b < 0x80 or b > 0xBF then
+            break
+        end
+        cut = cut - 1
+    end
+    return text:sub(1, cut)
+end
+
+function Organize.render(template, meta)
+    meta = meta or {}
+    local out = {}
+    local group, group_empty
+    local function emit(text)
+        local target = group or out
+        target[#target + 1] = text
+    end
+    local i, n = 1, #template
+    while i <= n do
+        local c = template:sub(i, i)
+        if c == "%" then
+            local nxt = template:sub(i + 1, i + 1)
+            local name = template:match("^[%a_]+", i + 1)
+            if ESCAPES[nxt] then
+                emit(ESCAPES[nxt])
+                i = i + 2
+            elseif name then
+                local getter = TOKENS[name]
+                local value = getter and getter(meta)
+                if value then
+                    emit(clean(value))
+                elseif group then
+                    group_empty = true
+                end
+                i = i + 1 + #name
+            else
+                emit("%")
+                i = i + 1
+            end
+        elseif c == "{" and not group then
+            group, group_empty = {}, false
+            i = i + 1
+        elseif c == "}" and group then
+            local finished, dropped = group, group_empty
+            group, group_empty = nil, nil
+            if not dropped then
+                out[#out + 1] = table.concat(finished)
+            end
+            i = i + 1
+        else
+            emit(clean(c))
+            i = i + 1
+        end
+    end
+    if group and not group_empty then
+        out[#out + 1] = table.concat(group)
+    end
+    local text = table.concat(out):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+    return (truncate_bytes(text, SEGMENT_LIMIT):gsub(" $", ""))
+end
+
+function Organize.with_changes(current, changes)
+    local merged = {}
+    for k, v in pairs(current or {}) do
+        merged[k] = v
+    end
+    for k, v in pairs(changes or {}) do
+        merged[k] = v
+    end
+    if changes and changes.series ~= nil then
+        merged.series_index = changes.series_index
+    end
+    return merged
+end
+
+function Organize.filename(meta, source_filename, template)
+    local name = Organize.render(template or Organize.DEFAULT_FILENAME_TEMPLATE, meta)
+    if name == "" then
+        name = Organize.render(Organize.DEFAULT_FILENAME_TEMPLATE, meta)
+    end
+    return name .. Organize.extension(source_filename)
 end
 
 function Organize.target_dir(root, meta, structure)
@@ -79,10 +234,10 @@ function Organize.target_dir(root, meta, structure)
     return table.concat({ root, author_dir, title_dir }, "/")
 end
 
-function Organize.target_path(root, meta, source_filename, structure, rename)
+function Organize.target_path(root, meta, source_filename, structure, rename, template)
     local name = source_filename
     if rename ~= false then
-        name = Organize.filename(meta, source_filename)
+        name = Organize.filename(meta, source_filename, template)
     end
     return Organize.target_dir(root, meta, structure) .. "/" .. name
 end
@@ -100,12 +255,12 @@ local function move_file(from, to)
     return true
 end
 
-function Organize.move(source_path, root, meta, structure, rename)
+function Organize.move(source_path, root, meta, structure, rename, template)
     local util = require("util")
     local lfs = require("libs/libkoreader-lfs")
     local DocSettings = require("docsettings")
 
-    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename)
+    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename, template)
     if dest == source_path then
         return true, dest
     end

@@ -121,4 +121,106 @@ T["filename falls back for missing author and title"] = function(a)
     a.eq(Organize.filename(meta({}, nil), "x.epub"), "Unknown Author - Unknown Title.epub")
 end
 
+local PRESET_3 = "%title{ - %series #%series_index} - %author{ (%year)}"
+
+local COLOUR_OF_MAGIC = {
+    title = "The Colour of Magic",
+    authors = { "Terry Pratchett" },
+    series = "Discworld",
+    series_index = "1",
+    first_published = "1983",
+}
+
+T["a template keeps an optional series group when a series exists"] = function(a)
+    a.eq(Organize.filename(COLOUR_OF_MAGIC, "x.epub", PRESET_3),
+        "The Colour of Magic - Discworld #1 - Terry Pratchett (1983).epub")
+end
+
+local function named(template, m)
+    return Organize.filename(m, "x.epub", template)
+end
+
+T["a template drops an optional group when a token inside it is empty"] = function(a)
+    local m = { title = "Enshittification", authors = { "Cory Doctorow" }, first_published = "2025" }
+    a.eq(named(PRESET_3, m), "Enshittification - Cory Doctorow (2025).epub")
+end
+
+T["a token value cannot create folders"] = function(a)
+    a.eq(named("%title", { title = "AC/DC: Live" }), "AC_DC_ Live.epub")
+end
+
+T["a template's own literal text is cleaned too"] = function(a)
+    a.eq(named("%title: %author", { title = "Dune", authors = { "Frank Herbert" } }),
+        "Dune_ Frank Herbert.epub")
+end
+
+T["percent escapes render as literal characters"] = function(a)
+    a.eq(named("%title %%%{%}", { title = "Dune" }), "Dune %{}.epub")
+end
+
+T["a missing title or author falls back"] = function(a)
+    a.eq(named("%author - %title", {}), "Unknown Author - Unknown Title.epub")
+    a.eq(named("%author_sort - %authors", { authors = {} }), "Unknown Author - Unknown Author.epub")
+end
+
+T["authors joins every author in natural order"] = function(a)
+    a.eq(named("%authors - %title", { title = "Good Omens", authors = { "Terry Pratchett", "Neil Gaiman" } }),
+        "Terry Pratchett & Neil Gaiman - Good Omens.epub")
+end
+
+T["author is the first author and author_sort is surname-first"] = function(a)
+    local m = { authors = { "Frank Herbert", "Brian Herbert" } }
+    a.eq(named("%author|%author_sort", m), "Frank Herbert_Herbert, Frank.epub")
+end
+
+T["language and publisher are available"] = function(a)
+    a.eq(named("%publisher (%language)", { publisher = "Gollancz", language = "en" }), "Gollancz (en).epub")
+end
+
+T["a token ends at the first character that is not a letter or underscore"] = function(a)
+    a.eq(named("%year-%series_index.", { first_published = "1983", series_index = "2.5" }), "1983-2.5..epub")
+end
+
+T["an empty token outside a group renders as nothing and whitespace collapses"] = function(a)
+    a.eq(named("%title - %series - %author", { title = "Dune" }), "Dune - - Unknown Author.epub")
+    a.eq(named("  %series   %title  ", { title = "Dune" }), "Dune.epub")
+end
+
+T["a filename that renders empty falls back to the default preset"] = function(a)
+    a.eq(named("%series", { title = "Dune", authors = { "Frank Herbert" } }), "Herbert, Frank - Dune.epub")
+end
+
+T["a rendered filename is capped at 200 bytes"] = function(a)
+    local name = named("%title", { title = string.rep("a", 300) })
+    a.eq(#name, 200 + #".epub")
+end
+
+T["Sort and rename use the chosen template"] = function(a)
+    local p = Organize.target_path("/lib", { title = "Dune", authors = { "Frank Herbert" } }, "d.epub", "flat", true,
+        "%title - %author")
+    a.eq(p, "/lib/Dune - Frank Herbert.epub")
+end
+
+T["every filename preset renders for The Colour of Magic"] = function(a)
+    local want = {
+        "Pratchett, Terry - The Colour of Magic.epub",
+        "The Colour of Magic - Terry Pratchett.epub",
+        "The Colour of Magic - Discworld #1 - Terry Pratchett (1983).epub",
+        "Discworld 1 - The Colour of Magic.epub",
+    }
+    for i, template in ipairs(Organize.FILENAME_PRESETS) do
+        a.eq(Organize.filename(COLOUR_OF_MAGIC, "x.epub", template), want[i])
+    end
+end
+
+T["with_changes overlays the chosen values onto the current metadata"] = function(a)
+    local current = { title = "Colour", authors = { "T. Pratchett" }, series = "Discworld", series_index = "1" }
+    local merged = Organize.with_changes(current, { title = "Colour of Magic", series = "", series_index = nil })
+    a.eq(merged.title, "Colour of Magic")
+    a.eq(merged.authors[1], "T. Pratchett")
+    a.eq(merged.series, "")
+    a.eq(merged.series_index, nil)
+    a.eq(current.title, "Colour")
+end
+
 return T
