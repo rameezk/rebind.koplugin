@@ -26,12 +26,18 @@ Without Nix, install LuaJIT yourself (`luajit`, `lua5.1` or `lua` on your
 
 The pure-logic modules are covered by the test suite, but `main.lua` and the
 diff picker need a live KOReader runtime. Instead of round-tripping to a real
-device, run KOReader's macOS emulator with Rebind loaded:
+device, run KOReader's macOS emulator with Rebind loaded. Run it from inside the
+devshell: on macOS it also provides the 7-Zip, unzip and python3 the emulator
+script needs to unpack KOReader and the Hardcover plugin.
 
 ```bash
+nix develop
 make emulator          # download the emulator (once), then launch it
 make emulator-update   # re-download the latest KOReader macOS build first
 ```
+
+Without Nix, install `7zz` (or `7z`), `unzip` and `python3` yourself. The script
+exits with an error pointing to `nix develop` when one of them is missing.
 
 The emulator is KOReader's official macOS build, pulled from the project's CI
 via the `gh` CLI (so `gh auth login` must have been run once) and unpacked into

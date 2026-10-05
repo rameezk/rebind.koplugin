@@ -53,16 +53,18 @@ case "$(uname -m)" in
     *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-extract_7z() {
-    local archive="$1" out="$2"
-    if command -v 7zz >/dev/null 2>&1;   then 7zz x -y -o"$out" "$archive" >/dev/null
-    elif command -v 7z  >/dev/null 2>&1;  then 7z  x -y -o"$out" "$archive" >/dev/null
-    elif command -v 7za >/dev/null 2>&1;  then 7za x -y -o"$out" "$archive" >/dev/null
-    elif command -v nix >/dev/null 2>&1;  then nix run nixpkgs#p7zip -- x -y -o"$out" "$archive" >/dev/null
-    else
-        echo "Need a 7z extractor (7zz, 7z, or nix) to unpack the KOReader build." >&2
-        exit 1
-    fi
+missing_tool() {
+    echo "Need $1 to $2." >&2
+    echo "Enter the devshell with 'nix develop' (or 'direnv allow'), or install it yourself." >&2
+    exit 1
+}
+
+first_command() {
+    local cmd
+    for cmd in "$@"; do
+        command -v "$cmd" >/dev/null 2>&1 && { printf '%s' "$cmd"; return 0; }
+    done
+    return 1
 }
 
 install_app() {
@@ -71,6 +73,9 @@ install_app() {
         echo "Install it and run 'gh auth login', then retry." >&2
         exit 1
     }
+    local sevenzip
+    sevenzip="$(first_command 7zz 7z 7za)" ||
+        missing_tool "a 7z extractor (7zz, 7z or 7za)" "unpack the KOReader build"
 
     echo "Finding the latest KOReader macOS build ($ARCH)..."
     local run_id artifact_id staging
@@ -87,7 +92,7 @@ install_app() {
     echo "Downloading..."
     gh api "repos/$REPO/actions/artifacts/$artifact_id/zip" > "$staging/koreader.7z"
     echo "Extracting..."
-    extract_7z "$staging/koreader.7z" "$staging"
+    "$sevenzip" x -y -o"$staging" "$staging/koreader.7z" >/dev/null
     [ -d "$staging/KOReader.app" ] || { echo "Build did not contain KOReader.app." >&2; exit 1; }
     rm -rf "$APP"
     mv "$staging/KOReader.app" "$APP"
@@ -96,26 +101,19 @@ install_app() {
     echo "Installed to $APP"
 }
 
-unzip_to() {
-    local archive="$1" out="$2"
-    if command -v unzip >/dev/null 2>&1; then unzip -q -o "$archive" -d "$out"
-    elif command -v nix >/dev/null 2>&1;  then nix run nixpkgs#unzip -- -q -o "$archive" -d "$out"
-    else echo "Need unzip (or nix) to unpack the Hardcover plugin." >&2; exit 1
-    fi
-}
-
 install_hardcover() {
     command -v gh >/dev/null 2>&1 || {
         echo "The GitHub CLI (gh) is required to download the Hardcover plugin." >&2
         exit 1
     }
+    command -v unzip >/dev/null 2>&1 || missing_tool "unzip" "unpack the Hardcover plugin"
     echo "Downloading the Hardcover plugin..."
     local staging
     staging="$DEST/.hc-staging"
     rm -rf "$staging"; mkdir -p "$staging"
     gh release download --repo "$HC_REPO" --pattern "hardcoverapp.koplugin.zip" \
         --dir "$staging" --clobber
-    unzip_to "$staging/hardcoverapp.koplugin.zip" "$staging"
+    unzip -q -o "$staging/hardcoverapp.koplugin.zip" -d "$staging"
     local root
     root="$(dirname "$(find "$staging" -name _meta.lua -maxdepth 3 | head -1)")"
     [ -n "$root" ] && [ -d "$root" ] || { echo "Hardcover release layout unexpected." >&2; exit 1; }
@@ -134,6 +132,7 @@ patch_hardcover_fork() {
     local api="$HC_CACHE/hardcover/lib/hardcover_api.lua"
     [ -f "$api" ] || return 0
     grep -q "dismissableRunInSubprocess" "$api" || return 0
+    command -v python3 >/dev/null 2>&1 || missing_tool "python3" "patch the Hardcover plugin"
     python3 - "$api" <<'PY'
 import re, sys
 path = sys.argv[1]
