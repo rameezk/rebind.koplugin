@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api *)",
+      "Bash(curl -s \"https://api.github.com/repos/billiam/hardcoverapp.koplugin/git/trees/HEAD?recursive=1\")",
+      "Bash(curl -s \"https://api.github.com/repos/AndyHazz/bookshelf.koplugin/git/trees/HEAD?recursive=1\")",
+      "Bash(curl -s https://raw.githubusercontent.com/billiam/hardcoverapp.koplugin/HEAD/README.md)"
+    ]
+  }
+}
