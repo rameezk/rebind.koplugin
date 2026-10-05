@@ -74,12 +74,12 @@ install_app() {
 
     echo "Finding the latest KOReader macOS build ($ARCH)..."
     local run_id artifact_id staging
-    run_id=$(gh run list --repo "$REPO" --workflow macos --status success \
-        --limit 1 --json databaseId --jq '.[0].databaseId')
-    [ -n "$run_id" ] || { echo "No successful macos build found on $REPO." >&2; exit 1; }
+    run_id=$(gh run list --repo "$REPO" --workflow release.yml --branch master \
+        --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+    [ -n "$run_id" ] || { echo "No successful release build found on $REPO." >&2; exit 1; }
 
     artifact_id=$(gh api "repos/$REPO/actions/runs/$run_id/artifacts" \
-        --jq "[.artifacts[] | select(.name | test(\"$ARCH\"))][0].id")
+        --jq "[.artifacts[] | select(.name | test(\"^koreader-macos-.*-$ARCH-\"))][0].id")
     [ -n "$artifact_id" ] || { echo "No $ARCH artifact on build $run_id." >&2; exit 1; }
 
     staging="$DEST/.staging"
