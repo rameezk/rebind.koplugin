@@ -360,4 +360,11 @@ T["an Edition of a Book with no release year proposes no First published"] = fun
     a.eq(Hardcover.extract(editions[1]).first_published, nil)
 end
 
+T["extract proposes First published only when Hardcover gives a 4-digit year"] = function(a)
+    a.eq(Hardcover.extract({ book_id = 7, release_year = "1984" }).first_published, "1984")
+    a.eq(Hardcover.extract({ book_id = 7, release_year = "soon" }).first_published, nil)
+    a.eq(Hardcover.extract({ book_id = 7, release_year = {} }).first_published, nil)
+    a.eq(Hardcover.extract({ book_id = 7, release_year = 19840 }).first_published, nil)
+end
+
 return T

@@ -96,10 +96,10 @@ local function publisher_name(publisher)
 end
 
 local function year_text(year)
-    if year == nil then
+    if type(year) ~= "string" and type(year) ~= "number" then
         return nil
     end
-    return tostring(year)
+    return tostring(year):match("^%d%d%d%d$")
 end
 
 local function first_published_of(book)
