@@ -25,3 +25,6 @@
 - When end-to-end testing a product, be picky about the UI you see and be obsessed with pixel perfection.
   If something clearly looks off, even if it is not directly related to what you are doing, try to get it fixed along the way.
   For visible changes, capture before/after screenshots with the `before-after` skill.
+- The emulator only runs on macOS today. When the environment cannot run it (Linux, no display), this takes precedence over the `before-after` skill's "stop and report the blocker" rule:
+  do not stop, do not fake a pair, and do not skip the section silently.
+  Put a `## Before / After` section in the PR body that says screenshots could not be captured in this environment and names the visible surfaces the change affects, then continue and open the PR.
