@@ -14,27 +14,73 @@ local Naming = {}
 local EXAMPLE_FILE = "book.epub"
 
 function Naming.show(opts)
-    local selected_filename = opts.filename_template
-    local selected_folder = opts.folder_template
-    local custom_filename = opts.custom_filename_template
-    local custom_folder = opts.custom_folder_template
     local dialog
     local open
+
+    local selected = {
+        filename = opts.filename_template,
+        folder = opts.folder_template,
+    }
+    local custom = {
+        filename = opts.custom_filename_template,
+        folder = opts.custom_folder_template,
+    }
+
+    local sections = {
+        filename = {
+            title = _("File name"),
+            editor_title = _("Custom file name"),
+            presets = Organize.FILENAME_PRESETS,
+            row = function(template)
+                return Organize.filename(opts.metadata(), EXAMPLE_FILE, template)
+            end,
+            example = function(template)
+                return Organize.filename(opts.metadata(), "", template)
+            end,
+        },
+        folder = {
+            title = _("Sort folders"),
+            editor_title = _("Custom sort folders"),
+            presets = Organize.FOLDER_PRESETS,
+            row = function(template)
+                return Organize.folder_label(opts.metadata(), template)
+            end,
+            example = function(template)
+                return Organize.folder_label(opts.metadata(), template)
+            end,
+        },
+    }
+
+    local choose = {
+        filename = function(template)
+            selected.filename = template
+            opts.on_select_filename(template)
+        end,
+        folder = function(template)
+            selected.folder = template
+            opts.on_select_folder(template)
+        end,
+    }
+
+    local save_custom = {
+        filename = function(template)
+            selected.filename = template
+            custom.filename = template
+            opts.on_save_custom_filename(template)
+        end,
+        folder = function(template)
+            selected.folder = template
+            custom.folder = template
+            opts.on_save_custom_folder(template)
+        end,
+    }
 
     local function header(text)
         return { { text = text, enabled = false } }
     end
 
-    local function example(kind, template)
-        local meta = opts.metadata()
-        if kind == "filename" then
-            return Organize.filename(meta, "", template)
-        end
-        return Organize.folder_label(meta, template)
-    end
-
-    local function open_editor(kind, prefill, on_save)
-        local title = kind == "filename" and _("Custom file name") or _("Custom sort folders")
+    local function open_editor(kind)
+        local section = sections[kind]
         local editor
         local example_widget
 
@@ -42,13 +88,13 @@ function Naming.show(opts)
             if not example_widget then
                 return
             end
-            example_widget:setText(example(kind, editor:getInputText()))
+            example_widget:setText(section.example(editor:getInputText()))
             UIManager:setDirty(editor, "ui")
         end
 
         editor = InputDialog:new{
-            title = title,
-            input = prefill,
+            title = section.editor_title,
+            input = custom[kind] or selected[kind],
             edited_callback = refresh_example,
             buttons = {
                 {
@@ -70,7 +116,7 @@ function Naming.show(opts)
                                 return
                             end
                             UIManager:close(editor)
-                            on_save(template)
+                            save_custom[kind](template)
                             UIManager:close(dialog)
                             open()
                         end,
@@ -80,7 +126,7 @@ function Naming.show(opts)
         }
 
         example_widget = TextWidget:new{
-            text = example(kind, editor:getInputText()),
+            text = section.example(editor:getInputText()),
             face = Font:getFace("cfont", 15),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
             max_width = editor:getAddedWidgetAvailableWidth(),
@@ -93,15 +139,16 @@ function Naming.show(opts)
     open = function()
         local buttons = {}
 
-        local function add_section(title, kind, presets, selected, label, choose, custom, save)
-            buttons[#buttons + 1] = header(title)
-            for _i, template in ipairs(presets) do
+        for _k, kind in ipairs({ "filename", "folder" }) do
+            local section = sections[kind]
+            buttons[#buttons + 1] = header(section.title)
+            for _i, template in ipairs(section.presets) do
                 buttons[#buttons + 1] = {
                     {
-                        text = (template == selected and "● " or "○ ") .. label(template),
+                        text = (template == selected[kind] and "● " or "○ ") .. section.row(template),
                         align = "left",
                         callback = function()
-                            choose(template)
+                            choose[kind](template)
                             UIManager:close(dialog)
                             open()
                         end,
@@ -110,35 +157,15 @@ function Naming.show(opts)
             end
             buttons[#buttons + 1] = {
                 {
-                    text = (custom ~= nil and selected == custom and "● " or "○ ") .. _("Custom…"),
+                    text = (custom[kind] ~= nil and selected[kind] == custom[kind] and "● " or "○ ")
+                        .. _("Custom…"),
                     align = "left",
                     callback = function()
-                        open_editor(kind, custom or selected, save)
+                        open_editor(kind)
                     end,
                 },
             }
         end
-
-        add_section(_("File name"), "filename", Organize.FILENAME_PRESETS, selected_filename, function(template)
-            return Organize.filename(opts.metadata(), EXAMPLE_FILE, template)
-        end, function(template)
-            selected_filename = template
-            opts.on_select_filename(template)
-        end, custom_filename, function(template)
-            selected_filename = template
-            custom_filename = template
-            opts.on_save_custom_filename(template)
-        end)
-        add_section(_("Sort folders"), "folder", Organize.FOLDER_PRESETS, selected_folder, function(template)
-            return Organize.folder_label(opts.metadata(), template)
-        end, function(template)
-            selected_folder = template
-            opts.on_select_folder(template)
-        end, custom_folder, function(template)
-            selected_folder = template
-            custom_folder = template
-            opts.on_save_custom_folder(template)
-        end)
 
         buttons[#buttons + 1] = {
             {

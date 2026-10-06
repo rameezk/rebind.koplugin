@@ -311,6 +311,7 @@ T["an empty template is refused for both kinds"] = function(a)
     a.is_true(Organize.validate_template("", "filename"))
     a.is_true(Organize.validate_template("", "folder"))
     a.is_true(Organize.validate_template("   ", "folder"))
+    a.is_true(Organize.validate_template(nil, "folder"))
 end
 
 T["a custom folder template files a book by language and author"] = function(a)
