@@ -312,7 +312,7 @@ function DiffPicker:_edit(field, seed)
 
     local long = field.editor == "longtext"
     local dialog
-    local translated_text
+    local get_translated_text
     local save = {
         text = _("Save"),
         is_enter_default = not long,
@@ -324,7 +324,7 @@ function DiffPicker:_edit(field, seed)
                 return
             end
             UIManager:close(dialog)
-            self:_commit(field, field.from_input(text), text == translated_text())
+            self:_commit(field, field.from_input(text), text == get_translated_text())
         end,
     }
     local cancel = {
@@ -357,7 +357,7 @@ function DiffPicker:_edit(field, seed)
     end
 
     dialog = InputDialog:new(opts)
-    translated_text = self:_add_start_from(dialog, field, function()
+    get_translated_text = self:_add_start_from(dialog, field, function()
         return field.from_input(dialog:getInputText())
     end, function(raw)
         dialog:setInputText(field.to_input(raw))
@@ -546,11 +546,15 @@ function DiffPicker:_build()
         status_row,
     })
 
-    local function add_block(field)
+    local function add_separator()
         table.insert(body, LineWidget:new{
             background = Blitbuffer.COLOR_LIGHT_GRAY,
             dimen = Geom:new{ w = content_inner, h = Size.line.thin },
         })
+    end
+
+    local function add_block(field)
+        add_separator()
         table.insert(body, self:_field_block(field, block_w))
     end
 
@@ -560,10 +564,7 @@ function DiffPicker:_build()
 
     local matching = self.state:matching_fields()
     if #matching > 0 then
-        table.insert(body, LineWidget:new{
-            background = Blitbuffer.COLOR_LIGHT_GRAY,
-            dimen = Geom:new{ w = content_inner, h = Size.line.thin },
-        })
+        add_separator()
         local summary = TextBoxWidget:new{
             text = (self.matching_open and "▾ " or "▸ ") .. self.state:matching_summary(),
             face = Font:getFace("cfont", 16),

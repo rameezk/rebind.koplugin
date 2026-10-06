@@ -6,7 +6,7 @@ PickerState.__index = PickerState
 function PickerState.new(fields)
     local self = setmetatable({ fields = fields, chosen = {}, extra = {} }, PickerState)
     self:_open_selection()
-    self.opened = { chosen = {}, extra = {} }
+    self.opened = { chosen = {} }
     for key, choice in pairs(self.chosen) do
         self.opened.chosen[key] = choice
     end
@@ -266,7 +266,7 @@ end
 
 function PickerState:needs_discard_prompt()
     for _i, f in ipairs(self.fields) do
-        if self.chosen[f.key] ~= self.opened.chosen[f.key] or self.extra[f.key] ~= self.opened.extra[f.key] then
+        if self.chosen[f.key] ~= self.opened.chosen[f.key] or self.extra[f.key] ~= nil then
             return true
         end
     end
