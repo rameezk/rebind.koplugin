@@ -465,4 +465,14 @@ T["pattern_label names the Tokens in plain words"] = function(a)
     a.eq(Organize.pattern_label("%title{ - %series_index}"), "Title{ - Series #}")
 end
 
+T["pattern_label keeps escaped percent signs literal"] = function(a)
+    a.eq(Organize.pattern_label("100%%title"), "100%%title")
+    a.eq(Organize.pattern_label("%%{%title%%}"), "%%{Title%%}")
+end
+
+T["help_notes tell how to select text for the Optional chip"] = function(a)
+    local joined = table.concat(Organize.help_notes("filename"), "\n")
+    a.eq(joined:find("select", 1, true) ~= nil, true)
+end
+
 return T

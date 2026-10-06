@@ -303,6 +303,7 @@ function Naming.show(opts)
         local function apply(text, cursor)
             local input = editor._input_widget
             input.selection_start_pos = nil
+            input.do_select = false
             editor:setInputText(text)
             input:moveCursorToCharPos(byte_to_char_pos(text, cursor))
             refresh_example()
@@ -429,6 +430,15 @@ function Naming.show(opts)
             show_list(kind, on_close)
         end
 
+        local function is_preset(template)
+            for _i, preset in ipairs(section.presets) do
+                if preset == template then
+                    return true
+                end
+            end
+            return false
+        end
+
         local rows = {}
         for _i, template in ipairs(section.presets) do
             rows[#rows + 1] = {
@@ -445,7 +455,7 @@ function Naming.show(opts)
         rows[#rows + 1] = {
             label = own and section.label(own) or _("Custom…"),
             pattern = own and Organize.pattern_label(own) or nil,
-            selected = own ~= nil and selected[kind] == own,
+            selected = own ~= nil and selected[kind] == own and not is_preset(own),
             on_select = function()
                 if own then
                     choose[kind](own)

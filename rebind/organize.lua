@@ -152,8 +152,11 @@ local PATTERN_NAMES = {
 }
 
 function Organize.pattern_label(template)
-    local label = template:gsub("%%([%a_]+)", function(name)
-        return PATTERN_NAMES[name]
+    local label = template:gsub("%%([%%{}%a_]?[%a_]*)", function(rest)
+        if ESCAPES[rest:sub(1, 1)] then
+            return "%" .. rest
+        end
+        return PATTERN_NAMES[rest]
     end)
     label = label:gsub("%s*/%s*", " / "):gsub(" / }", " /}"):gsub("}(%S)", "} %1")
     return (label:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
@@ -177,6 +180,8 @@ function Organize.help_notes(kind)
     end
     notes[#notes + 1] = "{ } makes part of the template optional. It is left out when a Token inside it is empty."
         .. " Example: %title{ - %series} gives \"Dune - Dune Saga\" or just \"Dune\"."
+    notes[#notes + 1] = "To wrap existing text in { }, select it first: long-press the text box, choose Select, long-press at the start,"
+        .. " tap to move the cursor to the end, then tap { Optional }."
     notes[#notes + 1] = "%% is a literal %, %{ is a literal { and %} is a literal }. Unsupported characters become _."
     return notes
 end
