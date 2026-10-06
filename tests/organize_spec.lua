@@ -388,4 +388,81 @@ T["Sort refuses to overwrite a file already at the rendered folder destination"]
     end)
 end
 
+T["insert_token puts a Token at the cursor and moves the cursor after it"] = function(a)
+    local text, cursor = Organize.insert_token("%author_sort - ", 15, "%title")
+    a.eq(text, "%author_sort - %title")
+    a.eq(cursor, 21)
+end
+
+T["insert_token inserts in the middle of a template"] = function(a)
+    local text, cursor = Organize.insert_token("%title - %author", 6, "%series")
+    a.eq(text, "%title%series - %author")
+    a.eq(cursor, 13)
+end
+
+T["wrap_optional wraps the selection in braces"] = function(a)
+    local template = "%title - %series #%series_index"
+    local text, cursor = Organize.wrap_optional(template, 6, #template)
+    a.eq(text, "%title{ - %series #%series_index}")
+    a.eq(cursor, #text)
+end
+
+T["wrap_optional with nothing selected inserts braces with the cursor inside"] = function(a)
+    local text, cursor = Organize.wrap_optional("%title", 6, 6)
+    a.eq(text, "%title{}")
+    a.eq(cursor, 7)
+end
+
+T["token_help shows each Token with this book's value and (empty) when it has none"] = function(a)
+    local rows = Organize.token_help({
+        title = "Dune",
+        authors = { "Frank Herbert" },
+        series = "Dune",
+        series_index = 1,
+        first_published = 1965,
+        language = "en",
+    })
+    local by_token = {}
+    for _i, row in ipairs(rows) do
+        by_token[row.token] = row.value
+    end
+    a.eq(by_token["%publisher"], "(empty)")
+    a.eq(by_token["%title"], "Dune")
+    a.eq(by_token["%author_sort"], "Herbert, Frank")
+    a.eq(by_token["%series_index"], "1")
+    a.eq(by_token["%year"], "1965")
+    a.eq(by_token["%language"], "en")
+end
+
+T["only the folder editor offers / New folder and mentions folders in Help"] = function(a)
+    local function has_new_folder(kind)
+        for _i, chip in ipairs(Organize.editor_chips(kind)) do
+            if chip.label == "/ New folder" then
+                return chip.token == "/"
+            end
+        end
+        return false
+    end
+    a.eq(has_new_folder("folder"), true)
+    a.eq(has_new_folder("filename"), false)
+    a.eq(Organize.help_notes("folder")[1], "/ starts a new folder")
+    for _i, note in ipairs(Organize.help_notes("filename")) do
+        a.eq(note:find("folder", 1, true), nil)
+    end
+end
+
+T["help_notes explain braces and the special characters"] = function(a)
+    local joined = table.concat(Organize.help_notes("filename"), "\n")
+    a.eq(joined:find("%% is", 1, true) ~= nil, true)
+    a.eq(joined:find("%{ is", 1, true) ~= nil, true)
+    a.eq(joined:find("%} is", 1, true) ~= nil, true)
+    a.eq(joined:find("Unsupported characters become _", 1, true) ~= nil, true)
+end
+
+T["pattern_label names the Tokens in plain words"] = function(a)
+    a.eq(Organize.pattern_label("%author_sort - %title"), "Author - Title")
+    a.eq(Organize.pattern_label("%author_sort/{%series/}%title"), "Author / {Series /} Title")
+    a.eq(Organize.pattern_label("%title{ - %series_index}"), "Title{ - Series #}")
+end
+
 return T

@@ -115,6 +115,81 @@ local TOKENS = {
 
 local ESCAPES = { ["%"] = "%", ["{"] = "{", ["}"] = "}" }
 
+Organize.TOKEN_CHIPS = {
+    { label = "Title", token = "%title" },
+    { label = "Author", token = "%author" },
+    { label = "Author surname first", token = "%author_sort" },
+    { label = "All authors", token = "%authors" },
+    { label = "Series", token = "%series" },
+    { label = "Series #", token = "%series_index" },
+    { label = "Year", token = "%year" },
+    { label = "Language", token = "%language" },
+    { label = "Publisher", token = "%publisher" },
+}
+
+function Organize.insert_token(text, cursor, token)
+    return text:sub(1, cursor) .. token .. text:sub(cursor + 1), cursor + #token
+end
+
+function Organize.wrap_optional(text, from, to)
+    if from == to then
+        return text:sub(1, from) .. "{}" .. text:sub(from + 1), from + 1
+    end
+    local wrapped = text:sub(1, from) .. "{" .. text:sub(from + 1, to) .. "}" .. text:sub(to + 1)
+    return wrapped, to + 2
+end
+
+local PATTERN_NAMES = {
+    title = "Title",
+    author = "Author",
+    author_sort = "Author",
+    authors = "Authors",
+    series = "Series",
+    series_index = "Series #",
+    year = "Year",
+    language = "Language",
+    publisher = "Publisher",
+}
+
+function Organize.pattern_label(template)
+    local label = template:gsub("%%([%a_]+)", function(name)
+        return PATTERN_NAMES[name]
+    end)
+    label = label:gsub("%s*/%s*", " / "):gsub(" / }", " /}"):gsub("}(%S)", "} %1")
+    return (label:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
+end
+
+function Organize.editor_chips(kind)
+    local chips = {}
+    for _i, chip in ipairs(Organize.TOKEN_CHIPS) do
+        chips[#chips + 1] = chip
+    end
+    if kind == "folder" then
+        chips[#chips + 1] = { label = "/ New folder", token = "/" }
+    end
+    return chips
+end
+
+function Organize.help_notes(kind)
+    local notes = {}
+    if kind == "folder" then
+        notes[#notes + 1] = "/ starts a new folder"
+    end
+    notes[#notes + 1] = "{ } makes part of the template optional. It is left out when a Token inside it is empty."
+        .. " Example: %title{ - %series} gives \"Dune - Dune Saga\" or just \"Dune\"."
+    notes[#notes + 1] = "%% is a literal %, %{ is a literal { and %} is a literal }. Unsupported characters become _."
+    return notes
+end
+
+function Organize.token_help(meta)
+    local rows = {}
+    for _i, chip in ipairs(Organize.TOKEN_CHIPS) do
+        local value = TOKENS[chip.token:sub(2)](meta or {})
+        rows[#rows + 1] = { label = chip.label, token = chip.token, value = value or "(empty)" }
+    end
+    return rows
+end
+
 function Organize.validate_template(template, kind)
     if type(template) ~= "string" or template:match("^%s*$") then
         return "The template cannot be empty."
