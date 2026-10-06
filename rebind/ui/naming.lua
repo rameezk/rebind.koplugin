@@ -26,12 +26,16 @@ function Naming.show(opts)
         folder = opts.custom_folder_template,
     }
 
+    local function folder_label(template)
+        return Organize.folder_label(opts.metadata(), template)
+    end
+
     local sections = {
         filename = {
             title = _("File name"),
             editor_title = _("Custom file name"),
             presets = Organize.FILENAME_PRESETS,
-            row = function(template)
+            label = function(template)
                 return Organize.filename(opts.metadata(), EXAMPLE_FILE, template)
             end,
             example = function(template)
@@ -42,12 +46,8 @@ function Naming.show(opts)
             title = _("Sort folders"),
             editor_title = _("Custom sort folders"),
             presets = Organize.FOLDER_PRESETS,
-            row = function(template)
-                return Organize.folder_label(opts.metadata(), template)
-            end,
-            example = function(template)
-                return Organize.folder_label(opts.metadata(), template)
-            end,
+            label = folder_label,
+            example = folder_label,
         },
     }
 
@@ -145,7 +145,7 @@ function Naming.show(opts)
             for _i, template in ipairs(section.presets) do
                 buttons[#buttons + 1] = {
                     {
-                        text = (template == selected[kind] and "● " or "○ ") .. section.row(template),
+                        text = (template == selected[kind] and "● " or "○ ") .. section.label(template),
                         align = "left",
                         callback = function()
                             choose[kind](template)
