@@ -152,8 +152,12 @@ machine could not. Wait for the PR's required checks on the pushed head exactly
 as [[work-on]]'s *Wait for the required checks* step does - learn which checks
 are required from the base branch's rules, poll until every one has registered
 on the new head (a "no checks reported" answer is never a result), then watch
-them until they settle with `gh pr checks --watch --required`. If one never
-appears, find out why and report it rather than calling the checks green.
+them until they settle with `gh pr checks --watch --required`. A PR that
+conflicts with its base never gets its checks, so watch its mergeability on every
+poll and resolve a conflict the way [[work-on]] does - merge the base in, keep
+both sides' intent, run the checks and suite, review what the resolution changed,
+push, and wait again. If a check never appears on a mergeable PR, find out why
+and report it rather than calling the checks green.
 
 When a required check fails, read its log, then fix the cause through the same
 *Address end-to-end* loop a thread goes through: test-first when there is

@@ -68,12 +68,9 @@ Create a dedicated Git worktree before making implementation changes. Keep the u
 
 6. Perform all subsequent edits, builds, and tests in the new worktree, and clearly report the worktree path and branch name to the user. Committing, merging, and cleanup are handled by their own skills - when a unit of work is ready to record, hand off to [[git-committing]] rather than running `git commit` ad hoc.
 
-## Cleaning up a worktree
-
-When the user explicitly asks to remove or clean up a worktree, follow [`CLEANUP.md`](CLEANUP.md): verify the work is preserved, remove the worktree, delete the branch, and prune metadata. Do not start cleanup on your own.
-
 ## Safety rules
 
 - Never discard, move, or overwrite uncommitted user changes.
 - Never reuse a non-empty directory as a new worktree path.
+- Never remove a worktree or delete its branch on your own initiative.
 - Do not guess when the correct base branch is materially ambiguous; ask the user.
