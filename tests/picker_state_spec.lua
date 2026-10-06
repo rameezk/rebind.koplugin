@@ -37,6 +37,22 @@ local function field_for(fields, key)
     end
 end
 
+local function selected_value_of(state, key)
+    for _i, v in ipairs(state:values(key)) do
+        if v.selected then
+            return v
+        end
+    end
+end
+
+local function tags_of(state, key)
+    local tags = {}
+    for _i, v in ipairs(state:values(key)) do
+        tags[#tags + 1] = v.tag
+    end
+    return table.concat(tags, ",")
+end
+
 local function open(overrides)
     local fields = Fields.build(CURRENT, proposed(overrides))
     return PickerState.new(fields), fields
@@ -100,14 +116,8 @@ end
 T["a saved Custom value is a third option, selected, tagged custom and counted"] = function(a)
     local state, fields = open_four_differing()
     state:save_custom("genre", field_for(fields, "genre").from_input("Western"))
-    local tags, selected = {}, nil
-    for _i, v in ipairs(state:values("genre")) do
-        tags[#tags + 1] = v.tag
-        if v.selected then
-            selected = v
-        end
-    end
-    a.eq(table.concat(tags, ","), "book,Hardcover,custom")
+    local selected = selected_value_of(state, "genre")
+    a.eq(tags_of(state, "genre"), "book,Hardcover,custom")
     a.eq(selected.tag, "custom")
     a.eq(selected.text, "Western")
     a.eq(state:status_line(), "Hardcover values: 3 · Custom values: 1")
@@ -116,13 +126,7 @@ end
 T["an empty Custom value is tagged removed and counted apart from Custom values"] = function(a)
     local state, fields = open_four_differing()
     state:save_custom("series", field_for(fields, "series").from_input({ name = "", index = "" }))
-    local selected
-    for _i, v in ipairs(state:values("series")) do
-        if v.selected then
-            selected = v
-        end
-    end
-    a.eq(selected.tag, "removed")
+    a.eq(selected_value_of(state, "series").tag, "removed")
     a.eq(state:status_line(), "Hardcover values: 3 · Removed: 1")
 end
 
@@ -135,11 +139,7 @@ T["a Translated value stays translated until it is edited and saved, then it is 
     state:save_custom("description", "Nouvelle description, revue.")
     a.eq(state:selection("description"), "custom")
     a.eq(state:status_line(), "Hardcover values: 3 · Custom values: 1")
-    local tags = {}
-    for _i, v in ipairs(state:values("description")) do
-        tags[#tags + 1] = v.tag
-    end
-    a.eq(table.concat(tags, ","), "book,Hardcover,custom")
+    a.eq(tags_of(state, "description"), "book,Hardcover,custom")
 end
 
 T["the Apply label counts the Fields it will change"] = function(a)

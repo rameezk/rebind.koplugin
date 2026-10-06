@@ -119,24 +119,26 @@ function PickerState:status_line()
     return table.concat(parts, " · ")
 end
 
-function PickerState:bulk_label()
-    local fields = self:differing_fields()
+function PickerState:_any_on_book(fields)
     for _i, f in ipairs(fields) do
         if self.chosen[f.key] == "current" then
-            return string.format(_("Use Hardcover values for all %d"), #fields)
+            return true
         end
+    end
+    return false
+end
+
+function PickerState:bulk_label()
+    local fields = self:differing_fields()
+    if self:_any_on_book(fields) then
+        return string.format(_("Use Hardcover values for all %d"), #fields)
     end
     return string.format(_("Use book values for all %d"), #fields)
 end
 
 function PickerState:bulk()
     local fields = self:differing_fields()
-    local to_book = true
-    for _i, f in ipairs(fields) do
-        if self.chosen[f.key] == "current" then
-            to_book = false
-        end
-    end
+    local to_book = not self:_any_on_book(fields)
     for _i, f in ipairs(fields) do
         if to_book or f.is_empty(f.new_value) then
             self.chosen[f.key] = "current"
@@ -204,11 +206,6 @@ end
 
 function PickerState:save_translated(key, raw)
     self:_save(key, "translated", raw)
-end
-
-function PickerState:extra_value(key)
-    local extra = self.extra[key]
-    return extra and extra.raw
 end
 
 function PickerState:selected_value(field)
