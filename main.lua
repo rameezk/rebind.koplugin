@@ -124,6 +124,14 @@ function Rebind:folderTemplate()
     return self.settings:readSetting("folder_template") or Organize.DEFAULT_FOLDER_TEMPLATE
 end
 
+function Rebind:customFilenameTemplate()
+    return self.settings:readSetting("custom_filename_template")
+end
+
+function Rebind:customFolderTemplate()
+    return self.settings:readSetting("custom_folder_template")
+end
+
 function Rebind:currentFile()
     if self.ui and self.ui.document and self.ui.document.file then
         return self.ui.document.file
@@ -568,6 +576,16 @@ function Rebind:_showDiff(file, current, book, Api)
         folder_template = self:folderTemplate(),
         on_folder_template = function(template)
             self.settings:saveSetting("folder_template", template)
+            self.settings:flush()
+        end,
+        custom_filename_template = self:customFilenameTemplate(),
+        on_custom_filename_template = function(template)
+            self.settings:saveSetting("custom_filename_template", template)
+            self.settings:flush()
+        end,
+        custom_folder_template = self:customFolderTemplate(),
+        on_custom_folder_template = function(template)
+            self.settings:saveSetting("custom_folder_template", template)
             self.settings:flush()
         end,
         on_apply = function(changes, opts)

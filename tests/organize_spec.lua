@@ -275,6 +275,49 @@ T["the Sort dialog label shows the folder path rendered for the book"] = functio
     a.eq(Organize.folder_label(COLOUR_OF_MAGIC), "Pratchett, Terry / The Colour of Magic /")
 end
 
+T["validation accepts every preset for both kinds"] = function(a)
+    for _, template in ipairs(Organize.FILENAME_PRESETS) do
+        a.eq(Organize.validate_template(template, "filename"), nil)
+    end
+    for _, template in ipairs(Organize.FOLDER_PRESETS) do
+        a.eq(Organize.validate_template(template, "folder"), nil)
+    end
+end
+
+T["validation accepts escapes and a literal percent sign"] = function(a)
+    a.eq(Organize.validate_template("%title %% %{ %} %", "filename"), nil)
+end
+
+T["an unknown token is refused and the reason names it"] = function(a)
+    a.contains(Organize.validate_template("%titel", "filename"), "%titel")
+    a.contains(Organize.validate_template("%Title - %author", "folder"), "%Title")
+    a.contains(Organize.validate_template("%languagex/%title", "folder"), "%languagex")
+end
+
+T["unbalanced or nested braces are refused"] = function(a)
+    a.is_true(Organize.validate_template("{%series", "filename"))
+    a.is_true(Organize.validate_template("%title - (%series_index}", "filename"))
+    a.is_true(Organize.validate_template("{a{b}}", "folder"))
+    a.is_true(Organize.validate_template("%title}{", "folder"))
+    a.eq(Organize.validate_template("%{%title - (%year)%}", "filename"), nil)
+end
+
+T["a slash is refused in a filename template but kept in a folder template"] = function(a)
+    a.is_true(Organize.validate_template("%author/%title", "filename"))
+    a.eq(Organize.validate_template("%author/%title", "folder"), nil)
+end
+
+T["an empty template is refused for both kinds"] = function(a)
+    a.is_true(Organize.validate_template("", "filename"))
+    a.is_true(Organize.validate_template("", "folder"))
+    a.is_true(Organize.validate_template("   ", "folder"))
+end
+
+T["a custom folder template files a book by language and author"] = function(a)
+    local m = { title = "Enshittification", authors = { "Cory Doctorow" }, language = "en" }
+    a.eq(folders("%language/%author_sort", m), "/lib/en/Doctorow, Cory")
+end
+
 local function mkdir(path)
     local ok = os.execute(string.format("mkdir -p '%s'", path))
     return ok == 0 or ok == true
