@@ -36,13 +36,13 @@ _Avoid_: old value
 A Field's value taken from the chosen Edition or its Book.
 _Avoid_: new value, Hardcover value
 
-**Own value**:
+**Custom value**:
 A Field value the user typed in an editor.
-_Avoid_: custom value, manual value
+_Avoid_: own value, manual value, mine
 
 **Translated value**:
 A Field value produced by machine translation of a Proposed or Current value, never by Hardcover.
-_Avoid_: own value
+_Avoid_: custom value
 
 **Picker**:
 The screen that shows each Field's values side by side and lets the user choose one per Field.
