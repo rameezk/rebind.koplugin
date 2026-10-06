@@ -61,12 +61,31 @@ function PickerState:selected_value(field)
     return field.current_value
 end
 
+local function same_written(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a == b
+    end
+    for k, v in pairs(a) do
+        if not same_written(v, b[k]) then
+            return false
+        end
+    end
+    for k in pairs(b) do
+        if a[k] == nil then
+            return false
+        end
+    end
+    return true
+end
+
 function PickerState:changes()
     local changes = {}
     for _, f in ipairs(self.fields) do
-        local value = self:selected_value(f)
-        if f.display(value) ~= f.display(f.current_value) then
-            f.apply(changes, value)
+        local wanted, kept = {}, {}
+        f.apply(wanted, self:selected_value(f))
+        f.apply(kept, f.current_value)
+        if not same_written(wanted, kept) then
+            f.apply(changes, self:selected_value(f))
         end
     end
     return changes

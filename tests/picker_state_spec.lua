@@ -107,4 +107,18 @@ T["a Custom value equal to the current value is not written"] = function(a)
     a.eq(state:changes().title, nil)
 end
 
+T["a Description differing only past the preview limit is still written"] = function(a)
+    local shared = string.rep("x", 400)
+    local current = {}
+    for k, v in pairs(CURRENT) do
+        current[k] = v
+    end
+    current.description = shared .. " old"
+    local p = proposed()
+    p.description = shared .. " new"
+    local state = PickerState.new(Fields.build(current, p))
+    state:select_all("new")
+    a.eq(state:changes().description, shared .. " new")
+end
+
 return T
