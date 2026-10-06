@@ -12,6 +12,7 @@ local specs = {
     "tests/fields_spec",
     "tests/hardcover_spec",
     "tests/organize_spec",
+    "tests/picker_state_spec",
     "tests/translate_spec",
 }
 
