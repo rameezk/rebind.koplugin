@@ -1,6 +1,6 @@
 ---
 name: git-branching
-description: Name git branches and manage their lifecycle - the `<type>/<short-description>` convention, branching off an up-to-date default, and cleanup after merge. Use when naming, creating in the current checkout, or pruning merged branches. For new implementation work prefer git-worktree (isolation), which follows this convention.
+description: Name and create git branches - the `<type>/<short-description>` convention and branching off an up-to-date default. Use when naming a branch or creating one in the current checkout. For new implementation work prefer git-worktree (isolation), which follows this convention.
 ---
 
 # Git Branching
@@ -15,7 +15,6 @@ work in the current checkout.
 
 - When naming a branch (this skill owns the convention)
 - When creating a branch directly in the current checkout
-- When cleaning up a branch after merge or rebase
 
 ## Branch naming
 
@@ -56,12 +55,6 @@ branch regardless of where HEAD was.
 - Dirty working tree when asked to branch in place: stop and report. Don't
   silently stash or discard. (For a dirty tree, [[git-worktree]] sidesteps the
   problem by branching in a separate worktree.)
-
-## Cleanup
-
-- After merge, offer to delete the local branch with `git branch -d <name>`
-  (use `-d`, not `-D`, to protect unmerged work).
-- Prune stale remote-tracking refs with `git fetch --prune` when cluttered.
 
 ## Avoid
 
