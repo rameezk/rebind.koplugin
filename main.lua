@@ -1,7 +1,6 @@
 local ButtonDialog = require("ui/widget/buttondialog")
 local ConfirmBox = require("ui/widget/confirmbox")
 local DataStorage = require("datastorage")
-local Device = require("device")
 local Dispatcher = require("dispatcher")
 local Event = require("ui/event")
 local InfoMessage = require("ui/widget/infomessage")
@@ -15,6 +14,7 @@ local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
+local ChoiceList = require("rebind/ui/choicelist")
 local DiffPicker = require("rebind/ui/diffpicker")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
@@ -42,10 +42,6 @@ local function resolve_language(code)
         return alias, name
     end
     return nil
-end
-
-local function editions_button_width()
-    return Device.screen:scaleBySize(110)
 end
 
 local Rebind = WidgetContainer:extend{
@@ -264,108 +260,67 @@ function Rebind:_showEditions(book, Api, on_pick)
                 return
             end
 
-            local dialog
-            local buttons = {}
-            for _, edition in ipairs(editions) do
+            local list
+            local rows = {}
+            for _i, edition in ipairs(editions) do
                 local m = Hardcover.extract(edition)
-                local label = Hardcover.edition_label(m)
-                if label == "" then
-                    label = m.title or _("Unknown edition")
-                elseif m.title and m.title ~= "" then
-                    label = m.title .. " - " .. label
-                end
-                buttons[#buttons + 1] = {
-                    {
-                        text = label,
-                        callback = function()
-                            UIManager:close(dialog)
-                            on_pick(edition)
-                        end,
-                    },
+                rows[#rows + 1] = {
+                    title = m.title or _("Unknown edition"),
+                    subtitle = Hardcover.edition_label(m),
+                    on_select = function()
+                        UIManager:close(list)
+                        on_pick(edition)
+                    end,
                 }
             end
-            buttons[#buttons + 1] = {
-                {
-                    text = _("Cancel"),
-                    callback = function()
-                        UIManager:close(dialog)
-                    end,
-                },
-            }
 
-            dialog = ButtonDialog:new{
+            list = ChoiceList.show{
                 title = truncated and _("Select an edition (most popular first)")
                     or _("Select an edition"),
-                title_align = "center",
-                buttons = buttons,
+                rows = rows,
             }
-            UIManager:show(dialog)
         end)
     end)
 end
 
 function Rebind:_showChooser(file, current, results, Api)
     local chooser
-    local buttons = {}
-    for i, book in ipairs(results) do
+    local rows = {}
+    for _i, book in ipairs(results) do
         local m = Hardcover.extract(book)
-        local label = m.title or _("Unknown title")
-        if m.authors and m.authors[1] then
-            label = label .. " - " .. m.authors[1]
-        end
-        local extra = {}
-        if m.release_year then
-            extra[#extra + 1] = tostring(m.release_year)
-        end
-        if m.series then
-            extra[#extra + 1] = Fields.series_text(m.series, m.series_index)
-        end
-        if m.users_read_count then
-            extra[#extra + 1] = tostring(m.users_read_count) .. _(" readers")
-        end
-        if #extra > 0 then
-            label = label .. " (" .. table.concat(extra, ", ") .. ")"
-        end
         local row = {
-            {
-                text = label,
-                callback = function()
-                    UIManager:close(chooser)
-                    self:_showDiff(file, current, book, Api)
-                end,
-            },
+            title = m.title or _("Unknown title"),
+            subtitle = Hardcover.match_subtitle(m),
+            on_select = function()
+                UIManager:close(chooser)
+                self:_showDiff(file, current, book, Api)
+            end,
         }
         if Api and tonumber(book.book_id) then
-            row[#row + 1] = {
-                text = _("Editions"),
-                width = editions_button_width(),
-                callback = function()
-                    self:_showEditions(book, Api, function(edition)
-                        UIManager:close(chooser)
-                        self:_showDiff(file, current, edition, Api)
-                    end)
-                end,
-            }
+            row.action_text = _("Editions ▸")
+            row.on_action = function()
+                self:_showEditions(book, Api, function(edition)
+                    UIManager:close(chooser)
+                    self:_showDiff(file, current, edition, Api)
+                end)
+            end
         end
-        buttons[#buttons + 1] = row
+        rows[#rows + 1] = row
     end
 
-    buttons[#buttons + 1] = {
-        {
-            text = _("None of these, edit myself"),
-            callback = function()
-                UIManager:close(chooser)
-                self:_showDiff(file, current, nil)
-            end,
-        },
+    rows[#rows + 1] = {
+        title = _("None of these"),
+        subtitle = _("Type the values yourself"),
+        on_select = function()
+            UIManager:close(chooser)
+            self:_showDiff(file, current, nil)
+        end,
     }
 
-    chooser = ButtonDialog:new{
+    chooser = ChoiceList.show{
         title = _("Select a match"),
-        title_align = "center",
-        buttons = buttons,
+        rows = rows,
     }
-    UIManager:show(chooser)
 end
 
 function Rebind:_translateTargets(current, shown)
@@ -428,7 +383,7 @@ end
 function Rebind:_showEditionList(editions, name, on_pick)
     local dialog
     local buttons = {}
-    for _, edition in ipairs(editions) do
+    for _i, edition in ipairs(editions) do
         local m = Hardcover.extract(edition)
         local label = Hardcover.edition_label(m, true)
         if label == "" then

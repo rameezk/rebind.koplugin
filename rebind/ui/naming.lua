@@ -6,7 +6,6 @@ local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
-local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local InfoMessage = require("ui/widget/infomessage")
@@ -24,6 +23,7 @@ local util = require("util")
 local _ = require("gettext")
 
 local Organize = require("rebind/organize")
+local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
 
@@ -34,30 +34,6 @@ local CHIPS_PER_ROW = 3
 
 local function sc(v)
     return Screen:scaleBySize(v)
-end
-
-local TapRow = InputContainer:extend{
-    on_tap = nil,
-}
-
-function TapRow:init()
-    self.ges_events = {
-        Tap = {
-            GestureRange:new{
-                ges = "tap",
-                range = function()
-                    return self.dimen
-                end,
-            },
-        },
-    }
-end
-
-function TapRow:onTap()
-    if self.on_tap then
-        self.on_tap()
-        return true
-    end
 end
 
 local TemplateList = InputContainer:extend{

@@ -162,6 +162,21 @@ function Hardcover.edition_label(m, omit_language)
     return table.concat(parts, " · ")
 end
 
+function Hardcover.match_subtitle(m)
+    local parts = {}
+    if m.authors and m.authors[1] then
+        parts[#parts + 1] = m.authors[1]
+    end
+    if m.release_year then
+        parts[#parts + 1] = tostring(m.release_year)
+    end
+    if m.users_read_count then
+        local count = tostring(m.users_read_count)
+        parts[#parts + 1] = count .. (tonumber(m.users_read_count) == 1 and _(" reader") or _(" readers"))
+    end
+    return table.concat(parts, " · ")
+end
+
 local DETAILS_QUERY = [[
     query ($ids: [Int!]) {
       books(where: { id: { _in: $ids }}) {
