@@ -99,6 +99,17 @@ T["edition_label skips the parts an edition does not have"] = function(a)
     a.eq(Hardcover.edition_label({}), "")
 end
 
+T["match_subtitle joins author, year and readers"] = function(a)
+    local m = { authors = { "Frank Herbert", "Someone Else" }, release_year = 1965, users_read_count = 1204 }
+    a.eq(Hardcover.match_subtitle(m), "Frank Herbert · 1965 · 1204 readers")
+end
+
+T["match_subtitle skips what a match does not have and singularises one reader"] = function(a)
+    a.eq(Hardcover.match_subtitle({ authors = { "Solo" }, users_read_count = 1 }), "Solo · 1 reader")
+    a.eq(Hardcover.match_subtitle({ release_year = 1972 }), "1972")
+    a.eq(Hardcover.match_subtitle({}), "")
+end
+
 T["list_editions asks the API for one more edition than it shows"] = function(a)
     local api = FakeApi.new({ editions = { { id = 1, title = "Dune" } } })
     local editions = Hardcover.list_editions(api, { book_id = 7 })
