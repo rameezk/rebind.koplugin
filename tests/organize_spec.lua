@@ -313,7 +313,7 @@ T["an empty template is refused for both kinds"] = function(a)
     a.is_true(Organize.validate_template("   ", "folder"))
 end
 
-T["a template that is not a string is refused"] = function(a)
+T["a nil template is refused for both kinds"] = function(a)
     a.is_true(Organize.validate_template(nil, "filename"))
     a.is_true(Organize.validate_template(nil, "folder"))
 end
