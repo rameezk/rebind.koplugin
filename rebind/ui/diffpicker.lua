@@ -25,6 +25,7 @@ local _ = require("gettext")
 
 local Naming = require("rebind/ui/naming")
 local Organize = require("rebind/organize")
+local PickerState = require("rebind/picker_state")
 local Translate = require("rebind/translate")
 
 local Screen = Device.screen
@@ -59,8 +60,7 @@ end
 
 local DiffPicker = InputContainer:extend{
     fields = nil,
-    selection = nil,
-    custom = nil,
+    state = nil,
     on_apply = nil,
     subtitle = nil,
     new_label = nil,
@@ -109,29 +109,15 @@ function DiffPicker:init()
         self.key_events = { Close = { { Device.input.group.Back } } }
     end
 
-    self.selection = {}
-    self.custom = {}
-    self:_default_selection()
+    self.state = PickerState.new(self.fields)
 
     self:_build()
-end
-
-function DiffPicker:_default_selection()
-    for _, f in ipairs(self.fields) do
-        if self.selection[f.key] ~= "custom" then
-            if not f.is_empty(f.new_value) and f.display(f.new_value) ~= f.display(f.current_value) then
-                self.selection[f.key] = "new"
-            else
-                self.selection[f.key] = "current"
-            end
-        end
-    end
 end
 
 function DiffPicker:setFields(fields, edition_label)
     self.fields = fields
     self.edition_label = edition_label
-    self:_default_selection()
+    self.state:set_fields(fields)
     self:_refresh()
 end
 
@@ -183,13 +169,7 @@ function DiffPicker:_select_button(text, width, selected, callback, enabled)
 end
 
 function DiffPicker:_selected_value(field)
-    local sel = self.selection[field.key]
-    if sel == "custom" then
-        return self.custom[field.key]
-    elseif sel == "new" then
-        return field.new_value
-    end
-    return field.current_value
+    return self.state:selected_value(field)
 end
 
 function DiffPicker:_field_row(field, col_w)
@@ -214,20 +194,20 @@ function DiffPicker:_field_row(field, col_w)
     })
     table.insert(group, VerticalSpan:new{ width = sc(6) })
 
-    local sel = self.selection[field.key]
+    local sel = self.state:selection(field.key)
     table.insert(group, HorizontalGroup:new{
         self:_select_button(_("◂ Keep current"), col_w, sel == "current", function()
-            self.selection[field.key] = "current"
+            self.state:select(field.key, "current")
             self:_refresh()
         end),
         HorizontalSpan:new{ width = sc(8) },
         self:_select_button(_("Use new ▸"), col_w, sel == "new", function()
-            self.selection[field.key] = "new"
+            self.state:select(field.key, "new")
             self:_refresh()
         end, has_new),
     })
 
-    local custom = self.custom[field.key]
+    local custom = self.state:custom_value(field.key)
     if custom ~= nil then
         table.insert(group, VerticalSpan:new{ width = sc(6) })
         table.insert(group, self:_value_box(field.display(custom), full_w, false, function()
@@ -252,7 +232,7 @@ function DiffPicker:_field_row(field, col_w)
         }
     else
         action = self:_select_button(_("Use mine"), action_w, sel == "custom", function()
-            self.selection[field.key] = "custom"
+            self.state:select(field.key, "custom")
             self:_refresh()
         end)
     end
@@ -298,8 +278,7 @@ function DiffPicker:translateInto(items, target)
     end
     self.on_translate(items, target, function(results)
         for _, result in ipairs(results or {}) do
-            self.custom[result.field.key] = result.raw
-            self.selection[result.field.key] = "custom"
+            self.state:save_custom(result.field.key, result.raw)
         end
         self:_refresh()
     end)
@@ -361,8 +340,7 @@ function DiffPicker:_choose_language(on_pick, title)
 end
 
 function DiffPicker:_commit(field, raw)
-    self.custom[field.key] = raw
-    self.selection[field.key] = "custom"
+    self.state:save_custom(field.key, raw)
     self:_refresh()
 end
 
@@ -746,13 +724,7 @@ function DiffPicker:_build()
 end
 
 function DiffPicker:_select_all(choice)
-    for _, f in ipairs(self.fields) do
-        if choice == "new" then
-            self.selection[f.key] = (not f.is_empty(f.new_value)) and "new" or "current"
-        else
-            self.selection[f.key] = "current"
-        end
-    end
+    self.state:select_all(choice)
     self:_refresh()
 end
 
@@ -762,16 +734,7 @@ function DiffPicker:_refresh()
 end
 
 function DiffPicker:_selected_changes()
-    local changes = {}
-    for _, f in ipairs(self.fields) do
-        local sel = self.selection[f.key]
-        if sel == "new" then
-            f.apply(changes, f.new_value)
-        elseif sel == "custom" then
-            f.apply(changes, self.custom[f.key])
-        end
-    end
-    return changes
+    return self.state:changes()
 end
 
 function DiffPicker:_show_naming()
