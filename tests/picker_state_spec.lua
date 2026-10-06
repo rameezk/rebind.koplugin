@@ -29,6 +29,14 @@ local function proposed(overrides)
     return p
 end
 
+local function field_for(fields, key)
+    for _, f in ipairs(fields) do
+        if f.key == key then
+            return f
+        end
+    end
+end
+
 local function open(overrides)
     local fields = Fields.build(CURRENT, proposed(overrides))
     return PickerState.new(fields), fields
@@ -50,12 +58,7 @@ end
 
 T["a saved Custom value is selected and written"] = function(a)
     local state, fields = open()
-    local genre
-    for _, f in ipairs(fields) do
-        if f.key == "genre" then
-            genre = f
-        end
-    end
+    local genre = field_for(fields, "genre")
     state:save_custom("genre", genre.from_input("Fantasy, Adventure"))
     a.eq(state:selection("genre"), "custom")
     local changes = state:changes()
@@ -90,16 +93,18 @@ end
 
 T["swapping the fields keeps Custom values selected"] = function(a)
     local state, fields = open()
-    local genre
-    for _, f in ipairs(fields) do
-        if f.key == "genre" then
-            genre = f
-        end
-    end
+    local genre = field_for(fields, "genre")
     state:save_custom("genre", genre.from_input("Fantasy"))
     state:set_fields(Fields.build(CURRENT, proposed({ series = "Other Series" })))
     a.eq(state:selection("genre"), "custom")
     a.eq(state:changes().series, "Other Series")
+end
+
+T["a Custom value equal to the current value is not written"] = function(a)
+    local state, fields = open()
+    state:save_custom("title", field_for(fields, "title").from_input("Same Title"))
+    a.eq(state:selection("title"), "custom")
+    a.eq(state:changes().title, nil)
 end
 
 return T
