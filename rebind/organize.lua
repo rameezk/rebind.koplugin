@@ -115,6 +115,53 @@ local TOKENS = {
 
 local ESCAPES = { ["%"] = "%", ["{"] = "{", ["}"] = "}" }
 
+function Organize.validate_template(template, kind)
+    if type(template) ~= "string" or template:match("^%s*$") then
+        return "The template cannot be empty."
+    end
+    local i, n = 1, #template
+    local open = false
+    while i <= n do
+        local c = template:sub(i, i)
+        if c == "%" then
+            local nxt = template:sub(i + 1, i + 1)
+            if ESCAPES[nxt] then
+                i = i + 2
+            else
+                local name = template:match("^[%a_]+", i + 1)
+                if name then
+                    if not TOKENS[name] then
+                        return "Unknown token: %" .. name
+                    end
+                    i = i + 1 + #name
+                else
+                    i = i + 1
+                end
+            end
+        elseif c == "{" then
+            if open then
+                return "Braces cannot be nested."
+            end
+            open = true
+            i = i + 1
+        elseif c == "}" then
+            if not open then
+                return "A } has no matching {."
+            end
+            open = false
+            i = i + 1
+        elseif kind ~= "folder" and c == "/" then
+            return "A filename template cannot contain /."
+        else
+            i = i + 1
+        end
+    end
+    if open then
+        return "A { is not closed."
+    end
+    return nil
+end
+
 local function truncate_bytes(text, limit)
     if #text <= limit then
         return text

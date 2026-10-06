@@ -72,6 +72,10 @@ local DiffPicker = InputContainer:extend{
     on_filename_template = nil,
     folder_template = nil,
     on_folder_template = nil,
+    custom_filename_template = nil,
+    on_custom_filename_template = nil,
+    custom_folder_template = nil,
+    on_custom_folder_template = nil,
     edition_label = nil,
     on_choose_edition = nil,
     translate_targets = nil,
@@ -774,6 +778,8 @@ function DiffPicker:_show_naming()
     Naming.show{
         filename_template = self.filename_template,
         folder_template = self.folder_template,
+        custom_filename_template = self.custom_filename_template,
+        custom_folder_template = self.custom_folder_template,
         metadata = function()
             return Organize.with_changes(self.current_metadata, self:_selected_changes())
         end,
@@ -785,6 +791,26 @@ function DiffPicker:_show_naming()
         end,
         on_select_folder = function(template)
             self.folder_template = template
+            if self.on_folder_template then
+                self.on_folder_template(template)
+            end
+        end,
+        on_save_custom_filename = function(template)
+            self.custom_filename_template = template
+            self.filename_template = template
+            if self.on_custom_filename_template then
+                self.on_custom_filename_template(template)
+            end
+            if self.on_filename_template then
+                self.on_filename_template(template)
+            end
+        end,
+        on_save_custom_folder = function(template)
+            self.custom_folder_template = template
+            self.folder_template = template
+            if self.on_custom_folder_template then
+                self.on_custom_folder_template(template)
+            end
             if self.on_folder_template then
                 self.on_folder_template(template)
             end
