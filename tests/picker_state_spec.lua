@@ -42,7 +42,134 @@ local function open(overrides)
     return PickerState.new(fields), fields
 end
 
+local FOUR_DIFFER_CURRENT = {
+    title = "Same Title",
+    authors = { "Same Author" },
+    description = "Old blurb.",
+    genres = { "Horror" },
+    series = "Old Series",
+    series_index = "3",
+    first_published = "1999",
+    language = "en",
+    publisher = "Same House",
+}
+
+local function open_four_differing()
+    local fields = Fields.build(FOUR_DIFFER_CURRENT, {
+        title = "Same Title",
+        authors = { "Same Author" },
+        description = "New blurb.",
+        genres = { "Fantasy" },
+        series = "New Series",
+        series_index = 1,
+        first_published = "2001",
+        language = "en",
+        publisher = "Same House",
+    })
+    return PickerState.new(fields), fields
+end
+
 local T = {}
+
+T["Fields that differ are listed apart from the ones that already match"] = function(a)
+    local state = open_four_differing()
+    a.eq(table.concat(state:differing_keys(), ","), "series,first_published,genre,description")
+    a.eq(state:matching_summary(), "4 fields already match · Title, Author(s), Language, Publisher")
+    a.eq(state:status_line(), "Hardcover values: 4")
+    a.eq(state:bulk_label(), "Use book values for all 4")
+end
+
+T["the bulk action flips every differing Field between book and Hardcover values"] = function(a)
+    local state = open_four_differing()
+    state:bulk()
+    a.eq(state:status_line(), "Book values: 4")
+    a.eq(state:bulk_label(), "Use Hardcover values for all 4")
+    state:bulk()
+    a.eq(state:status_line(), "Hardcover values: 4")
+    a.eq(state:bulk_label(), "Use book values for all 4")
+end
+
+T["the bulk action does what its label says when one Field already selects its book value"] = function(a)
+    local state = open_four_differing()
+    state:select("series", "current")
+    a.eq(state:bulk_label(), "Use Hardcover values for all 4")
+    state:bulk()
+    a.eq(state:status_line(), "Hardcover values: 4")
+end
+
+T["a saved Custom value is a third option, selected, tagged custom and counted"] = function(a)
+    local state, fields = open_four_differing()
+    state:save_custom("genre", field_for(fields, "genre").from_input("Western"))
+    local tags, selected = {}, nil
+    for _i, v in ipairs(state:values("genre")) do
+        tags[#tags + 1] = v.tag
+        if v.selected then
+            selected = v
+        end
+    end
+    a.eq(table.concat(tags, ","), "book,Hardcover,custom")
+    a.eq(selected.tag, "custom")
+    a.eq(selected.text, "Western")
+    a.eq(state:status_line(), "Hardcover values: 3 · Custom values: 1")
+end
+
+T["an empty Custom value is tagged removed and counted apart from Custom values"] = function(a)
+    local state, fields = open_four_differing()
+    state:save_custom("series", field_for(fields, "series").from_input({ name = "", index = "" }))
+    local selected
+    for _i, v in ipairs(state:values("series")) do
+        if v.selected then
+            selected = v
+        end
+    end
+    a.eq(selected.tag, "removed")
+    a.eq(state:status_line(), "Hardcover values: 3 · Removed: 1")
+end
+
+T["a Translated value stays translated until it is edited and saved, then it is custom"] = function(a)
+    local state = open_four_differing()
+    state:save_translated("description", "Nouvelle description.")
+    a.eq(state:selection("description"), "translated")
+    a.eq(state:status_line(), "Hardcover values: 3 · Translated values: 1")
+    a.eq(state:changes().description, "Nouvelle description.")
+    state:save_custom("description", "Nouvelle description, revue.")
+    a.eq(state:selection("description"), "custom")
+    a.eq(state:status_line(), "Hardcover values: 3 · Custom values: 1")
+    local tags = {}
+    for _i, v in ipairs(state:values("description")) do
+        tags[#tags + 1] = v.tag
+    end
+    a.eq(table.concat(tags, ","), "book,Hardcover,custom")
+end
+
+T["the Apply label counts the Fields it will change"] = function(a)
+    local state = open_four_differing()
+    a.eq(state:apply_label(), "Apply 4 changes")
+    state:select("series", "current")
+    a.eq(state:apply_label(), "Apply 3 changes")
+    state:select("description", "current")
+    state:select("genre", "current")
+    a.eq(state:apply_label(), "Apply 1 change")
+end
+
+T["closing needs a discard prompt only once something differs from the opening state"] = function(a)
+    local state, fields = open_four_differing()
+    a.eq(state:needs_discard_prompt(), false)
+    state:select("series", "current")
+    a.eq(state:needs_discard_prompt(), true)
+    state:select("series", "new")
+    a.eq(state:needs_discard_prompt(), false)
+    state:save_custom("title", field_for(fields, "title").from_input("Other"))
+    a.eq(state:needs_discard_prompt(), true)
+end
+
+T["the heading counts the Fields that differ"] = function(a)
+    a.eq(open_four_differing():differ_heading(), "4 FIELDS DIFFER")
+    a.eq(open({ series = "Old Series", series_index = "3", description = "Old blurb." }):differ_heading(),
+        "NO FIELDS DIFFER")
+    local state = open({ description = "Old blurb." })
+    a.eq(state:differ_heading(), "1 FIELD DIFFERS")
+end
 
 T["opening selects Hardcover only for Fields that differ"] = function(a)
     local state = open()
@@ -74,12 +201,12 @@ T["changes to write are exactly the Fields whose selection differs from current"
     a.eq(changes.genres, nil)
 end
 
-T["keep all current writes nothing and use all new restores Hardcover"] = function(a)
+T["flipping the bulk action to book values writes nothing and back restores Hardcover"] = function(a)
     local state = open({ publisher = "" })
-    state:select_all("current")
+    state:bulk()
     a.eq(state:selection("series"), "current")
     a.eq(next(state:changes()), nil)
-    state:select_all("new")
+    state:bulk()
     a.eq(state:selection("series"), "new")
     a.eq(state:selection("publisher"), "current")
 end
@@ -117,7 +244,7 @@ T["a Description differing only past the preview limit is still written"] = func
     local p = proposed()
     p.description = shared .. " new"
     local state = PickerState.new(Fields.build(current, p))
-    state:select_all("new")
+    a.eq(table.concat(state:differing_keys(), ","), "series,description")
     a.eq(state:changes().description, shared .. " new")
 end
 

@@ -128,6 +128,9 @@ local function description_field(current, proposed)
             changes.description = trim(raw)
         end)
     field.display = Fields.preview_text
+    field.same = function(a, b)
+        return trim(a) == trim(b)
+    end
     return translates_as_one_string(field)
 end
 

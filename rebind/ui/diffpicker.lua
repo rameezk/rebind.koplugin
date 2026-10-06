@@ -1,11 +1,12 @@
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
 local ButtonDialog = require("ui/widget/buttondialog")
+local ButtonTable = require("ui/widget/buttontable")
+local ConfirmBox = require("ui/widget/confirmbox")
 local Device = require("device")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
-local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local InfoMessage = require("ui/widget/infomessage")
@@ -26,7 +27,9 @@ local _ = require("gettext")
 local Naming = require("rebind/ui/naming")
 local Organize = require("rebind/organize")
 local PickerState = require("rebind/picker_state")
+local TapRow = require("rebind/ui/taprow")
 local Translate = require("rebind/translate")
+local ValueBox = require("rebind/ui/valuebox")
 
 local Screen = Device.screen
 
@@ -34,36 +37,11 @@ local function sc(v)
     return Screen:scaleBySize(v)
 end
 
-local TapBox = InputContainer:extend{
-    on_tap = nil,
-}
-
-function TapBox:init()
-    self.ges_events = {
-        Tap = {
-            GestureRange:new{
-                ges = "tap",
-                range = function()
-                    return self.dimen
-                end,
-            },
-        },
-    }
-end
-
-function TapBox:onTap()
-    if self.on_tap then
-        self.on_tap()
-        return true
-    end
-end
-
 local DiffPicker = InputContainer:extend{
     fields = nil,
     state = nil,
     on_apply = nil,
     subtitle = nil,
-    new_label = nil,
     keep_backup = nil,
     move_to_sorted = nil,
     rename_file = nil,
@@ -81,6 +59,7 @@ local DiffPicker = InputContainer:extend{
     translate_targets = nil,
     on_translate = nil,
     on_choose_language = nil,
+    matching_open = false,
 }
 
 function DiffPicker:init()
@@ -121,142 +100,53 @@ function DiffPicker:setFields(fields, edition_label)
     self:_refresh()
 end
 
-function DiffPicker:_value_box(text, width, dim, on_tap)
-    local face = Font:getFace("cfont", 18)
-    local shown = (text ~= nil and text ~= "") and text or _("(none)")
-    local box = TextBoxWidget:new{
-        text = shown,
-        face = face,
-        width = width - 2 * Size.padding.default,
-        alignment = "left",
-        fgcolor = dim and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK,
-    }
-    local frame = FrameContainer:new{
-        bordersize = Size.border.thin,
-        radius = sc(4),
-        padding = Size.padding.default,
-        width = width,
-        LeftContainer:new{
-            dimen = Geom:new{ w = width - 2 * Size.padding.default, h = box:getSize().h },
-            box,
-        },
-    }
-    if not on_tap then
-        return frame
-    end
-    return TapBox:new{
-        on_tap = on_tap,
-        frame,
-    }
-end
-
-function DiffPicker:_select_button(text, width, selected, callback, enabled)
-    local btn = Button:new{
-        text = text,
-        width = width,
-        radius = sc(4),
-        bordersize = Size.border.button,
-        padding = sc(8),
-        enabled = enabled ~= false,
-        background = selected and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_WHITE,
-        show_parent = self,
-        callback = callback,
-    }
-    if selected and btn.label_widget then
-        btn.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
-    end
-    return btn
-end
-
 function DiffPicker:_selected_value(field)
     return self.state:selected_value(field)
 end
 
-function DiffPicker:_field_row(field, col_w)
+function DiffPicker:_field_block(field, width)
     local group = VerticalGroup:new{ align = "left" }
-    local full_w = 2 * col_w + sc(8)
 
-    table.insert(group, TextWidget:new{
+    local edit_w = sc(96)
+    local label = TextWidget:new{
         text = field.label,
         face = Font:getFace("tfont", 18),
-    })
-    table.insert(group, VerticalSpan:new{ width = sc(4) })
-
-    local has_new = not field.is_empty(field.new_value)
+        max_width = width - edit_w - sc(8),
+    }
     table.insert(group, HorizontalGroup:new{
-        self:_value_box(field.display(field.current_value), col_w, false, function()
-            self:_edit(field, field.current_value)
-        end),
+        align = "center",
+        LeftContainer:new{
+            dimen = Geom:new{ w = width - edit_w - sc(8), h = label:getSize().h },
+            label,
+        },
         HorizontalSpan:new{ width = sc(8) },
-        self:_value_box(field.display(field.new_value), col_w, not has_new, function()
-            self:_edit(field, field.new_value)
-        end),
-    })
-    table.insert(group, VerticalSpan:new{ width = sc(6) })
-
-    local sel = self.state:selection(field.key)
-    table.insert(group, HorizontalGroup:new{
-        self:_select_button(_("◂ Keep current"), col_w, sel == "current", function()
-            self.state:select(field.key, "current")
-            self:_refresh()
-        end),
-        HorizontalSpan:new{ width = sc(8) },
-        self:_select_button(_("Use new ▸"), col_w, sel == "new", function()
-            self.state:select(field.key, "new")
-            self:_refresh()
-        end, has_new),
-    })
-
-    local custom = self.state:custom_value(field.key)
-    if custom ~= nil then
-        table.insert(group, VerticalSpan:new{ width = sc(6) })
-        table.insert(group, self:_value_box(field.display(custom), full_w, false, function()
-            self:_edit(field, custom)
-        end))
-    end
-
-    local can_translate = field.translatable and self.on_translate ~= nil
-    local action_w = can_translate and col_w or full_w
-    local action
-    if custom == nil then
-        action = Button:new{
+        Button:new{
             text = _("Edit"),
-            width = action_w,
+            width = edit_w,
             radius = sc(4),
             bordersize = Size.border.button,
-            padding = sc(8),
+            padding = sc(4),
             show_parent = self,
             callback = function()
                 self:_edit(field, self:_selected_value(field))
             end,
-        }
-    else
-        action = self:_select_button(_("Use mine"), action_w, sel == "custom", function()
-            self.state:select(field.key, "custom")
-            self:_refresh()
-        end)
-    end
-
+        },
+    })
     table.insert(group, VerticalSpan:new{ width = sc(6) })
-    if can_translate then
-        table.insert(group, HorizontalGroup:new{
-            action,
-            HorizontalSpan:new{ width = sc(8) },
-            Button:new{
-                text = _("Translate ▸"),
-                width = action_w,
-                radius = sc(4),
-                bordersize = Size.border.button,
-                padding = sc(8),
-                enabled = not field.is_empty(self:_selected_value(field)),
-                show_parent = self,
-                callback = function()
-                    self:_translate({ field })
-                end,
-            },
+
+    for _i, value in ipairs(self.state:values(field.key)) do
+        table.insert(group, ValueBox.new{
+            width = width,
+            text = value.text,
+            tag = value.tag,
+            empty = value.empty,
+            selected = value.selected,
+            on_tap = function()
+                self.state:select(field.key, value.id)
+                self:_refresh()
+            end,
         })
-    else
-        table.insert(group, action)
+        table.insert(group, VerticalSpan:new{ width = sc(6) })
     end
 
     return FrameContainer:new{
@@ -272,15 +162,21 @@ function DiffPicker:translatableItems(fields)
     end)
 end
 
-function DiffPicker:translateInto(items, target)
+function DiffPicker:translateInto(items, target, on_result)
     if not self.on_translate or #items == 0 then
         return
     end
     self.on_translate(items, target, function(results)
         for _, result in ipairs(results or {}) do
-            self.state:save_custom(result.field.key, result.raw)
+            if on_result then
+                on_result(result)
+            else
+                self.state:save_translated(result.field.key, result.raw)
+            end
         end
-        self:_refresh()
+        if not on_result then
+            self:_refresh()
+        end
     end)
 end
 
@@ -339,9 +235,73 @@ function DiffPicker:_choose_language(on_pick, title)
     UIManager:show(dialog)
 end
 
-function DiffPicker:_commit(field, raw)
-    self.state:save_custom(field.key, raw)
+function DiffPicker:_commit(field, raw, translated)
+    if translated then
+        self.state:save_translated(field.key, raw)
+    else
+        self.state:save_custom(field.key, raw)
+    end
     self:_refresh()
+end
+
+function DiffPicker:_add_start_from(dialog, field, get_raw, set_raw)
+    local translated_text
+    local chips = {
+        {
+            text = _("Book"),
+            callback = function()
+                set_raw(field.current_value)
+            end,
+        },
+    }
+    if not field.is_empty(field.new_value) then
+        chips[#chips + 1] = {
+            text = _("Hardcover"),
+            callback = function()
+                set_raw(field.new_value)
+            end,
+        }
+    end
+    if field.translatable and self.on_translate then
+        chips[#chips + 1] = {
+            text = _("Translate…"),
+            callback = function()
+                local raw = get_raw()
+                if field.is_empty(raw) then
+                    UIManager:show(InfoMessage:new{ text = _("Nothing to translate in this field.") })
+                    return
+                end
+                self:_choose_language(function(target)
+                    self:translateInto({ { field = field, raw = raw } }, target, function(result)
+                        set_raw(result.raw)
+                        translated_text = dialog:getInputText()
+                    end)
+                end, _("Translate to"))
+            end,
+        }
+    end
+    chips[#chips + 1] = {
+        text = _("Clear"),
+        callback = function()
+            set_raw(field.from_input(field.editor == "series" and {} or ""))
+        end,
+    }
+
+    local width = dialog:getAddedWidgetAvailableWidth()
+    dialog:addWidget(TextWidget:new{
+        text = _("Start from"),
+        face = Font:getFace("cfont", 15),
+        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        max_width = width,
+    }, nil, true)
+    dialog:addWidget(ButtonTable:new{
+        width = width,
+        buttons = { chips },
+        show_parent = dialog,
+    }, nil, true)
+    return function()
+        return translated_text
+    end
 end
 
 function DiffPicker:_edit(field, seed)
@@ -352,6 +312,7 @@ function DiffPicker:_edit(field, seed)
 
     local long = field.editor == "longtext"
     local dialog
+    local translated_text
     local save = {
         text = _("Save"),
         is_enter_default = not long,
@@ -363,7 +324,7 @@ function DiffPicker:_edit(field, seed)
                 return
             end
             UIManager:close(dialog)
-            self:_commit(field, field.from_input(text))
+            self:_commit(field, field.from_input(text), text == translated_text())
         end,
     }
     local cancel = {
@@ -396,6 +357,11 @@ function DiffPicker:_edit(field, seed)
     end
 
     dialog = InputDialog:new(opts)
+    translated_text = self:_add_start_from(dialog, field, function()
+        return field.from_input(dialog:getInputText())
+    end, function(raw)
+        dialog:setInputText(field.to_input(raw))
+    end)
     UIManager:show(dialog)
     dialog:onShowKeyboard()
 end
@@ -440,55 +406,57 @@ function DiffPicker:_edit_series(field, seed)
             },
         },
     }
+    self:_add_start_from(dialog, field, function()
+        local values = dialog:getFields()
+        return field.from_input({ name = values[1], index = values[2] })
+    end, function(raw)
+        local filled = field.to_input(raw)
+        dialog.input_fields[1]:setText(filled.name)
+        dialog.input_fields[2]:setText(filled.index)
+    end)
     UIManager:show(dialog)
     dialog:onShowKeyboard()
 end
 
 function DiffPicker:_build()
-    local content_inner = self.width - 2 * Size.padding.default
-    local col_w = math.floor((content_inner - sc(8)) / 2) - Size.padding.default
+    local footer_inner = self.width - 2 * Size.padding.default
+    local view_w = self.width - 3 * ScrollableContainer.scroll_bar_width
+    local content_inner = view_w - 2 * Size.padding.default
 
-    local bulk_w = math.floor((content_inner - sc(8)) / 2)
-    local keep_all_btn = Button:new{
-        text = _("Keep all current"),
+    local close_btn = Button:new{
+        text = "×",
         radius = sc(4),
-        padding = sc(8),
         bordersize = Size.border.button,
-        width = bulk_w,
+        padding = sc(4),
+        width = sc(48),
         show_parent = self,
         callback = function()
-            self:_select_all("current")
+            self:onClose()
         end,
     }
-    local use_all_btn = Button:new{
-        text = _("Use all new"),
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = bulk_w,
-        show_parent = self,
-        callback = function()
-            self:_select_all("new")
-        end,
+    local title = TextWidget:new{
+        text = _("Update metadata"),
+        face = Font:getFace("tfont", 22),
+        max_width = content_inner - sc(48) - sc(8),
     }
 
     local header_group = VerticalGroup:new{
         align = "left",
-        TextWidget:new{
-            text = _("Update metadata"),
-            face = Font:getFace("tfont", 22),
+        HorizontalGroup:new{
+            align = "center",
+            LeftContainer:new{
+                dimen = Geom:new{ w = content_inner - sc(48) - sc(8), h = title:getSize().h },
+                title,
+            },
+            HorizontalSpan:new{ width = sc(8) },
+            close_btn,
         },
         VerticalSpan:new{ width = sc(2) },
         TextWidget:new{
-            text = self.subtitle or _("Choose current or new for each field"),
+            text = self.subtitle or _("Choose a value for each field"),
             face = Font:getFace("cfont", 15),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-        },
-        VerticalSpan:new{ width = sc(6) },
-        HorizontalGroup:new{
-            keep_all_btn,
-            HorizontalSpan:new{ width = sc(8) },
-            use_all_btn,
+            max_width = content_inner,
         },
     }
 
@@ -532,44 +500,101 @@ function DiffPicker:_build()
         header_group,
     }
 
-    local function col_head(text)
-        local tw = TextWidget:new{
-            text = text,
-            face = Font:getFace("tfont", 16),
-        }
-        return LeftContainer:new{
-            dimen = Geom:new{ w = col_w, h = tw:getSize().h },
-            tw,
-        }
-    end
-    local col_header = FrameContainer:new{
-        bordersize = 0,
-        padding = Size.padding.default,
-        HorizontalGroup:new{
-            col_head(_("Current")),
-            HorizontalSpan:new{ width = sc(8) },
-            col_head(self.new_label or _("New (Hardcover)")),
-        },
-    }
+    local block_w = content_inner
+    local differing = self.state:differing_fields()
 
     local body = VerticalGroup:new{ align = "left" }
-    for i, field in ipairs(self.fields) do
-        table.insert(body, self:_field_row(field, col_w))
-        if i < #self.fields then
-            table.insert(body, LineWidget:new{
-                background = Blitbuffer.COLOR_LIGHT_GRAY,
-                dimen = Geom:new{ w = content_inner, h = Size.line.thin },
-            })
+
+    local status_group = VerticalGroup:new{ align = "left" }
+    local bulk_w = math.floor(content_inner * 0.42)
+    local status_w = content_inner - bulk_w - sc(8)
+    table.insert(status_group, TextWidget:new{
+        text = self.state:differ_heading(),
+        face = Font:getFace("tfont", 15),
+        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        max_width = status_w,
+    })
+    local status_text = self.state:status_line()
+    if status_text ~= "" then
+        table.insert(status_group, TextBoxWidget:new{
+            text = status_text,
+            face = Font:getFace("cfont", 16),
+            width = status_w,
+        })
+    end
+    local status_row = HorizontalGroup:new{
+        align = "center",
+        status_group,
+        HorizontalSpan:new{ width = sc(8) },
+    }
+    if #differing > 0 then
+        table.insert(status_row, Button:new{
+            text = self.state:bulk_label(),
+            radius = sc(4),
+            padding = sc(6),
+            bordersize = Size.border.button,
+            width = bulk_w,
+            show_parent = self,
+            callback = function()
+                self:_bulk()
+            end,
+        })
+    end
+    table.insert(body, FrameContainer:new{
+        bordersize = 0,
+        padding = Size.padding.default,
+        status_row,
+    })
+
+    local function add_block(field)
+        table.insert(body, LineWidget:new{
+            background = Blitbuffer.COLOR_LIGHT_GRAY,
+            dimen = Geom:new{ w = content_inner, h = Size.line.thin },
+        })
+        table.insert(body, self:_field_block(field, block_w))
+    end
+
+    for _i, field in ipairs(differing) do
+        add_block(field)
+    end
+
+    local matching = self.state:matching_fields()
+    if #matching > 0 then
+        table.insert(body, LineWidget:new{
+            background = Blitbuffer.COLOR_LIGHT_GRAY,
+            dimen = Geom:new{ w = content_inner, h = Size.line.thin },
+        })
+        local summary = TextBoxWidget:new{
+            text = (self.matching_open and "▾ " or "▸ ") .. self.state:matching_summary(),
+            face = Font:getFace("cfont", 16),
+            width = content_inner - 2 * Size.padding.default,
+        }
+        table.insert(body, TapRow:new{
+            on_tap = function()
+                self.matching_open = not self.matching_open
+                self:_refresh()
+            end,
+            dimen = Geom:new{ w = view_w, h = summary:getSize().h + 4 * Size.padding.default },
+            FrameContainer:new{
+                bordersize = 0,
+                padding = Size.padding.default * 2,
+                summary,
+            },
+        })
+        if self.matching_open then
+            for _i, field in ipairs(matching) do
+                add_block(field)
+            end
         end
     end
 
     local apply_btn = Button:new{
-        text = _("Apply"),
+        text = self.state:apply_label(),
         radius = sc(4),
         padding = sc(11),
         bordersize = 0,
         background = Blitbuffer.COLOR_BLACK,
-        width = math.floor(content_inner / 2) - sc(6),
+        width = footer_inner,
         show_parent = self,
         callback = function()
             self:_apply()
@@ -578,17 +603,6 @@ function DiffPicker:_build()
     if apply_btn.label_widget then
         apply_btn.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
     end
-    local cancel_btn = Button:new{
-        text = _("Cancel"),
-        radius = sc(4),
-        padding = sc(11),
-        bordersize = Size.border.button,
-        width = math.floor(content_inner / 2) - sc(6),
-        show_parent = self,
-        callback = function()
-            self:onClose()
-        end,
-    }
     local toggle_w = math.floor((content_inner - sc(8)) / 2)
     local backup_btn = Button:new{
         text = self.keep_backup and _("Keep backup: On") or _("Keep backup: Off"),
@@ -659,11 +673,7 @@ function DiffPicker:_build()
     local action_bar = FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
-        HorizontalGroup:new{
-            apply_btn,
-            HorizontalSpan:new{ width = sc(12) },
-            cancel_btn,
-        },
+        apply_btn,
     }
 
     local scroll_content = VerticalGroup:new{
@@ -671,13 +681,12 @@ function DiffPicker:_build()
         header,
         LineWidget:new{
             background = Blitbuffer.COLOR_DARK_GRAY,
-            dimen = Geom:new{ w = self.width, h = Size.line.thin },
+            dimen = Geom:new{ w = view_w, h = Size.line.thin },
         },
-        col_header,
         body,
         LineWidget:new{
             background = Blitbuffer.COLOR_DARK_GRAY,
-            dimen = Geom:new{ w = self.width, h = Size.line.thin },
+            dimen = Geom:new{ w = view_w, h = Size.line.thin },
         },
         toggles,
     }
@@ -723,8 +732,8 @@ function DiffPicker:_build()
     }
 end
 
-function DiffPicker:_select_all(choice)
-    self.state:select_all(choice)
+function DiffPicker:_bulk()
+    self.state:bulk()
     self:_refresh()
 end
 
@@ -794,7 +803,18 @@ function DiffPicker:_apply()
 end
 
 function DiffPicker:onClose()
-    UIManager:close(self, "ui")
+    if not self.state:needs_discard_prompt() then
+        UIManager:close(self, "ui")
+        return true
+    end
+    UIManager:show(ConfirmBox:new{
+        text = _("Discard your changes?"),
+        ok_text = _("Discard"),
+        cancel_text = _("Keep editing"),
+        ok_callback = function()
+            UIManager:close(self, "ui")
+        end,
+    })
     return true
 end
 
