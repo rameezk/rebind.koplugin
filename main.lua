@@ -476,7 +476,7 @@ end
 
 function Rebind:_translateText(text, target)
     local parts = {}
-    for _, chunk in ipairs(Translate.chunks(text)) do
+    for _i, chunk in ipairs(Translate.chunks(text)) do
         local ok, rendered = pcall(function()
             return Translator:translate(chunk.text, target)
         end)
@@ -509,9 +509,8 @@ function Rebind:_showDiff(file, current, book, Api)
 
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
-        subtitle = manual and _("Tap a value to edit it")
-            or _("Pick a value per field, or tap one to edit it"),
-        new_label = manual and _("Hardcover (not used)") or nil,
+        subtitle = manual and _("Use Edit to change a value")
+            or _("Pick a value per field, or use Edit to change one"),
         edition_label = proposed.edition_id and Hardcover.edition_label(proposed) or nil,
         on_choose_edition = on_choose_edition,
         translate_targets = self:_translateTargets(current, shown),
