@@ -43,4 +43,5 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ steps.release.outputs.tag_name }} dist/rebind.koplugin.zip
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: gh release upload "$TAG_NAME" dist/rebind.koplugin.zip
