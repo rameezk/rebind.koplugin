@@ -460,6 +460,40 @@ T["clash does not report a case-only rename of the file itself on a case-insensi
     end
 end
 
+T["relocate never copies a file onto itself when a rename to its own inode fails"] = function(a)
+    local names = { "util", "libs/libkoreader-lfs", "docsettings", "ffi/util" }
+    local saved = {}
+    for _i, name in ipairs(names) do
+        saved[name] = package.loaded[name]
+    end
+    local copied = false
+    package.loaded["util"] = { makePath = function() return true end }
+    package.loaded["libs/libkoreader-lfs"] = {
+        attributes = function()
+            return { mode = "file", dev = 1, ino = 7 }
+        end,
+    }
+    package.loaded["docsettings"] = { updateLocation = function() end }
+    package.loaded["ffi/util"] = {
+        copyFile = function()
+            copied = true
+            return nil
+        end,
+    }
+    local source = os.tmpname()
+    local ok, result = pcall(function()
+        return Organize.relocate(source, "/nonexistent-rebind-dir/" .. Organize.basename(source):upper())
+    end)
+    os.remove(source)
+    for _i, name in ipairs(names) do
+        package.loaded[name] = saved[name]
+    end
+    if not ok then
+        error(result, 0)
+    end
+    a.eq(copied, false)
+end
+
 T["clash never reports the file being its own destination"] = function(a)
     a.eq(Organize.clash("/in/dune.epub", "/in/dune.epub", function()
         return true

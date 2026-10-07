@@ -375,9 +375,12 @@ function Organize.target_path(root, meta, source_filename, structure, rename, te
     return Organize.target_dir(root, meta, structure, folder_template) .. "/" .. name
 end
 
-local function move_file(from, to)
+local function move_file(from, to, allow_copy)
     if os.rename(from, to) then
         return true
+    end
+    if not allow_copy then
+        return false, "Could not rename the file"
     end
     local ffiutil = require("ffi/util")
     local err = ffiutil.copyFile(from, to)
@@ -435,7 +438,8 @@ function Organize.relocate(source_path, dest)
     if not ok_dir then
         return false, "Could not create folder:\n" .. tostring(mkerr)
     end
-    local ok_move, moverr = move_file(source_path, dest)
+    local lfs = require("libs/libkoreader-lfs")
+    local ok_move, moverr = move_file(source_path, dest, lfs.attributes(dest) == nil)
     if not ok_move then
         return false, "Could not move file:\n" .. tostring(moverr)
     end
