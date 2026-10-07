@@ -22,8 +22,15 @@ local Hardcover = require("rebind/hardcover")
 local Organize = require("rebind/organize")
 local Translate = require("rebind/translate")
 
-local function info(text, timeout)
-    UIManager:show(InfoMessage:new{ text = text, timeout = timeout })
+local function info(text, timeout, icon)
+    UIManager:show(InfoMessage:new{ text = text, timeout = timeout, icon = icon })
+end
+
+local function move_failed_text(rewritten)
+    if rewritten then
+        return _("Metadata updated, but the move failed:\n")
+    end
+    return _("The file was not moved:\n")
 end
 
 local function resolve_language(code)
@@ -638,60 +645,54 @@ function Rebind:_showDiff(file, current, book, Api, results)
         end or nil,
         translate_targets = self:_translateTargets(current, shown),
         on_translate = self:_translateHandler(),
-        keep_backup = self:keepBackup(),
-        move_to_sorted = self.settings:isTrue("move_after_rebind"),
-        rename_file = self:renameFile(),
-        current_metadata = current,
-        filename_template = self:filenameTemplate(),
-        on_filename_template = function(template)
-            self.settings:saveSetting("filename_template", template)
-            self.settings:flush()
+        save_as = {
+            source_path = file,
+            metadata = current,
+            root = self:sortedRoot(),
+            sort = self.settings:isTrue("move_after_rebind"),
+            rename = self:renameFile(),
+            keep_backup = self:keepBackup(),
+            filename_template = self:filenameTemplate(),
+            folder_template = self:folderTemplate(),
+            custom_filename_template = self:customFilenameTemplate(),
+            custom_folder_template = self:customFolderTemplate(),
+        },
+        on_save_as_change = function(save_as)
+            self:_rememberSaveAs(save_as)
         end,
-        folder_template = self:folderTemplate(),
-        on_folder_template = function(template)
-            self.settings:saveSetting("folder_template", template)
-            self.settings:flush()
-        end,
-        custom_filename_template = self:customFilenameTemplate(),
-        on_custom_filename_template = function(template)
-            self.settings:saveSetting("custom_filename_template", template)
-            self.settings:flush()
-        end,
-        custom_folder_template = self:customFolderTemplate(),
-        on_custom_folder_template = function(template)
-            self.settings:saveSetting("custom_folder_template", template)
-            self.settings:flush()
+        on_choose_root = function(on_ready)
+            self:_chooseSortedRoot(on_ready)
         end,
         on_apply = function(changes, opts)
-            opts = opts or {}
-            local keep = opts.keep_backup
-            if keep == nil then
-                keep = self:keepBackup()
-            end
-            local move = opts.move_to_sorted == true
-            local rename = opts.rename_file
-            if rename == nil then
-                rename = self:renameFile()
-            end
-            self.settings:saveSetting("keep_backup", keep)
-            self.settings:saveSetting("move_after_rebind", move)
-            self.settings:saveSetting("rename_file", rename)
-            self.settings:flush()
-            self:_write(file, changes, keep, move)
+            self:_write(file, changes, opts.keep_backup, opts.dest)
         end,
     }
     UIManager:show(picker)
 end
 
-function Rebind:_write(file, changes, keep_backup, move_enabled)
+function Rebind:_rememberSaveAs(save_as)
+    self.settings:saveSetting("keep_backup", save_as.keep_backup)
+    self.settings:saveSetting("move_after_rebind", save_as.sort)
+    self.settings:saveSetting("rename_file", save_as.rename)
+    self.settings:saveSetting("filename_template", save_as.filename_template)
+    self.settings:saveSetting("folder_template", save_as.folder_template)
+    self.settings:saveSetting("custom_filename_template", save_as.custom_filename_template)
+    self.settings:saveSetting("custom_folder_template", save_as.custom_folder_template)
+    if save_as.root then
+        self.settings:saveSetting("sorted_root", save_as.root)
+    end
+    self.settings:flush()
+end
+
+function Rebind:_write(file, changes, keep_backup, dest)
+    local is_open_book = self:currentFile() == file
     if not next(changes) then
-        info(_("No changes selected."))
+        self:_afterRewrite(file, is_open_book, nil, dest, false)
         return
     end
 
     local progress = InfoMessage:new{ text = _("Updating EPUB…") }
     UIManager:show(progress)
-    local is_open_book = self:currentFile() == file
     UIManager:scheduleIn(0.1, function()
         local ok, result = Epub.rewrite(file, changes, keep_backup)
         UIManager:close(progress)
@@ -702,26 +703,18 @@ function Rebind:_write(file, changes, keep_backup, move_enabled)
 
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
-        self:_afterRewrite(file, is_open_book, result, move_enabled)
+        self:_afterRewrite(file, is_open_book, result, dest, true)
     end)
 end
 
-function Rebind:_afterRewrite(file, is_open_book, backup, move_enabled)
-    if not move_enabled then
-        if self:renameFile() then
-            local meta = Epub.read_metadata(file) or {}
-            self:_doMove(file, is_open_book, backup, Organize.dirname(file), meta, "flat")
-        else
-            self:_finish(file, is_open_book, backup, nil)
-        end
-        return
+function Rebind:_afterRewrite(file, is_open_book, backup, dest, rewritten)
+    if dest == file then
+        self:_finish(file, is_open_book, backup, nil, rewritten)
+    elseif is_open_book then
+        self:_relocateOpenBook(file, dest, rewritten)
+    else
+        self:_doMove(file, dest, backup, rewritten)
     end
-
-    self:_withSortedRoot(function(root)
-        self:_chooseStructureAndMove(file, is_open_book, backup, root)
-    end, function()
-        self:_finish(file, is_open_book, backup, nil)
-    end)
 end
 
 function Rebind:defaultBrowseDir()
@@ -738,90 +731,29 @@ function Rebind:defaultBrowseDir()
     return nil
 end
 
-function Rebind:_withSortedRoot(on_ready, on_cancel)
-    local root = self:sortedRoot()
-    if root then
-        on_ready(root)
-        return
-    end
+function Rebind:_chooseSortedRoot(on_ready)
     local PathChooser = require("ui/widget/pathchooser")
-    local chooser
-    chooser = PathChooser:new{
+    UIManager:show(PathChooser:new{
         title = _("Choose your sorted books folder"),
         select_file = false,
         show_files = false,
-        path = self:defaultBrowseDir(),
-        onConfirm = function(dir)
-            self.settings:saveSetting("sorted_root", dir)
-            self.settings:flush()
-            on_ready(dir)
-        end,
-    }
-    chooser.close_callback = function()
-        if not self:sortedRoot() and on_cancel then
-            on_cancel()
-        end
-    end
-    UIManager:show(chooser)
+        path = self:sortedRoot() or self:defaultBrowseDir(),
+        onConfirm = on_ready,
+    })
 end
 
-function Rebind:_chooseStructureAndMove(file, is_open_book, backup, root)
-    local meta = Epub.read_metadata(file) or {}
-    local dialog
-    dialog = ButtonDialog:new{
-        title = _("Move into:\n") .. root,
-        title_align = "center",
-        buttons = {
-            {
-                {
-                    text = Organize.folder_label(meta, self:folderTemplate()),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:_doMove(file, is_open_book, backup, root, meta, "nested")
-                    end,
-                },
-            },
-            {
-                {
-                    text = _("Directly in this folder"),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:_doMove(file, is_open_book, backup, root, meta, "flat")
-                    end,
-                },
-            },
-            {
-                {
-                    text = _("Keep here"),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:_finish(file, is_open_book, backup, nil)
-                    end,
-                },
-            },
-        },
-    }
-    UIManager:show(dialog)
-end
-
-function Rebind:_doMove(file, is_open_book, backup, root, meta, structure)
-    if is_open_book then
-        self:_relocateOpenBook(file, root, meta, backup, structure)
-        return
-    end
-    local moved, moved_result = Organize.move(
-        file, root, meta, structure, self:renameFile(), self:filenameTemplate(), self:folderTemplate()
-    )
+function Rebind:_doMove(file, dest, backup, rewritten)
+    local moved, moved_result = Organize.relocate(file, dest)
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
-        self:_finish(moved_result, false, backup, moved_result)
+        self:_finish(moved_result, false, backup, moved_result, rewritten)
     else
-        info(_("Metadata updated, but the move failed:\n") .. tostring(moved_result))
+        info(move_failed_text(rewritten) .. tostring(moved_result))
     end
 end
 
-function Rebind:_relocateOpenBook(file, root, meta, backup, structure)
+function Rebind:_relocateOpenBook(file, dest, rewritten)
     local ReaderUI = require("apps/reader/readerui")
     local ui = self.ui
     ui.tearing_down = true
@@ -829,20 +761,18 @@ function Rebind:_relocateOpenBook(file, root, meta, backup, structure)
     ui:handleEvent(Event:new("CloseConfigMenu"))
     ui:onClose(false)
 
-    local moved, moved_result = Organize.move(
-        file, root, meta, structure, self:renameFile(), self:filenameTemplate(), self:folderTemplate()
-    )
+    local moved, moved_result = Organize.relocate(file, dest)
     if moved then
         UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
         UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
         ReaderUI:showReader(moved_result)
     else
         ReaderUI:showReader(file)
-        info(_("Metadata updated, but the move failed:\n") .. tostring(moved_result))
+        info(move_failed_text(rewritten) .. tostring(moved_result))
     end
 end
 
-function Rebind:_finish(file, is_open_book, backup, moved_dest)
+function Rebind:_finish(file, is_open_book, backup, moved_dest, rewritten)
     if is_open_book and not moved_dest and self.ui and self.ui.reloadDocument then
         UIManager:show(ConfirmBox:new{
             text = _("Metadata updated. Reopen the book now to apply the changes?"),
@@ -856,15 +786,17 @@ function Rebind:_finish(file, is_open_book, backup, moved_dest)
     end
 
     local message
-    if moved_dest then
+    if moved_dest and rewritten then
         message = _("Metadata updated and moved to:\n") .. moved_dest
+    elseif moved_dest then
+        message = _("Moved to:\n") .. moved_dest
     else
         message = _("Metadata updated.")
     end
     if backup then
         message = message .. _("\nBackup saved to:\n") .. tostring(backup)
     end
-    info(message)
+    info(message, nil, "check")
 end
 
 return Rebind

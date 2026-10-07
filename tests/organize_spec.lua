@@ -364,7 +364,7 @@ local function write(path, text)
     f:close()
 end
 
-T["Sort refuses to overwrite a file already at the rendered folder destination"] = function(a)
+T["relocate refuses to overwrite a file already at the destination"] = function(a)
     with_fake_koreader(function()
         local root = os.tmpname()
         os.remove(root)
@@ -374,8 +374,7 @@ T["Sort refuses to overwrite a file already at the rendered folder destination"]
         local existing = root .. "/lib/Pratchett, Terry/Discworld/Pratchett, Terry - The Colour of Magic.epub"
         write(source, "new")
         write(existing, "old")
-        local ok, err = Organize.move(source, root .. "/lib", COLOUR_OF_MAGIC, "nested", true, nil,
-            Organize.FOLDER_PRESETS[3])
+        local ok, err = Organize.relocate(source, existing)
         local f = io.open(source, "r")
         local still_there = f ~= nil
         if f then
@@ -386,6 +385,62 @@ T["Sort refuses to overwrite a file already at the rendered folder destination"]
         a.eq(still_there, true)
         a.eq(err, "A file already exists at:\n" .. existing)
     end)
+end
+
+local SAVE_AS_META = { title = "Dune", authors = { "Frank Herbert" } }
+
+T["destination keeps the file where it is with its current name when Save as does nothing"] = function(a)
+    local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, { sort = false, rename = false })
+    a.eq(dest, "/books/inbox/dune.epub")
+end
+
+T["destination renames in place with the Filename template"] = function(a)
+    local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, {
+        sort = false,
+        rename = true,
+        filename_template = "%title - %author",
+    })
+    a.eq(dest, "/books/inbox/Dune - Frank Herbert.epub")
+end
+
+T["destination sorts into the Sorted library with the Folder template and keeps the name"] = function(a)
+    local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, {
+        sort = true,
+        root = "/lib/",
+        rename = false,
+        folder_template = "%author_sort/%title",
+    })
+    a.eq(dest, "/lib/Herbert, Frank/Dune/dune.epub")
+end
+
+T["destination renames and sorts together"] = function(a)
+    local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, {
+        sort = true,
+        root = "/lib",
+        rename = true,
+        filename_template = "%author_sort - %title",
+        folder_template = "%author_sort",
+    })
+    a.eq(dest, "/lib/Herbert, Frank/Herbert, Frank - Dune.epub")
+end
+
+T["destination does not sort when there is no Sorted library yet"] = function(a)
+    local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, { sort = true, rename = false })
+    a.eq(dest, "/books/inbox/dune.epub")
+end
+
+T["clash reports a file already at a different destination"] = function(a)
+    local exists = function(path)
+        return path == "/lib/Dune.epub"
+    end
+    a.eq(Organize.clash("/in/dune.epub", "/lib/Dune.epub", exists), true)
+    a.eq(Organize.clash("/in/dune.epub", "/lib/Other.epub", exists), false)
+end
+
+T["clash never reports the file being its own destination"] = function(a)
+    a.eq(Organize.clash("/in/dune.epub", "/in/dune.epub", function()
+        return true
+    end), false)
 end
 
 T["insert_token puts a Token at the cursor and moves the cursor after it"] = function(a)

@@ -388,19 +388,41 @@ local function move_file(from, to)
     return true
 end
 
-function Organize.move(source_path, root, meta, structure, rename, template, folder_template)
-    local util = require("util")
+function Organize.destination(source_path, meta, opts)
+    local name = Organize.basename(source_path)
+    local dir = Organize.dirname(source_path)
+    if opts.rename then
+        name = Organize.filename(meta, name, opts.filename_template)
+    end
+    if opts.sort and opts.root then
+        dir = Organize.target_dir(opts.root, meta, "nested", opts.folder_template)
+    end
+    return dir .. "/" .. name
+end
+
+local function file_exists(path)
     local lfs = require("libs/libkoreader-lfs")
+    return lfs.attributes(path, "mode") ~= nil
+end
+
+function Organize.clash(source_path, dest, exists)
+    if dest == source_path then
+        return false
+    end
+    return (exists or file_exists)(dest)
+end
+
+function Organize.relocate(source_path, dest)
+    local util = require("util")
     local DocSettings = require("docsettings")
 
-    local dest = Organize.target_path(root, meta, Organize.basename(source_path), structure, rename, template, folder_template)
     if dest == source_path then
         return true, dest
     end
-    if lfs.attributes(dest, "mode") ~= nil then
+    if Organize.clash(source_path, dest) then
         return false, "A file already exists at:\n" .. dest
     end
-    local ok_dir, mkerr = util.makePath(Organize.target_dir(root, meta, structure, folder_template))
+    local ok_dir, mkerr = util.makePath(Organize.dirname(dest))
     if not ok_dir then
         return false, "Could not create folder:\n" .. tostring(mkerr)
     end

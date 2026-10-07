@@ -1,6 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
-local ButtonDialog = require("ui/widget/buttondialog")
 local ButtonTable = require("ui/widget/buttontable")
 local Device = require("device")
 local Font = require("ui/font")
@@ -453,41 +452,7 @@ function Naming.show(opts)
         UIManager:show(list)
     end
 
-    local menu
-    local function open_menu()
-        local function entry(kind)
-            local section = sections[kind]
-            return {
-                {
-                    text = section.title .. ":  " .. section.label(selected[kind]),
-                    align = "left",
-                    callback = function()
-                        UIManager:close(menu)
-                        show_list(kind, open_menu)
-                    end,
-                },
-            }
-        end
-        menu = ButtonDialog:new{
-            title = _("Naming"),
-            title_align = "center",
-            buttons = {
-                entry("filename"),
-                entry("folder"),
-                {
-                    {
-                        text = _("Close"),
-                        callback = function()
-                            UIManager:close(menu)
-                        end,
-                    },
-                },
-            },
-        }
-        UIManager:show(menu)
-    end
-
-    open_menu()
+    show_list(opts.kind, opts.on_close)
 end
 
 return Naming
