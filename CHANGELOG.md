@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0](https://github.com/rameezk/rebind.koplugin/compare/v1.6.0...v2.0.0) (2026-10-07)
+
+Rebind 2.0 redesigns its interface so fixing a book takes less scrolling, fewer taps and less guessing.
+
+- **Far less scrolling.** Each field is now a short list of values instead of rows of buttons, so a whole book fits on one or two screens of a 6" e-reader.
+- **Only what needs a decision.** Fields that already match Hardcover are folded away, so you only look at the ones that differ.
+- **You know where a value came from.** Each value is tagged book, Hardcover, custom, translated or removed, and machine translations are shown in italics so they stand out.
+- **Mistakes are caught before anything is written.** A name clash at the destination is flagged before Apply instead of after the book is saved, and closing only asks to discard when you've changed something.
+- **Renaming and sorting are in one place.** Backup, folder and filename settings moved to one Save as screen. It shows the exact destination path and remembers your choices, and the "Move into" popup after Apply is gone.
+- **Templates you can judge at a glance.** Each folder and filename template is shown as it will look for this book, not just as a pattern.
+- **Write your own templates.** When none of the ready-made templates fit, write a custom folder or filename template. Tap to insert tokens like Title, Author and Series #, check the Example preview as you go, and use Help to see each token's value for this book.
+- **Rename or move on its own.** Apply now renames or moves a book even when its metadata doesn't change.
+- **Works without Hardcover.** Choose "Don't use Hardcover", or carry on when the plugin is missing or a lookup fails, and edit every field by hand.
+- **New field:** first published, saved as the book's year.
+
 ## [1.6.0](https://github.com/rameezk/rebind.koplugin/compare/v1.5.0...v1.6.0) (2026-09-03)
 
 
