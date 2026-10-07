@@ -3,6 +3,9 @@
 - Never use the em dash "—". Use plain dash "-" instead
 - Never write code comments. No `//`, `#`, `--`, `/* */`, section headers, or explanatory inline notes - leave them out entirely. This overrides any default that says "comment when the why is non-obvious." If something genuinely needs explanation, put it in the PR description or commit message, not the code. Variable/output `description` attributes and docstrings on public APIs are not comments and are fine.
 
+- Glossary terms from `docs/CONTEXT.md` appear in UI copy as plain lowercase words in natural sentences, never as capitalised proper nouns.
+  Write "Sort into your library", not "Sort into the Sorted library".
+
 ## Git and releases
 
 - NEVER add agent attribution of any kind to a git commit message, pull request title or body, GitHub issue, or GitHub comment.
