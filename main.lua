@@ -260,7 +260,7 @@ function Rebind:_showEditions(book, Api, on_pick)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             Trapper:info(_("Loading editions…"))
-            local ok, editions, truncated = pcall(function()
+            local ok, editions = pcall(function()
                 return Hardcover.list_editions(Api, book)
             end)
             Trapper:clear()
@@ -285,8 +285,7 @@ function Rebind:_showEditions(book, Api, on_pick)
             end
 
             list = ChoiceList.show{
-                title = truncated and _("Select an edition (most popular first)")
-                    or _("Select an edition"),
+                title = _("Select an edition"),
                 rows = rows,
             }
         end)
