@@ -48,12 +48,12 @@ _Avoid_: custom value
 The screen that shows each Field's values side by side and lets the user choose one per Field.
 _Avoid_: diff picker, rebind screen
 
-**Sorted library**:
-The user-chosen root folder that books are sorted into.
-_Avoid_: sorted root, sorted folder
+**Library**:
+The user-chosen root folder that books are Sorted into.
+_Avoid_: Sorted library, sorted root, sorted folder
 
 **Sort**:
-Moving a book into the Sorted library after a Rebind.
+Moving a book into the Library after a Rebind.
 _Avoid_: file, move
 
 **Backup**:
@@ -64,7 +64,7 @@ The user-chosen pattern a book's file is renamed to, built from Tokens.
 _Avoid_: naming scheme, rename pattern
 
 **Folder template**:
-The user-chosen pattern for the folders a book is Sorted into under the Sorted library, built from Tokens.
+The user-chosen pattern for the folders a book is Sorted into under the Library, built from Tokens.
 _Avoid_: structure, layout
 
 **Token**:
