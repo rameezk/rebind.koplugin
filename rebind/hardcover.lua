@@ -162,6 +162,20 @@ function Hardcover.edition_label(m, omit_language)
     return table.concat(parts, " · ")
 end
 
+function Hardcover.header_label(m)
+    local parts = {}
+    if m.release_year then
+        parts[#parts + 1] = tostring(m.release_year)
+    end
+    if m.publisher then
+        parts[#parts + 1] = m.publisher
+    end
+    if m.language then
+        parts[#parts + 1] = m.language
+    end
+    return table.concat(parts, " · ")
+end
+
 function Hardcover.match_subtitle(m)
     local parts = {}
     if m.authors and m.authors[1] then

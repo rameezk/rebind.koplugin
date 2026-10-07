@@ -6,7 +6,6 @@ local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
-local IconButton = require("ui/widget/iconbutton")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local LeftContainer = require("ui/widget/container/leftcontainer")
 local LineWidget = require("ui/widget/linewidget")
@@ -17,6 +16,8 @@ local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 
+local CloseIcon = require("rebind/ui/closeicon")
+local Radio = require("rebind/ui/radio")
 local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
@@ -41,19 +42,15 @@ function ChoiceList:init()
     end
 
     local pad = sc(12)
-    local inner = self.width - 2 * pad
+    local header_inner = self.width - 2 * pad
 
-    local close_btn = IconButton:new{
-        icon = "close",
-        width = sc(32),
-        height = sc(32),
-        padding = sc(6),
+    local close_btn = CloseIcon.new{
         callback = function()
             self:onClose()
         end,
         show_parent = self,
     }
-    local title_w = inner - close_btn:getSize().w - sc(8)
+    local title_w = header_inner - close_btn:getSize().w - sc(8)
     local title_widget = TextWidget:new{
         text = self.title,
         face = Font:getFace("cfont", 24),
@@ -75,6 +72,9 @@ function ChoiceList:init()
     }
     self.header_height = header:getSize().h + Size.line.thin
 
+    local view_w = self.width - 3 * ScrollableContainer.scroll_bar_width
+    local inner = view_w - 2 * pad
+
     local body = VerticalGroup:new{ align = "left" }
     for _i, row in ipairs(self.rows) do
         local action_btn
@@ -91,13 +91,19 @@ function ChoiceList:init()
             }
             action_w = action_btn:getSize().w + sc(12)
         end
-        local text_w = inner - action_w
+        local mark
+        local mark_w = 0
+        if row.selected ~= nil then
+            mark = Radio:new{ selected = row.selected }
+            mark_w = mark:getSize().w + sc(12)
+        end
+        local text_w = inner - mark_w - action_w
         local lines = VerticalGroup:new{
             align = "left",
             TextBoxWidget:new{
                 text = row.title,
                 face = Font:getFace("cfont", 20),
-                bold = true,
+                bold = row.selected ~= false,
                 width = text_w,
             },
         }
@@ -109,7 +115,12 @@ function ChoiceList:init()
                 width = text_w,
             })
         end
-        local line = HorizontalGroup:new{ align = "center", lines }
+        local line = HorizontalGroup:new{ align = "center" }
+        if mark then
+            table.insert(line, mark)
+            table.insert(line, HorizontalSpan:new{ width = sc(12) })
+        end
+        table.insert(line, lines)
         if action_btn then
             table.insert(line, HorizontalSpan:new{ width = sc(12) })
             table.insert(line, action_btn)
@@ -119,17 +130,17 @@ function ChoiceList:init()
             padding = pad,
             padding_top = sc(10),
             padding_bottom = sc(10),
-            width = self.width,
+            width = view_w,
             line,
         }
         table.insert(body, TapRow:new{
             on_tap = row.on_select,
-            dimen = Geom:new{ w = self.width, h = cell:getSize().h },
+            dimen = Geom:new{ w = view_w, h = cell:getSize().h },
             cell,
         })
         table.insert(body, LineWidget:new{
             background = Blitbuffer.COLOR_LIGHT_GRAY,
-            dimen = Geom:new{ w = self.width, h = Size.line.thin },
+            dimen = Geom:new{ w = view_w, h = Size.line.thin },
         })
     end
 

@@ -513,7 +513,7 @@ end
 function Rebind:_useSource(picker, current, shown, source)
     local m = source and Hardcover.extract(source) or {}
     shown.proposed = m
-    picker:setFields(Fields.build(current, m), m.edition_id and Hardcover.edition_label(m) or nil)
+    picker:setFields(Fields.build(current, m), m.edition_id and Hardcover.header_label(m) or nil)
 end
 
 function Rebind:_findMatches(current, Api, shown, on_results)
@@ -639,7 +639,7 @@ function Rebind:_showDiff(file, current, book, Api, results)
 
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
-        edition_label = proposed.edition_id and Hardcover.edition_label(proposed) or nil,
+        edition_label = proposed.edition_id and Hardcover.header_label(proposed) or nil,
         hardcover_missing = Api == nil,
         on_open_source = Api and function(picker)
             self:_showSource(picker, current, Api, shown)

@@ -99,6 +99,23 @@ T["edition_label skips the parts an edition does not have"] = function(a)
     a.eq(Hardcover.edition_label({}), "")
 end
 
+T["header_label is year, publisher and language without format or pages"] = function(a)
+    local m = {
+        edition_format = "Hardcover",
+        release_year = "2020",
+        publisher = "Ballantine Books",
+        pages = 367,
+        language = "en",
+    }
+    a.eq(Hardcover.header_label(m), "2020 · Ballantine Books · en")
+end
+
+T["header_label leaves out the parts an edition does not have"] = function(a)
+    a.eq(Hardcover.header_label({ edition_format = "Ebook", pages = 300, language = "de" }), "de")
+    a.eq(Hardcover.header_label({ release_year = 1999, publisher = "Penguin" }), "1999 · Penguin")
+    a.eq(Hardcover.header_label({}), "")
+end
+
 T["match_subtitle joins author, year and readers"] = function(a)
     local m = { authors = { "Frank Herbert", "Someone Else" }, release_year = 1965, users_read_count = 1204 }
     a.eq(Hardcover.match_subtitle(m), "Frank Herbert · 1965 · 1204 readers")

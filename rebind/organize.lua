@@ -162,15 +162,32 @@ function Organize.pattern_label(template)
     return (label:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
 end
 
-function Organize.editor_chips(kind)
-    local chips = {}
+local CHIP_ROWS = {
+    { "%title", "%author", "%authors" },
+    { "%author_sort", "%series" },
+    { "%series_index", "%year", "%language" },
+}
+
+function Organize.editor_chip_rows(kind)
+    local by_token = {}
     for _i, chip in ipairs(Organize.TOKEN_CHIPS) do
-        chips[#chips + 1] = chip
+        by_token[chip.token] = chip
     end
+    local rows = {}
+    for _i, tokens in ipairs(CHIP_ROWS) do
+        local row = {}
+        for _j, token in ipairs(tokens) do
+            row[#row + 1] = by_token[token]
+        end
+        rows[#rows + 1] = row
+    end
+    local last = { by_token["%publisher"] }
     if kind == "folder" then
-        chips[#chips + 1] = { label = "/ New folder", token = "/" }
+        last[#last + 1] = { label = "/ New folder", token = "/" }
     end
-    return chips
+    last[#last + 1] = { label = "{ Optional }" }
+    rows[#rows + 1] = last
+    return rows
 end
 
 function Organize.help_notes(kind)
