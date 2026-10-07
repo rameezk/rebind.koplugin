@@ -20,31 +20,37 @@ local function sc(v)
     return Screen:scaleBySize(v)
 end
 
-local RADIUS = sc(10)
+local function radius()
+    return sc(10)
+end
 
 local Radio = WidgetContainer:extend{
     selected = false,
 }
 
 function Radio:getSize()
-    return Geom:new{ w = 2 * RADIUS, h = 2 * RADIUS }
+    return Geom:new{ w = 2 * radius(), h = 2 * radius() }
 end
 
 function Radio:paintTo(bb, x, y)
-    self.dimen = Geom:new{ x = x, y = y, w = 2 * RADIUS, h = 2 * RADIUS }
-    local cx, cy = x + RADIUS, y + RADIUS
-    bb:paintCircle(cx, cy, RADIUS, Blitbuffer.COLOR_BLACK, Size.border.thick)
+    local r = radius()
+    self.dimen = Geom:new{ x = x, y = y, w = 2 * r, h = 2 * r }
+    local cx, cy = x + r, y + r
+    bb:paintCircle(cx, cy, r, Blitbuffer.COLOR_BLACK, Size.border.thick)
     if self.selected then
-        bb:paintCircle(cx, cy, RADIUS - sc(5), Blitbuffer.COLOR_BLACK)
+        bb:paintCircle(cx, cy, r - sc(5), Blitbuffer.COLOR_BLACK)
     end
 end
 
 local DashedFrame = WidgetContainer:extend{
     padding = 0,
     thickness = 1,
-    dash = sc(6),
-    gap = sc(4),
 }
+
+function DashedFrame:init()
+    self.dash = self.dash or sc(6)
+    self.gap = self.gap or sc(4)
+end
 
 function DashedFrame:getSize()
     local inner = self[1]:getSize()
@@ -133,7 +139,7 @@ function ValueBox.new(opts)
     local inner_w = opts.width - 2 * (border + padding)
     local tag = tag_widget(opts.tag)
     local gap = sc(10)
-    local text_w = inner_w - 2 * RADIUS - tag:getSize().w - 2 * gap
+    local text_w = inner_w - 2 * radius() - tag:getSize().w - 2 * gap
 
     local row = HorizontalGroup:new{
         align = "center",
