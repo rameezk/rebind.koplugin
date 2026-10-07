@@ -42,7 +42,7 @@ local DiffPicker = InputContainer:extend{
     on_apply = nil,
     save_as = nil,
     on_save_as_change = nil,
-    on_choose_root = nil,
+    on_choose_library = nil,
     edition_label = nil,
     on_open_source = nil,
     hardcover_missing = false,
@@ -675,7 +675,7 @@ function DiffPicker:_show_save_as()
     SaveAs.show{
         state = self.state,
         on_change = self.on_save_as_change,
-        on_choose_root = self.on_choose_root,
+        on_choose_library = self.on_choose_library,
         on_close = function()
             self:_refresh()
         end,

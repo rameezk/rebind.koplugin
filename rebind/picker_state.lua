@@ -288,7 +288,7 @@ function PickerState:destination()
     local save_as = self.save_as
     return Organize.destination(save_as.source_path, self:metadata(), {
         sort = save_as.sort,
-        root = save_as.root or nil,
+        library = save_as.library or nil,
         rename = save_as.rename,
         filename_template = save_as.filename_template,
         folder_template = save_as.folder_template,

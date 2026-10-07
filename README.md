@@ -32,7 +32,7 @@ with no laptop, no cable, and no round-trip.
 Because it rewrites the real embedded metadata (not a KOReader-only sidecar), the
 corrected title, author, and series travel with the file everywhere: other readers,
 Calibre, and any device you copy it to see the same values. And with the optional
-sorted-library move, you can look a book up, correct it, and file it away by author
+library move, you can look a book up, correct it, and file it away by author
 without ever leaving the reader.
 
 ## Install
@@ -189,9 +189,9 @@ editable.
 Three toggles in the footer, remembered between runs:
 
 - **Keep backup**: leave a `.rebind.bak` copy of the original next to the book.
-- **Sort book**: move the file into your sorted library after applying (below).
+- **Sort book**: move the file into your library after applying (below).
 - **Rename file**: rename the book using the chosen filename preset (on by default, `<Author, Surname-first> - <Title>.epub`), whether or not it's sorted - with **Sort book** off it's renamed in place.
-- **Naming…**: choose the filename preset and the folder preset (**Sort folders**) from lists, each shown with an example from the values currently selected. **Custom…** in either list opens an editor for your own template (below), prefilled and shown with a live example as you type. One Custom template is kept per list, and picking a preset afterwards does not erase yours.
+- **Naming…**: choose the filename preset and the folder preset (**Folder template**) from lists, each shown with an example from the values currently selected. **Custom…** in either list opens an editor for your own template (below), prefilled and shown with a live example as you type. One Custom template is kept per list, and picking a preset afterwards does not erase yours.
 
 Hit **Apply** and Rebind rewrites the file. The library refreshes on its own. If you
 rebind the book you're reading, it offers to reopen so the new metadata takes effect.
@@ -220,7 +220,7 @@ An optional group `{…}` is dropped when any token inside it is empty, so
 `%title{ - %series #%series_index} - %author{ (%year)}` names a series book
 `The Colour of Magic - Discworld #1 - Terry Pratchett (1983)` and a stand-alone one
 `Enshittification - Cory Doctorow (2025)`. `%%`, `%{` and `%}` give a literal `%`, `{`
-and `}`. In the Sort folders list, `/` separates the folders under your sorted library;
+and `}`. In the Folder template list, `/` separates the folders under your library folder;
 it's not allowed in a filename template. Characters a filename can't hold are replaced
 with `_`, and missing values outside a group are simply left out.
 
@@ -230,7 +230,7 @@ Turn on **Sort book** and, after applying, Rebind offers to file the book away. 
 first time, it asks for a destination folder, prefilled to your KOReader home folder
 and remembered per device. Then you pick the layout:
 
-- **The folder path** (`Author / Title /` by default): a sorted tree, `<root>/<Author, Surname-first>/<Title>/<file.epub>`. The button shows the path rendered for this book. Pick the layout under **Naming…**, **Sort folders**: `Author / Title`, `Author`, `Author / Series` or `Author / Series / Title` - or write your own with **Custom…**. A series folder is left out when the book has no series.
+- **The folder path** (`Author / Title /` by default): a sorted tree, `<root>/<Author, Surname-first>/<Title>/<file.epub>`. The button shows the path rendered for this book. Pick the layout under **Naming…**, **Folder template**: `Author / Title`, `Author`, `Author / Series` or `Author / Series / Title` - or write your own with **Custom…**. A series folder is left out when the book has no series.
 - **Directly in this folder**: just move the file into the chosen folder
 - **Keep here**: don't move
 

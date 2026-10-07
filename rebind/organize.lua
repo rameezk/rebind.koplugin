@@ -357,22 +357,22 @@ function Organize.filename(meta, source_filename, template)
     return name .. Organize.extension(source_filename)
 end
 
-function Organize.target_dir(root, meta, structure, folder_template)
-    root = root:gsub("/+$", "")
+function Organize.target_dir(library, meta, structure, folder_template)
+    library = library:gsub("/+$", "")
     if structure == "flat" then
-        return root
+        return library
     end
     local parts = Organize.folder_segments(meta, folder_template)
-    table.insert(parts, 1, root)
+    table.insert(parts, 1, library)
     return table.concat(parts, "/")
 end
 
-function Organize.target_path(root, meta, source_filename, structure, rename, template, folder_template)
+function Organize.target_path(library, meta, source_filename, structure, rename, template, folder_template)
     local name = source_filename
     if rename ~= false then
         name = Organize.filename(meta, source_filename, template)
     end
-    return Organize.target_dir(root, meta, structure, folder_template) .. "/" .. name
+    return Organize.target_dir(library, meta, structure, folder_template) .. "/" .. name
 end
 
 local function move_file(from, to, allow_copy)
@@ -397,8 +397,8 @@ function Organize.destination(source_path, meta, opts)
     if opts.rename then
         name = Organize.filename(meta, name, opts.filename_template)
     end
-    if opts.sort and opts.root then
-        dir = Organize.target_dir(opts.root, meta, "nested", opts.folder_template)
+    if opts.sort and opts.library then
+        dir = Organize.target_dir(opts.library, meta, "nested", opts.folder_template)
     end
     return dir .. "/" .. name
 end

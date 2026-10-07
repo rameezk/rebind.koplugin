@@ -199,8 +199,8 @@ function Naming.show(opts)
 
     local sections = {
         filename = {
-            title = _("File name"),
-            editor_title = _("Custom file name"),
+            title = _("Filename template"),
+            editor_title = _("Custom filename template"),
             presets = Organize.FILENAME_PRESETS,
             label = function(template)
                 return Organize.filename(opts.metadata(), EXAMPLE_FILE, template)
@@ -210,8 +210,8 @@ function Naming.show(opts)
             end,
         },
         folder = {
-            title = _("Sort folders"),
-            editor_title = _("Custom sort folders"),
+            title = _("Folder template"),
+            editor_title = _("Custom folder template"),
             presets = Organize.FOLDER_PRESETS,
             label = folder_label,
             example = folder_label,
