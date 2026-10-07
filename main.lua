@@ -16,6 +16,7 @@ local T = require("ffi/util").template
 
 local ChoiceList = require("rebind/ui/choicelist")
 local DiffPicker = require("rebind/ui/diffpicker")
+local Logo = require("rebind/ui/logo")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local Hardcover = require("rebind/hardcover")
@@ -209,10 +210,10 @@ function Rebind:_startLookup(file, current, Api)
 end
 
 function Rebind:_lookup(file, current, Api)
-    Trapper:info(_("Looking up on Hardcover…"))
+    local busy = Logo.show_message(_("Looking up on Hardcover…"))
     local ok, err = pcall(function()
         local results = Hardcover.lookup(Api, current)
-        Trapper:clear()
+        Logo.close_message(busy)
 
         if not results or #results == 0 then
             self:_offerManualEdit(file, current, Api)
@@ -237,7 +238,7 @@ function Rebind:_lookup(file, current, Api)
     end)
 
     if not ok then
-        Trapper:clear()
+        Logo.close_message(busy)
         UIManager:show(MultiConfirmBox:new{
             text = _("Hardcover lookup failed:\n") .. tostring(err),
             choice1_text = _("Retry"),
@@ -522,11 +523,11 @@ function Rebind:_findMatches(current, Api, shown, on_results)
     end
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
-            Trapper:info(_("Looking up on Hardcover…"))
+            local busy = Logo.show_message(_("Looking up on Hardcover…"))
             local ok, results = pcall(function()
                 return Hardcover.lookup(Api, current)
             end)
-            Trapper:clear()
+            Logo.close_message(busy)
             if not ok then
                 info(_("Hardcover lookup failed:\n") .. tostring(results))
                 return
