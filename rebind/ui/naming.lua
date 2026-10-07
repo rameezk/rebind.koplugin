@@ -22,6 +22,7 @@ local util = require("util")
 local _ = require("gettext")
 
 local Organize = require("rebind/organize")
+local Radio = require("rebind/ui/radio")
 local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
@@ -83,10 +84,7 @@ function TemplateList:init()
             }
             edit_w = edit_btn:getSize().w + sc(8)
         end
-        local mark = TextWidget:new{
-            text = row.selected and "●" or "○",
-            face = Font:getFace("cfont", 24),
-        }
+        local mark = Radio:new{ selected = row.selected }
         local text_w = inner - mark:getSize().w - sc(12) - edit_w
         local lines = VerticalGroup:new{
             align = "left",

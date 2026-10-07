@@ -21,6 +21,7 @@ local _ = require("gettext")
 
 local Naming = require("rebind/ui/naming")
 local Organize = require("rebind/organize")
+local Radio = require("rebind/ui/radio")
 local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
@@ -128,10 +129,7 @@ function SaveAs:_row(opts)
     local mark
     local mark_w = 0
     if opts.selected ~= nil then
-        mark = TextWidget:new{
-            text = opts.selected and "●" or "○",
-            face = Font:getFace("cfont", 24),
-        }
+        mark = Radio:new{ selected = opts.selected }
         mark_w = mark:getSize().w + sc(12)
     end
     local text_w = inner - action_w - mark_w
