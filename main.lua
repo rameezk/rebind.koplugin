@@ -535,28 +535,27 @@ function Rebind:_findMatches(current, Api, shown, on_results)
     end)
 end
 
+function Rebind:_sourceHandlers(picker, current, shown, close)
+    local function pick(book)
+        shown.book = book
+        self:_useSource(picker, current, shown, book)
+        close()
+    end
+    return {
+        on_match = pick,
+        on_edition = pick,
+        on_none = function()
+            pick(nil)
+        end,
+    }
+end
+
 function Rebind:_sourceRows(picker, current, Api, shown, close)
     local rows = {}
     local proposed = shown.proposed or {}
     local function change_book()
         self:_findMatches(current, Api, shown, function(results)
-            self:_showChooser(results, Api, {
-                on_match = function(book)
-                    shown.book = book
-                    self:_useSource(picker, current, shown, book)
-                    close()
-                end,
-                on_edition = function(edition)
-                    shown.book = edition
-                    self:_useSource(picker, current, shown, edition)
-                    close()
-                end,
-                on_none = function()
-                    shown.book = nil
-                    self:_useSource(picker, current, shown, nil)
-                    close()
-                end,
-            })
+            self:_showChooser(results, Api, self:_sourceHandlers(picker, current, shown, close))
         end)
     end
     local function change_edition()
@@ -610,11 +609,7 @@ function Rebind:_sourceRows(picker, current, Api, shown, close)
         rows[#rows + 1] = {
             title = _("Don't use Hardcover"),
             subtitle = _("Type every value yourself"),
-            on_select = function()
-                shown.book = nil
-                self:_useSource(picker, current, shown, nil)
-                close()
-            end,
+            on_select = self:_sourceHandlers(picker, current, shown, close).on_none,
         }
     end
     return rows

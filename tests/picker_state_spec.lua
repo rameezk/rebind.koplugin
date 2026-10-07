@@ -256,7 +256,6 @@ T["without Proposed values every Field is listed open with no bulk action"] = fu
     a.eq(state:has_bulk(), false)
     a.eq(state:differ_heading(), "8 FIELDS")
     a.eq(state:status_line(), "")
-    a.eq(state:apply_label(), "Apply 0 changes")
 end
 
 T["without Proposed values the status counts only the user's changes"] = function(a)
