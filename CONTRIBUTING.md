@@ -118,15 +118,44 @@ load-bearing. Please use
 |--------|--------------|-------------------|
 | `feat:` | minor | Features |
 | `fix:` | patch | Bug Fixes |
-| `perf:` | patch | Performance |
-| `refactor:` | patch | Refactoring |
-| `docs:` | patch | Documentation |
+| `perf:` | patch | hidden |
+| `refactor:` | patch | hidden |
+| `docs:` | patch | hidden |
 | `test:` | patch | hidden |
 | `ci:` | patch | hidden |
 | `chore:` | patch | hidden |
 
-Anything that isn't a breaking change or a `feat:` results in a patch bump, so
-prefer `chore:` over `feat:` for housekeeping that users won't notice.
+Only Features and Bug Fixes appear in the release notes. A run of only hidden
+commits does not open a release pull request at all; those commits ship with the
+next `feat` or `fix` and stay out of its notes.
+
+### Which type to use
+
+`feat` and `fix` are only for changes a person using Rebind on the device would
+notice. Everything else uses `chore`, `ci`, `test` or `docs`: tooling, the
+devshell, the emulator, CI, tests, refactors and contributor docs. A speed-up
+someone would notice is a `feat` or `fix` worded around its effect ("opening the
+picker is faster on large libraries"), not around how it was done.
+
+### Writing a `feat` or `fix` title
+
+The pull request title becomes the changelog line, so write it as a plain
+sentence about what changed for the person holding the device:
+
+- Describe the change from the user's point of view.
+- Name the screens and actions they can see.
+- Never name modules, functions or refactors.
+- Use the terms in `docs/CONTEXT.md` as plain lowercase words, never as capitalised proper nouns.
+- Keep the Conventional Commit format: `type: lowercase subject`, no trailing period.
+
+| Instead of | Write |
+|------------|-------|
+| `feat: add the Save as summary and screen, rename-only Apply and name-clash check` | `feat: choose the folder, filename and backup on one screen` |
+| `feat: redesign the Picker Field list with radio values, tags, fold and bulk button` | `feat: pick each field's value from a simpler list` |
+| `fix: make Hardcover lookups work in the macOS emulator` | `chore: make Hardcover lookups work in the macOS emulator` |
+| `feat: add a nix flake devshell as the canonical dev environment` | `chore: add a nix flake devshell as the canonical dev environment` |
+
+### Breaking changes
 
 Breaking changes bump the major version. Mark them with a `!` after the type, or
 with a `BREAKING CHANGE:` footer:
@@ -166,8 +195,11 @@ commit being released.
 1. Merging a conventional commit into `main` causes release-please to open (or
    update) a release pull request titled `chore(main): release X.Y.Z`, containing
    the computed version bump and the `CHANGELOG.md` entries.
-2. Review that pull request. It is the changelog - edit it there if the generated
-   notes need wording help.
+2. Review that pull request. Check the version and that every line in the
+   notes reads as a change a person on the device would notice. Fix a wrong line
+   at its source with a commit override (see below), not by editing the release
+   pull request: release-please rebuilds that pull request on every merge into
+   `main`, so edits made there are overwritten.
 3. Merging it tags the release, publishes the GitHub Release, and the same
    workflow builds `dist/rebind.koplugin.zip` and attaches it to that release.
 
@@ -193,6 +225,42 @@ should add override blocks. A maintainer can still add one after the pull
 request is merged, as long as it has not been released yet. It takes effect the
 next time something is merged into `main`. Always check the version and
 changelog in the release pull request before merging it.
+
+### Rewording or retyping a changelog line
+
+Maintainers only. The same override block fixes a merged pull request whose title does not read
+well, or whose type is wrong. Only the header line reaches the changelog, and
+the type on it decides the section. Rewrite the header, or change `feat` or
+`fix` to `chore` to drop the line from the notes. Separate every entry with a
+blank line, otherwise release-please reads them as one:
+
+```
+BEGIN_COMMIT_OVERRIDE
+feat: choose the folder, filename and backup on one screen (#67)
+
+chore: add the name-clash check (#67)
+END_COMMIT_OVERRIDE
+```
+
+An override block belongs to one merged pull request and replaces its whole
+message, so list every entry that pull request should leave in the changelog.
+
+### Hand-written release notes
+
+For a big release the maintainer may replace the generated notes with
+hand-written ones, the way 2.0.0 was done. Do this as the very last step before
+merging the release pull request, and only when nothing else will merge into
+`main` first - the next merge makes release-please rebuild the pull request and
+overwrite the text.
+
+1. Replace the text between the `---` lines in the release pull request body.
+   It becomes the GitHub Release, which Storefront shows on its details screen.
+2. Commit the same text to `CHANGELOG.md` on the release branch.
+3. Merge the release pull request straight away.
+
+Follow the 2.0.0 style: an intro sentence, then bullets that open with a bold
+phrase. Avoid underscores in plain text, which Storefront italicises. Agents
+never edit `CHANGELOG.md`; this is a maintainer step.
 
 ## Questions?
 
