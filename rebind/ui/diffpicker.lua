@@ -423,8 +423,13 @@ function DiffPicker:_source_button(max_width)
     end
     local face = Font:getFace("cfont", SOURCE_FONT_SIZE)
     local arrow = " ▸"
-    local arrow_w = RenderText:sizeUtf8Text(0, math.huge, face, arrow, true, false).x
-    return RenderText:truncateTextByWidth(label, face, max_width - arrow_w) .. arrow, true
+    local function width_of(text)
+        return RenderText:sizeUtf8Text(0, math.huge, face, text, true, true).x
+    end
+    if width_of(label .. arrow) <= max_width then
+        return label .. arrow, true
+    end
+    return RenderText:truncateTextByWidth(label, face, max_width - width_of(arrow), true, true) .. arrow, true
 end
 
 function DiffPicker:_build()
