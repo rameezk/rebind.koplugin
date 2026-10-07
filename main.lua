@@ -182,7 +182,7 @@ function Rebind:onRebind(file)
 
     local available, Api = Hardcover.available()
     if not available then
-        self:_offerManualEdit(file, current, _([[Rebind needs the Hardcover plugin to look books up.
+        self:_offerManualEdit(file, current, nil, _([[Rebind needs the Hardcover plugin to look books up.
 
 Install hardcoverapp.koplugin, add your API token to its hardcover_config.lua, and enable it.
 
@@ -208,14 +208,24 @@ function Rebind:_lookup(file, current, Api)
         Trapper:clear()
 
         if not results or #results == 0 then
-            self:_offerManualEdit(file, current)
+            self:_offerManualEdit(file, current, Api)
             return
         end
 
         if #results == 1 then
-            self:_showDiff(file, current, results[1], Api)
+            self:_showDiff(file, current, results[1], Api, results)
         else
-            self:_showChooser(file, current, results, Api)
+            self:_showChooser(results, Api, {
+                on_match = function(book)
+                    self:_showDiff(file, current, book, Api, results)
+                end,
+                on_edition = function(edition)
+                    self:_showDiff(file, current, edition, Api, results)
+                end,
+                on_none = function()
+                    self:_showDiff(file, current, nil, Api, results)
+                end,
+            })
         end
     end)
 
@@ -229,19 +239,19 @@ function Rebind:_lookup(file, current, Api)
             end,
             choice2_text = _("Edit myself"),
             choice2_callback = function()
-                self:_showDiff(file, current, nil)
+                self:_showDiff(file, current, nil, Api)
             end,
         })
     end
 end
 
-function Rebind:_offerManualEdit(file, current, text)
+function Rebind:_offerManualEdit(file, current, Api, text)
     UIManager:show(ConfirmBox:new{
         text = text or _("No match found on Hardcover.\n\nEdit the metadata yourself?"),
         ok_text = _("Edit"),
         cancel_text = _("Cancel"),
         ok_callback = function()
-            self:_showDiff(file, current, nil)
+            self:_showDiff(file, current, nil, Api)
         end,
     })
 end
@@ -250,7 +260,7 @@ function Rebind:_showEditions(book, Api, on_pick)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             Trapper:info(_("Loading editions…"))
-            local ok, editions, truncated = pcall(function()
+            local ok, editions = pcall(function()
                 return Hardcover.list_editions(Api, book)
             end)
             Trapper:clear()
@@ -275,15 +285,14 @@ function Rebind:_showEditions(book, Api, on_pick)
             end
 
             list = ChoiceList.show{
-                title = truncated and _("Select an edition (most popular first)")
-                    or _("Select an edition"),
+                title = _("Select an edition"),
                 rows = rows,
             }
         end)
     end)
 end
 
-function Rebind:_showChooser(file, current, results, Api)
+function Rebind:_showChooser(results, Api, handlers)
     local chooser
     local rows = {}
     for _i, book in ipairs(results) do
@@ -293,7 +302,7 @@ function Rebind:_showChooser(file, current, results, Api)
             subtitle = Hardcover.match_subtitle(m),
             on_select = function()
                 UIManager:close(chooser)
-                self:_showDiff(file, current, book, Api)
+                handlers.on_match(book)
             end,
         }
         if Api and tonumber(book.book_id) then
@@ -301,7 +310,7 @@ function Rebind:_showChooser(file, current, results, Api)
             row.on_action = function()
                 self:_showEditions(book, Api, function(edition)
                     UIManager:close(chooser)
-                    self:_showDiff(file, current, edition, Api)
+                    handlers.on_edition(edition)
                 end)
             end
         end
@@ -313,7 +322,7 @@ function Rebind:_showChooser(file, current, results, Api)
         subtitle = _("Type the values yourself"),
         on_select = function()
             UIManager:close(chooser)
-            self:_showDiff(file, current, nil)
+            handlers.on_none()
         end,
     }
 
@@ -339,8 +348,9 @@ function Rebind:_translateTargets(current, shown)
     end
 end
 
-function Rebind:_chooseLanguage(picker, current, book, Api, shown)
+function Rebind:_chooseLanguage(picker, current, Api, shown, on_done)
     picker:chooseLanguage(function(code)
+        local book = shown.book
         local name = select(2, resolve_language(code)) or code
         self.settings:saveSetting("preferred_language", code)
         self.settings:flush()
@@ -348,13 +358,14 @@ function Rebind:_chooseLanguage(picker, current, book, Api, shown)
         if not (Api and book and tonumber(book.book_id)) then
             self:_offerGapTranslation(picker, code, name,
                 _("Rebind has no Hardcover match for this book, so it cannot look for a %1 edition."))
+            on_done()
             return
         end
-        self:_pickEditionInLanguage(picker, current, book, Api, code, name, shown)
+        self:_pickEditionInLanguage(picker, current, book, Api, code, name, shown, on_done)
     end)
 end
 
-function Rebind:_pickEditionInLanguage(picker, current, book, Api, code, name, shown)
+function Rebind:_pickEditionInLanguage(picker, current, book, Api, code, name, shown, on_done)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             Trapper:info(T(_("Looking for a %1 edition…"), name))
@@ -366,13 +377,13 @@ function Rebind:_pickEditionInLanguage(picker, current, book, Api, code, name, s
             if not ok or type(editions) ~= "table" or #editions == 0 then
                 self:_offerGapTranslation(picker, code, name,
                     _("Hardcover has no %1 edition of this book."))
+                on_done()
                 return
             end
 
             self:_showEditionList(editions, name, function(edition)
-                local m = Hardcover.extract(edition)
-                shown.proposed = m
-                picker:setFields(Fields.build(current, m), Hardcover.edition_label(m))
+                self:_useSource(picker, current, shown, edition)
+                on_done()
                 self:_offerGapTranslation(picker, code, name,
                     _("Hardcover has no %1 description or genres. Those exist per book, not per edition."))
             end)
@@ -491,33 +502,142 @@ function Rebind:_translateText(text, target)
     return table.concat(parts)
 end
 
-function Rebind:_showDiff(file, current, book, Api)
-    local proposed = book and Hardcover.extract(book) or {}
-    local manual = book == nil
-    local shown = { proposed = proposed }
+function Rebind:_useSource(picker, current, shown, source)
+    local m = source and Hardcover.extract(source) or {}
+    shown.proposed = m
+    picker:setFields(Fields.build(current, m), m.edition_id and Hardcover.edition_label(m) or nil)
+end
 
-    local on_choose_edition
-    if Api and tonumber(proposed.book_id) then
-        on_choose_edition = function(picker)
-            self:_showEditions(book, Api, function(edition)
-                local m = Hardcover.extract(edition)
-                shown.proposed = m
-                picker:setFields(Fields.build(current, m), Hardcover.edition_label(m))
+function Rebind:_findMatches(current, Api, shown, on_results)
+    if #shown.results > 0 then
+        on_results(shown.results)
+        return
+    end
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            Trapper:info(_("Looking up on Hardcover…"))
+            local ok, results = pcall(function()
+                return Hardcover.lookup(Api, current)
             end)
+            Trapper:clear()
+            if not ok then
+                info(_("Hardcover lookup failed:\n") .. tostring(results))
+                return
+            end
+            if type(results) ~= "table" or #results == 0 then
+                info(_("No match found on Hardcover."))
+                return
+            end
+            shown.results = results
+            on_results(results)
+        end)
+    end)
+end
+
+function Rebind:_sourceHandlers(picker, current, shown, close)
+    local function pick(book)
+        shown.book = book
+        self:_useSource(picker, current, shown, book)
+        close()
+    end
+    return {
+        on_match = pick,
+        on_edition = pick,
+        on_none = function()
+            pick(nil)
+        end,
+    }
+end
+
+function Rebind:_sourceRows(picker, current, Api, shown, close)
+    local rows = {}
+    local proposed = shown.proposed or {}
+    local function change_book()
+        self:_findMatches(current, Api, shown, function(results)
+            self:_showChooser(results, Api, self:_sourceHandlers(picker, current, shown, close))
+        end)
+    end
+    local function change_edition()
+        self:_showEditions(shown.book, Api, function(edition)
+            self:_useSource(picker, current, shown, edition)
+            close()
+        end)
+    end
+    local function change_language()
+        self:_chooseLanguage(picker, current, Api, shown, close)
+    end
+
+    local book_text = _("None")
+    if shown.book and proposed.title then
+        book_text = proposed.title
+        if proposed.authors and proposed.authors[1] then
+            book_text = book_text .. " · " .. proposed.authors[1]
         end
     end
+    if Api then
+        rows[#rows + 1] = {
+            title = _("Book"),
+            subtitle = book_text,
+            action_text = _("Change ▸"),
+            on_select = change_book,
+            on_action = change_book,
+        }
+    end
+    if Api and shown.book and tonumber(shown.book.book_id) then
+        local edition_text = proposed.edition_id and Hardcover.edition_label(proposed) or ""
+        if edition_text == "" then
+            edition_text = _("Default")
+        end
+        rows[#rows + 1] = {
+            title = _("Edition"),
+            subtitle = edition_text,
+            action_text = _("Change ▸"),
+            on_select = change_edition,
+            on_action = change_edition,
+        }
+    end
+    local code = proposed.language or (current and current.language)
+    rows[#rows + 1] = {
+        title = _("Language"),
+        subtitle = code and (select(2, resolve_language(code)) or code) or _("Unknown"),
+        action_text = _("Change ▸"),
+        on_select = change_language,
+        on_action = change_language,
+    }
+    if shown.book then
+        rows[#rows + 1] = {
+            title = _("Don't use Hardcover"),
+            subtitle = _("Type every value yourself"),
+            on_select = self:_sourceHandlers(picker, current, shown, close).on_none,
+        }
+    end
+    return rows
+end
+
+function Rebind:_showSource(picker, current, Api, shown)
+    local list
+    local function close()
+        UIManager:close(list, "ui")
+    end
+    list = ChoiceList.show{
+        title = _("Source"),
+        rows = self:_sourceRows(picker, current, Api, shown, close),
+    }
+end
+
+function Rebind:_showDiff(file, current, book, Api, results)
+    local proposed = book and Hardcover.extract(book) or {}
+    local shown = { book = book, proposed = proposed, results = results or {} }
 
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
-        subtitle = manual and _("Use Edit to change a value")
-            or _("Pick a value per field, or use Edit to change one"),
         edition_label = proposed.edition_id and Hardcover.edition_label(proposed) or nil,
-        on_choose_edition = on_choose_edition,
+        hardcover_missing = Api == nil,
+        on_open_source = Api and function(picker)
+            self:_showSource(picker, current, Api, shown)
+        end or nil,
         translate_targets = self:_translateTargets(current, shown),
         on_translate = self:_translateHandler(),
-        on_choose_language = function(picker)
-            self:_chooseLanguage(picker, current, book, Api, shown)
-        end,
         keep_backup = self:keepBackup(),
         move_to_sorted = self.settings:isTrue("move_after_rebind"),
         rename_file = self:renameFile(),

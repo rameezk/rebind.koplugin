@@ -35,8 +35,21 @@ function PickerState:_differs(field)
     return field.display(field.new_value) ~= field.display(field.current_value)
 end
 
+function PickerState:manual()
+    for _i, f in ipairs(self.fields) do
+        if not f.is_empty(f.new_value) then
+            return false
+        end
+    end
+    return true
+end
+
+function PickerState:has_bulk()
+    return not self:manual()
+end
+
 function PickerState:_listed(field)
-    return self:_differs(field) or self.extra[field.key] ~= nil
+    return self:manual() or self:_differs(field) or self.extra[field.key] ~= nil
 end
 
 function PickerState:differing_fields()
@@ -69,6 +82,9 @@ end
 
 function PickerState:differ_heading()
     local n = #self:differing_fields()
+    if self:manual() then
+        return string.format(_("%d FIELDS"), n)
+    end
     if n == 0 then
         return _("NO FIELDS DIFFER")
     elseif n == 1 then
@@ -108,7 +124,9 @@ function PickerState:status_line()
     local counts = {}
     for _i, f in ipairs(self:differing_fields()) do
         local choice = self:_source(f)
-        counts[choice] = (counts[choice] or 0) + 1
+        if not (self:manual() and choice == "current") then
+            counts[choice] = (counts[choice] or 0) + 1
+        end
     end
     local parts = {}
     for _i, source in ipairs(SOURCE_ORDER) do

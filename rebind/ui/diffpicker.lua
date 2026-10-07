@@ -41,7 +41,6 @@ local DiffPicker = InputContainer:extend{
     fields = nil,
     state = nil,
     on_apply = nil,
-    subtitle = nil,
     keep_backup = nil,
     move_to_sorted = nil,
     rename_file = nil,
@@ -55,10 +54,10 @@ local DiffPicker = InputContainer:extend{
     custom_folder_template = nil,
     on_custom_folder_template = nil,
     edition_label = nil,
-    on_choose_edition = nil,
+    on_open_source = nil,
+    hardcover_missing = false,
     translate_targets = nil,
     on_translate = nil,
-    on_choose_language = nil,
     matching_open = false,
 }
 
@@ -418,6 +417,26 @@ function DiffPicker:_edit_series(field, seed)
     dialog:onShowKeyboard()
 end
 
+function DiffPicker:_source_button()
+    if self.state:manual() then
+        if self.hardcover_missing then
+            return _("Hardcover plugin not installed"), false
+        end
+        if self.on_open_source then
+            return _("Not using Hardcover ▸"), true
+        end
+        return _("Not using Hardcover"), false
+    end
+    local label = "Hardcover"
+    if self.edition_label and self.edition_label ~= "" then
+        label = label .. " · " .. self.edition_label
+    end
+    if self.on_open_source then
+        return label .. " ▸", true
+    end
+    return label, false
+end
+
 function DiffPicker:_build()
     local footer_inner = self.width - 2 * Size.padding.default
     local view_w = self.width - 3 * ScrollableContainer.scroll_bar_width
@@ -434,65 +453,26 @@ function DiffPicker:_build()
             self:onClose()
         end,
     }
-    local title = TextWidget:new{
-        text = _("Update metadata"),
-        face = Font:getFace("tfont", 22),
-        max_width = content_inner - sc(48) - sc(8),
+    local source_text, source_enabled = self:_source_button()
+    local source_btn = Button:new{
+        text = source_text,
+        enabled = source_enabled,
+        radius = sc(4),
+        padding = sc(8),
+        bordersize = Size.border.button,
+        width = content_inner - sc(48) - sc(8),
+        show_parent = self,
+        callback = function()
+            self.on_open_source(self)
+        end,
     }
 
-    local header_group = VerticalGroup:new{
-        align = "left",
-        HorizontalGroup:new{
-            align = "center",
-            LeftContainer:new{
-                dimen = Geom:new{ w = content_inner - sc(48) - sc(8), h = title:getSize().h },
-                title,
-            },
-            HorizontalSpan:new{ width = sc(8) },
-            close_btn,
-        },
-        VerticalSpan:new{ width = sc(2) },
-        TextWidget:new{
-            text = self.subtitle or _("Choose a value for each field"),
-            face = Font:getFace("cfont", 15),
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-            max_width = content_inner,
-        },
+    local header_group = HorizontalGroup:new{
+        align = "center",
+        source_btn,
+        HorizontalSpan:new{ width = sc(8) },
+        close_btn,
     }
-
-    if self.on_choose_language then
-        table.insert(header_group, VerticalSpan:new{ width = sc(6) })
-        table.insert(header_group, Button:new{
-            text = _("Another language ▸"),
-            radius = sc(4),
-            padding = sc(8),
-            bordersize = Size.border.button,
-            width = content_inner,
-            show_parent = self,
-            callback = function()
-                self.on_choose_language(self)
-            end,
-        })
-    end
-
-    if self.on_choose_edition then
-        local label = self.edition_label
-        if label == nil or label == "" then
-            label = _("default")
-        end
-        table.insert(header_group, VerticalSpan:new{ width = sc(6) })
-        table.insert(header_group, Button:new{
-            text = _("Edition: ") .. label .. " ▸",
-            radius = sc(4),
-            padding = sc(8),
-            bordersize = Size.border.button,
-            width = content_inner,
-            show_parent = self,
-            callback = function()
-                self.on_choose_edition(self)
-            end,
-        })
-    end
 
     local header = FrameContainer:new{
         bordersize = 0,
@@ -527,7 +507,7 @@ function DiffPicker:_build()
         status_group,
         HorizontalSpan:new{ width = sc(8) },
     }
-    if #differing > 0 then
+    if self.state:has_bulk() and #differing > 0 then
         table.insert(status_row, Button:new{
             text = self.state:bulk_label(),
             radius = sc(4),
