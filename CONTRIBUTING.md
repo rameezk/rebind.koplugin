@@ -180,15 +180,19 @@ message:
 
 ```
 BEGIN_COMMIT_OVERRIDE
-chore: prepare the 2.0.0 release
+chore: prepare the 2.0.0 release (#NN)
 
 Release-As: 2.0.0
 END_COMMIT_OVERRIDE
 ```
 
 The block replaces the whole message for that pull request, so its first line
-must be a conventional commit header. It can be added or edited after the pull
-request is merged, and takes effect the next time release-please runs.
+must be a conventional commit header. Keep the pull request number, written
+here as `(#NN)`, so the changelog entry still links to it. Only maintainers
+should add override blocks. A maintainer can still add one after the pull
+request is merged, as long as it has not been released yet. It takes effect the
+next time something is merged into `main`. Always check the version and
+changelog in the release pull request before merging it.
 
 ## Questions?
 
