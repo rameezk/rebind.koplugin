@@ -400,16 +400,25 @@ function Organize.destination(source_path, meta, opts)
     return dir .. "/" .. name
 end
 
-local function file_exists(path)
+local function is_other_file(source_path, dest)
     local lfs = require("libs/libkoreader-lfs")
-    return lfs.attributes(path, "mode") ~= nil
+    local found = lfs.attributes(dest)
+    if not found then
+        return false
+    end
+    local source = lfs.attributes(source_path)
+    local same = source and source.ino and source.ino ~= 0 and source.dev == found.dev and source.ino == found.ino
+    return not same
 end
 
 function Organize.clash(source_path, dest, exists)
     if dest == source_path then
         return false
     end
-    return (exists or file_exists)(dest)
+    if exists then
+        return exists(dest)
+    end
+    return is_other_file(source_path, dest)
 end
 
 function Organize.relocate(source_path, dest)

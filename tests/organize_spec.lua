@@ -437,6 +437,29 @@ T["clash reports a file already at a different destination"] = function(a)
     a.eq(Organize.clash("/in/dune.epub", "/lib/Other.epub", exists), false)
 end
 
+T["clash does not report a case-only rename of the file itself on a case-insensitive filesystem"] = function(a)
+    local saved = package.loaded["libs/libkoreader-lfs"]
+    package.loaded["libs/libkoreader-lfs"] = {
+        attributes = function(path, what)
+            if path:lower() ~= "/in/dune.epub" then
+                return nil
+            end
+            local attrs = { mode = "file", dev = 1, ino = 7 }
+            if what then
+                return attrs[what]
+            end
+            return attrs
+        end,
+    }
+    local ok, err = pcall(function()
+        a.eq(Organize.clash("/in/dune.epub", "/in/Dune.epub"), false)
+    end)
+    package.loaded["libs/libkoreader-lfs"] = saved
+    if not ok then
+        error(err, 0)
+    end
+end
+
 T["clash never reports the file being its own destination"] = function(a)
     a.eq(Organize.clash("/in/dune.epub", "/in/dune.epub", function()
         return true

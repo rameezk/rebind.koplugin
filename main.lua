@@ -649,7 +649,7 @@ function Rebind:_showDiff(file, current, book, Api, results)
             source_path = file,
             metadata = current,
             root = self:sortedRoot(),
-            sort = self.settings:isTrue("move_after_rebind"),
+            sort = self.settings:isTrue("move_after_rebind") and self:sortedRoot() ~= nil,
             rename = self:renameFile(),
             keep_backup = self:keepBackup(),
             filename_template = self:filenameTemplate(),
