@@ -11,12 +11,28 @@ function FakeApi.new(opts)
         genres = opts.genres,
         editions = opts.editions,
         editions_error = opts.editions_error,
+        defaults = opts.defaults,
+        defaults_error = opts.defaults_error,
         query_error = opts.query_error,
         calls = {},
     }, FakeApi)
 end
 
 function FakeApi:query(query, parameters)
+    if query:match("default_ebook_edition") then
+        self.calls.defaults_query = { query = query, parameters = parameters }
+        if self.defaults_error then
+            error(self.defaults_error)
+        end
+        if not self.defaults then
+            return nil
+        end
+        return { books_by_pk = {
+            default_ebook_edition = self.defaults.ebook,
+            default_physical_edition = self.defaults.physical,
+        } }
+    end
+
     if query:match("editions") then
         self.calls.editions_query = { query = query, parameters = parameters }
         if self.editions_error then
@@ -26,12 +42,16 @@ function FakeApi:query(query, parameters)
             return nil
         end
         local limit = parameters and parameters.limit
+        local language = parameters and parameters.language
         local rows = {}
-        for i, edition in ipairs(self.editions) do
-            if limit and i > limit then
+        for _, edition in ipairs(self.editions) do
+            if limit and #rows >= limit then
                 break
             end
-            rows[i] = edition
+            local code = type(edition.language) == "table" and edition.language.code2
+            if not language or code == language then
+                rows[#rows + 1] = edition
+            end
         end
         return { editions = rows }
     end

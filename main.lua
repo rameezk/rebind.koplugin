@@ -209,6 +209,21 @@ function Rebind:_startLookup(file, current, Api)
     end)
 end
 
+function Rebind:_withAutoEdition(current, Api, book, done)
+    if not (Api and book and not book.edition_id and tonumber(book.book_id)) then
+        done(book)
+        return
+    end
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            Trapper:info(_("Looking for an edition…"))
+            local ok, edition = pcall(Hardcover.pick_default_edition, Api, book, current and current.language)
+            Trapper:clear()
+            done(ok and edition or book)
+        end)
+    end)
+end
+
 function Rebind:_lookup(file, current, Api)
     local busy = Logo.show_message(_("Looking up on Hardcover…"))
     local ok, err = pcall(function()
@@ -221,11 +236,15 @@ function Rebind:_lookup(file, current, Api)
         end
 
         if #results == 1 then
-            self:_showDiff(file, current, results[1], Api, results)
+            self:_withAutoEdition(current, Api, results[1], function(book)
+                self:_showDiff(file, current, book, Api, results)
+            end)
         else
             self:_showChooser(results, Api, {
                 on_match = function(book)
-                    self:_showDiff(file, current, book, Api, results)
+                    self:_withAutoEdition(current, Api, book, function(chosen)
+                        self:_showDiff(file, current, chosen, Api, results)
+                    end)
                 end,
                 on_edition = function(edition)
                     self:_showDiff(file, current, edition, Api, results)
@@ -542,14 +561,16 @@ function Rebind:_findMatches(current, Api, shown, on_results)
     end)
 end
 
-function Rebind:_sourceHandlers(picker, current, shown, close)
+function Rebind:_sourceHandlers(picker, current, Api, shown, close)
     local function pick(book)
         shown.book = book
         self:_useSource(picker, current, shown, book)
         close()
     end
     return {
-        on_match = pick,
+        on_match = function(book)
+            self:_withAutoEdition(current, Api, book, pick)
+        end,
         on_edition = pick,
         on_none = function()
             pick(nil)
@@ -562,7 +583,7 @@ function Rebind:_sourceRows(picker, current, Api, shown, close)
     local proposed = shown.proposed or {}
     local function change_book()
         self:_findMatches(current, Api, shown, function(results)
-            self:_showChooser(results, Api, self:_sourceHandlers(picker, current, shown, close))
+            self:_showChooser(results, Api, self:_sourceHandlers(picker, current, Api, shown, close))
         end)
     end
     local function change_edition()
@@ -594,7 +615,7 @@ function Rebind:_sourceRows(picker, current, Api, shown, close)
     if Api and shown.book and tonumber(shown.book.book_id) then
         local edition_text = proposed.edition_id and Hardcover.edition_label(proposed) or ""
         if edition_text == "" then
-            edition_text = _("Default")
+            edition_text = _("None chosen")
         end
         rows[#rows + 1] = {
             title = _("Edition"),
@@ -616,7 +637,7 @@ function Rebind:_sourceRows(picker, current, Api, shown, close)
         rows[#rows + 1] = {
             title = _("Don't use Hardcover"),
             subtitle = _("Type every value yourself"),
-            on_select = self:_sourceHandlers(picker, current, shown, close).on_none,
+            on_select = self:_sourceHandlers(picker, current, Api, shown, close).on_none,
         }
     end
     return rows
