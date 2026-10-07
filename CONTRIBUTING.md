@@ -171,14 +171,24 @@ commit being released.
 3. Merging it tags the release, publishes the GitHub Release, and the same
    workflow builds `dist/rebind.koplugin.zip` and attaches it to that release.
 
-To force a specific version regardless of commit types, add a `Release-As:`
-footer to a commit:
+To force a specific version regardless of commit types, the commit that lands
+on `main` needs a `Release-As:` footer. Pull requests are squash-merged and the
+squash commit keeps only the pull request title, so a footer on a branch commit
+never reaches `main`. Put it in the pull request body instead, inside a commit
+override block, which release-please reads in place of the squash commit
+message:
 
 ```
+BEGIN_COMMIT_OVERRIDE
 chore: prepare the 2.0.0 release
 
 Release-As: 2.0.0
+END_COMMIT_OVERRIDE
 ```
+
+The block replaces the whole message for that pull request, so its first line
+must be a conventional commit header. It can be added or edited after the pull
+request is merged, and takes effect the next time release-please runs.
 
 ## Questions?
 
