@@ -431,29 +431,25 @@ function DiffPicker:_build()
     }
     local source_text, source_enabled = self:_source_button()
     local logo_gap = sc(8)
-    local logo_size = Button:new{
-        text = source_text,
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = content_inner,
-    }:getSize().h
-    local source_btn = Button:new{
+    local source_opts = {
         text = source_text,
         enabled = source_enabled,
         radius = sc(4),
         padding = sc(8),
         bordersize = Size.border.button,
-        width = content_inner - sc(48) - sc(8) - logo_size - logo_gap,
         show_parent = self,
         callback = function()
             self.on_open_source(self)
         end,
     }
+    source_opts.width = content_inner
+    local header_height = Button:new(source_opts):getSize().h
+    source_opts.width = content_inner - sc(48) - sc(8) - header_height - logo_gap
+    local source_btn = Button:new(source_opts)
 
     local header_group = HorizontalGroup:new{
         align = "center",
-        Logo.widget(logo_size),
+        Logo.widget(header_height),
         HorizontalSpan:new{ width = logo_gap },
         source_btn,
         HorizontalSpan:new{ width = sc(8) },
