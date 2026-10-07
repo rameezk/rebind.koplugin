@@ -230,7 +230,7 @@ Turn on **Sort book** and, after applying, Rebind offers to file the book away. 
 first time, it asks for a destination folder, prefilled to your KOReader home folder
 and remembered per device. Then you pick the layout:
 
-- **The folder path** (`Author / Title /` by default): a sorted tree, `<root>/<Author, Surname-first>/<Title>/<file.epub>`. The button shows the path rendered for this book. Pick the layout under **Naming…**, **Folder template**: `Author / Title`, `Author`, `Author / Series` or `Author / Series / Title` - or write your own with **Custom…**. A series folder is left out when the book has no series.
+- **The folder path** (`Author / Title /` by default): a tree under your library folder, `<library>/<Author, Surname-first>/<Title>/<file.epub>`. The button shows the path rendered for this book. Pick the layout under **Naming…**, **Folder template**: `Author / Title`, `Author`, `Author / Series` or `Author / Series / Title` - or write your own with **Custom…**. A series folder is left out when the book has no series.
 - **Directly in this folder**: just move the file into the chosen folder
 - **Keep here**: don't move
 
