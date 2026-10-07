@@ -248,4 +248,41 @@ T["a Description differing only past the preview limit is still written"] = func
     a.eq(state:changes().description, shared .. " new")
 end
 
+T["without Proposed values every Field is listed open with no bulk action"] = function(a)
+    local state = PickerState.new(Fields.build(CURRENT, {}))
+    a.eq(state:manual(), true)
+    a.eq(#state:differing_fields(), 8)
+    a.eq(#state:matching_fields(), 0)
+    a.eq(state:has_bulk(), false)
+    a.eq(state:differ_heading(), "8 FIELDS")
+    a.eq(state:status_line(), "")
+    a.eq(state:apply_label(), "Apply 0 changes")
+end
+
+T["without Proposed values the status counts only the user's changes"] = function(a)
+    local fields = Fields.build(CURRENT, {})
+    local state = PickerState.new(fields)
+    state:save_custom("genre", field_for(fields, "genre").from_input("Western"))
+    state:save_custom("series", field_for(fields, "series").from_input({ name = "", index = "" }))
+    state:save_translated("description", "Nouvelle description.")
+    a.eq(state:status_line(), "Custom values: 1 · Translated values: 1 · Removed: 1")
+end
+
+T["a Match with Proposed values is not manual and has a bulk action"] = function(a)
+    local state = open()
+    a.eq(state:manual(), false)
+    a.eq(state:has_bulk(), true)
+end
+
+T["dropping Hardcover keeps Custom values and lists every Field open"] = function(a)
+    local state, fields = open()
+    state:save_custom("genre", field_for(fields, "genre").from_input("Fantasy"))
+    state:set_fields(Fields.build(CURRENT, {}))
+    a.eq(state:manual(), true)
+    a.eq(state:selection("genre"), "custom")
+    a.eq(state:selection("series"), "current")
+    a.eq(state:status_line(), "Custom values: 1")
+    a.eq(tags_of(state, "series"), "book")
+end
+
 return T
