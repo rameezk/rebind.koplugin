@@ -395,4 +395,89 @@ T["extract proposes First published only when Hardcover gives a 4-digit year"] =
     a.eq(Hardcover.extract({ book_id = 7, release_year = 19840 }).first_published, nil)
 end
 
+T["pick_default_edition returns the default ebook edition in the book's language"] = function(a)
+    local api = FakeApi.new({
+        defaults = {
+            ebook = { id = 11, edition_format = "Kindle", language = { code2 = "en" } },
+            physical = { id = 12, edition_format = "Hardcover", language = { code2 = "en" } },
+        },
+    })
+    local edition = Hardcover.pick_default_edition(api, { book_id = 7, title = "Dune" }, "en")
+    a.eq(edition.edition_id, 11)
+    a.eq(edition.book_id, 7)
+    a.eq(edition.is_edition, true)
+    a.eq(api.calls.defaults_query.parameters.book_id, 7)
+end
+
+T["pick_default_edition skips default editions in another language for the most-read one in the book's"] = function(a)
+    local api = FakeApi.new({
+        defaults = {
+            ebook = { id = 11, language = { code2 = "en" } },
+            physical = { id = 12, language = { code2 = "en" } },
+        },
+        editions = { { id = 21, language = { code2 = "de" } }, { id = 22, language = { code2 = "de" } } },
+    })
+    local edition = Hardcover.pick_default_edition(api, { book_id = 7 }, "de")
+    a.eq(edition.edition_id, 21)
+    a.eq(api.calls.editions_query.parameters.language, "de")
+end
+
+T["pick_default_edition falls to the default physical edition when there is no default ebook edition"] = function(a)
+    local api = FakeApi.new({
+        defaults = { physical = { id = 12, language = { code2 = "en" } } },
+        editions = { { id = 21, language = { code2 = "en" } } },
+    })
+    local edition = Hardcover.pick_default_edition(api, { book_id = 7 }, "en")
+    a.eq(edition.edition_id, 12)
+end
+
+T["pick_default_edition takes the default ebook edition when the book's language is unknown"] = function(a)
+    for _, language in ipairs({ false, "", "  " }) do
+        local api = FakeApi.new({ defaults = { ebook = { id = 11, language = { code2 = "fr" } } } })
+        local edition = Hardcover.pick_default_edition(api, { book_id = 7 }, language or nil)
+        a.eq(edition.edition_id, 11)
+        a.eq(api.calls.editions_query, nil)
+    end
+end
+
+T["pick_default_edition matches a regional language tag on its base code"] = function(a)
+    local api = FakeApi.new({ defaults = { ebook = { id = 11, language = { code2 = "en" } } } })
+    local edition = Hardcover.pick_default_edition(api, { book_id = 7 }, "en-US")
+    a.eq(edition.edition_id, 11)
+end
+
+T["pick_default_edition falls back across languages in order when the book's language has no edition"] = function(a)
+    local function pick(defaults)
+        local api = FakeApi.new({ defaults = defaults, editions = { { id = 21, language = { code2 = "fr" } } } })
+        local edition = Hardcover.pick_default_edition(api, { book_id = 7 }, "is")
+        return edition and edition.edition_id
+    end
+    local ebook = { id = 11, language = { code2 = "en" } }
+    local physical = { id = 12, language = { code2 = "en" } }
+    a.eq(pick({ ebook = ebook, physical = physical }), 11)
+    a.eq(pick({ physical = physical }), 12)
+    a.eq(pick({}), 21)
+end
+
+T["pick_default_edition never picks an audiobook"] = function(a)
+    local api = FakeApi.new({
+        defaults = {
+            ebook = { id = 11, edition_format = "Audiobook" },
+            physical = { id = 12, reading_format_id = 2 },
+        },
+        editions = { { id = 21, edition_format = "Audio CD" } },
+    })
+    a.eq(Hardcover.pick_default_edition(api, { book_id = 7 }, "en"), nil)
+    a.eq(Hardcover.pick_default_edition(api, { book_id = 7 }), nil)
+end
+
+T["pick_default_edition returns nothing when the query fails or there is nothing to ask about"] = function(a)
+    local failing = FakeApi.new({ defaults_error = "boom", editions = { { id = 21 } } })
+    a.eq(Hardcover.pick_default_edition(failing, { book_id = 7 }, "en"), nil)
+    local empty = FakeApi.new({})
+    a.eq(Hardcover.pick_default_edition(empty, { book_id = 7 }, "en"), nil)
+    a.eq(Hardcover.pick_default_edition(FakeApi.new({ defaults = {} }), { title = "No id" }), nil)
+    a.eq(Hardcover.pick_default_edition({}, { book_id = 7 }), nil)
+end
+
 return T

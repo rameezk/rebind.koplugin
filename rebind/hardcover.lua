@@ -1,4 +1,5 @@
 local _ = require("gettext")
+local Translate = require("rebind/translate")
 
 local Hardcover = {
     _user_id = nil,
@@ -328,6 +329,28 @@ local function release_year_of(release_date)
     return release_date:match("^(%d%d%d%d)%-")
 end
 
+local function edition_entry(row, book, book_id)
+    return {
+        book_id = book_id,
+        edition_id = row.id,
+        is_edition = true,
+        book_release_year = book.book_release_year or book.release_year,
+        title = row.title or book.title,
+        contributions = book.contributions,
+        book_series = book.book_series,
+        description = book.description,
+        genres = book.genres,
+        cached_tags = book.cached_tags,
+        users_read_count = book.users_read_count,
+        edition_format = edition_format_name(row),
+        release_year = release_year_of(row.release_date),
+        language = row.language,
+        publisher = row.publisher,
+        pages = row.pages,
+        users_count = row.users_count,
+    }
+end
+
 function Hardcover.list_editions(Api, book, language)
     if type(book) ~= "table" or type(Api) ~= "table" or type(Api.query) ~= "function" then
         return {}, false
@@ -357,28 +380,75 @@ function Hardcover.list_editions(Api, book, language)
             if #out >= EDITION_LIMIT then
                 return out, true
             end
-            out[#out + 1] = {
-                book_id = book_id,
-                edition_id = row.id,
-                is_edition = true,
-                book_release_year = book.book_release_year or book.release_year,
-                title = row.title or book.title,
-                contributions = book.contributions,
-                book_series = book.book_series,
-                description = book.description,
-                genres = book.genres,
-                cached_tags = book.cached_tags,
-                users_read_count = book.users_read_count,
-                edition_format = edition_format_name(row),
-                release_year = release_year_of(row.release_date),
-                language = row.language,
-                publisher = row.publisher,
-                pages = row.pages,
-                users_count = row.users_count,
-            }
+            out[#out + 1] = edition_entry(row, book, book_id)
         end
     end
     return out, false
+end
+
+local DEFAULT_EDITIONS_QUERY = [[
+    query ($book_id: Int!) {
+      books_by_pk(id: $book_id) {
+        default_ebook_edition {
+]] .. EDITION_FIELDS .. [[
+        }
+        default_physical_edition {
+]] .. EDITION_FIELDS .. [[
+        }
+      }
+    }
+]]
+
+local function in_language(row, language)
+    return language == nil or Translate.normalize(language_code(row.language)) == language
+end
+
+local DEFAULT_KEYS = { "default_ebook_edition", "default_physical_edition" }
+
+function Hardcover.pick_default_edition(Api, book, language)
+    if type(book) ~= "table" or type(Api) ~= "table" or type(Api.query) ~= "function" then
+        return nil
+    end
+    local book_id = tonumber(book.book_id)
+    if not book_id then
+        return nil
+    end
+    language = Translate.normalize(language)
+    local ok, result = pcall(function()
+        return Api:query(DEFAULT_EDITIONS_QUERY, { book_id = book_id })
+    end)
+    local row_of_book = ok and type(result) == "table" and result.books_by_pk
+    if type(row_of_book) ~= "table" then
+        return nil
+    end
+    local defaults = {}
+    for _i, key in ipairs(DEFAULT_KEYS) do
+        local row = row_of_book[key]
+        if type(row) == "table" and not is_audiobook(row) then
+            defaults[key] = row
+        end
+    end
+
+    for _i, key in ipairs(DEFAULT_KEYS) do
+        local row = defaults[key]
+        if row and in_language(row, language) then
+            return edition_entry(row, book, book_id)
+        end
+    end
+
+    if language then
+        local editions = Hardcover.list_editions(Api, book, language)
+        if editions[1] then
+            return editions[1]
+        end
+    end
+
+    for _i, key in ipairs(DEFAULT_KEYS) do
+        if defaults[key] then
+            return edition_entry(defaults[key], book, book_id)
+        end
+    end
+    return Hardcover.list_editions(Api, book)[1]
 end
 
 function Hardcover.lookup(Api, meta)
