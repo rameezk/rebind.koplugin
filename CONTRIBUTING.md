@@ -135,7 +135,7 @@ next `feat` or `fix` and stay out of its notes.
 notice. Everything else uses `chore`, `ci`, `test` or `docs`: tooling, the
 devshell, the emulator, CI, tests, refactors and contributor docs. A speed-up
 someone would notice is a `feat` or `fix` worded around its effect ("opening the
-Picker is faster on large libraries"), not around how it was done.
+picker is faster on large libraries"), not around how it was done.
 
 ### Writing a `feat` or `fix` title
 
@@ -228,7 +228,7 @@ changelog in the release pull request before merging it.
 
 ### Rewording or retyping a changelog line
 
-The same override block fixes a merged pull request whose title does not read
+Maintainers only. The same override block fixes a merged pull request whose title does not read
 well, or whose type is wrong. Only the header line reaches the changelog, and
 the type on it decides the section. Rewrite the header, or change `feat` or
 `fix` to `chore` to drop the line from the notes. Separate every entry with a
