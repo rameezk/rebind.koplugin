@@ -1,6 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
-local ButtonDialog = require("ui/widget/buttondialog")
 local ButtonTable = require("ui/widget/buttontable")
 local Device = require("device")
 local Font = require("ui/font")
@@ -23,6 +22,7 @@ local util = require("util")
 local _ = require("gettext")
 
 local Organize = require("rebind/organize")
+local Radio = require("rebind/ui/radio")
 local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
@@ -84,10 +84,7 @@ function TemplateList:init()
             }
             edit_w = edit_btn:getSize().w + sc(8)
         end
-        local mark = TextWidget:new{
-            text = row.selected and "●" or "○",
-            face = Font:getFace("cfont", 24),
-        }
+        local mark = Radio:new{ selected = row.selected }
         local text_w = inner - mark:getSize().w - sc(12) - edit_w
         local lines = VerticalGroup:new{
             align = "left",
@@ -453,41 +450,7 @@ function Naming.show(opts)
         UIManager:show(list)
     end
 
-    local menu
-    local function open_menu()
-        local function entry(kind)
-            local section = sections[kind]
-            return {
-                {
-                    text = section.title .. ":  " .. section.label(selected[kind]),
-                    align = "left",
-                    callback = function()
-                        UIManager:close(menu)
-                        show_list(kind, open_menu)
-                    end,
-                },
-            }
-        end
-        menu = ButtonDialog:new{
-            title = _("Naming"),
-            title_align = "center",
-            buttons = {
-                entry("filename"),
-                entry("folder"),
-                {
-                    {
-                        text = _("Close"),
-                        callback = function()
-                            UIManager:close(menu)
-                        end,
-                    },
-                },
-            },
-        }
-        UIManager:show(menu)
-    end
-
-    open_menu()
+    show_list(opts.kind, opts.on_close)
 end
 
 return Naming

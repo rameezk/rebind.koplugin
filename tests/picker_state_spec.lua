@@ -284,4 +284,113 @@ T["dropping Hardcover keeps Custom values and lists every Field open"] = functio
     a.eq(tags_of(state, "series"), "book")
 end
 
+local function save_as(overrides)
+    local cfg = {
+        source_path = "/inbox/book.epub",
+        metadata = CURRENT,
+        root = "/lib",
+        sort = false,
+        rename = false,
+        keep_backup = true,
+        filename_template = "%title - %author",
+        folder_template = "%author_sort/%title",
+        exists = function()
+            return false
+        end,
+    }
+    for k, v in pairs(overrides or {}) do
+        cfg[k] = v
+    end
+    return cfg
+end
+
+local function on_book_values(cfg)
+    local state = open()
+    state:bulk()
+    state:set_save_as(save_as(cfg))
+    return state
+end
+
+T["Apply says Rename and move when only Save as would rename and Sort"] = function(a)
+    local state = on_book_values({ rename = true, sort = true })
+    a.eq(state:apply_label(), "Rename and move")
+    a.eq(state:apply_enabled(), true)
+    a.eq(next(state:changes()), nil)
+end
+
+T["Apply says Rename when only the name would change"] = function(a)
+    local state = on_book_values({ rename = true })
+    a.eq(state:apply_label(), "Rename")
+    a.eq(state:apply_enabled(), true)
+end
+
+T["Apply says Move when only the folder would change"] = function(a)
+    local state = on_book_values({ sort = true })
+    a.eq(state:apply_label(), "Move")
+    a.eq(state:apply_enabled(), true)
+end
+
+T["Apply says No changes and is disabled when nothing would change"] = function(a)
+    local state = on_book_values({})
+    a.eq(state:apply_label(), "No changes")
+    a.eq(state:apply_enabled(), false)
+end
+
+T["Sort without a Sorted library leaves the file where it is"] = function(a)
+    local state = on_book_values({ sort = true, root = false })
+    a.eq(state:apply_label(), "No changes")
+end
+
+T["Apply keeps counting metadata changes when Save as also renames"] = function(a)
+    local state = open()
+    state:set_save_as(save_as({ rename = true, sort = true }))
+    a.eq(state:apply_label(), "Apply 2 changes")
+    a.eq(state:apply_enabled(), true)
+end
+
+T["a name clash disables Apply and names the way out"] = function(a)
+    local state = open()
+    state:set_save_as(save_as({
+        rename = true,
+        exists = function(path)
+            return path == "/inbox/Same Title - Same Author.epub"
+        end,
+    }))
+    a.eq(state:name_clash(), true)
+    a.eq(state:apply_label(), "Change the name or folder to apply")
+    a.eq(state:apply_enabled(), false)
+end
+
+T["the Save as summary shows backup state over the destination path"] = function(a)
+    local state = open()
+    state:set_save_as(save_as({ rename = true, sort = true }))
+    local top, bottom = state:save_as_summary()
+    a.eq(top, "Save as · backup kept")
+    a.eq(bottom, "/lib/Author, Same/Same Title/Same Title - Same Author.epub")
+    state:set_save_as(save_as({ keep_backup = false }))
+    top, bottom = state:save_as_summary()
+    a.eq(top, "Save as · no backup")
+    a.eq(bottom, "/inbox/book.epub")
+end
+
+T["the Save as summary reports a name clash instead of the path"] = function(a)
+    local state = open()
+    state:set_save_as(save_as({
+        rename = true,
+        exists = function()
+            return true
+        end,
+    }))
+    local _, bottom = state:save_as_summary()
+    a.eq(bottom, "A file with this name already exists")
+end
+
+T["the destination follows the values selected in the Picker"] = function(a)
+    local state = open()
+    state:set_save_as(save_as({ rename = true, filename_template = "%title{ - %series}" }))
+    a.eq(state:destination(), "/inbox/Same Title - New Series.epub")
+    state:select("series", "current")
+    a.eq(state:destination(), "/inbox/Same Title - Old Series.epub")
+end
+
 return T

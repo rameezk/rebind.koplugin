@@ -1,5 +1,7 @@
 local _ = require("gettext")
 
+local Organize = require("rebind/organize")
+
 local PickerState = {}
 PickerState.__index = PickerState
 
@@ -274,12 +276,77 @@ function PickerState:changes()
     return changes
 end
 
+function PickerState:set_save_as(save_as)
+    self.save_as = save_as
+end
+
+function PickerState:metadata()
+    return Organize.with_changes(self.save_as.metadata, self:changes())
+end
+
+function PickerState:destination()
+    local save_as = self.save_as
+    return Organize.destination(save_as.source_path, self:metadata(), {
+        sort = save_as.sort,
+        root = save_as.root or nil,
+        rename = save_as.rename,
+        filename_template = save_as.filename_template,
+        folder_template = save_as.folder_template,
+    })
+end
+
+function PickerState:name_clash()
+    local save_as = self.save_as
+    if not save_as then
+        return false
+    end
+    return Organize.clash(save_as.source_path, self:destination(), save_as.exists)
+end
+
+function PickerState:_relocation()
+    if not self.save_as then
+        return nil
+    end
+    local source = self.save_as.source_path
+    local dest = self:destination()
+    local renamed = Organize.basename(dest) ~= Organize.basename(source)
+    local moved = Organize.dirname(dest) ~= Organize.dirname(source)
+    if renamed and moved then
+        return _("Rename and move")
+    elseif renamed then
+        return _("Rename")
+    elseif moved then
+        return _("Move")
+    end
+    return nil
+end
+
 function PickerState:apply_label()
+    if self:name_clash() then
+        return _("Change the name or folder to apply")
+    end
     local n = #self:_changed_fields()
     if n == 1 then
         return _("Apply 1 change")
+    elseif n > 1 then
+        return string.format(_("Apply %d changes"), n)
     end
-    return string.format(_("Apply %d changes"), n)
+    return self:_relocation() or _("No changes")
+end
+
+function PickerState:apply_enabled()
+    if self:name_clash() then
+        return false
+    end
+    return #self:_changed_fields() > 0 or self:_relocation() ~= nil
+end
+
+function PickerState:save_as_summary()
+    local top = self.save_as.keep_backup and _("Save as · backup kept") or _("Save as · no backup")
+    if self:name_clash() then
+        return top, _("A file with this name already exists")
+    end
+    return top, self:destination()
 end
 
 function PickerState:needs_discard_prompt()

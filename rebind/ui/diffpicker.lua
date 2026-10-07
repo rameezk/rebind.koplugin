@@ -24,9 +24,8 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
-local Naming = require("rebind/ui/naming")
-local Organize = require("rebind/organize")
 local PickerState = require("rebind/picker_state")
+local SaveAs = require("rebind/ui/saveas")
 local TapRow = require("rebind/ui/taprow")
 local Translate = require("rebind/translate")
 local ValueBox = require("rebind/ui/valuebox")
@@ -41,18 +40,9 @@ local DiffPicker = InputContainer:extend{
     fields = nil,
     state = nil,
     on_apply = nil,
-    keep_backup = nil,
-    move_to_sorted = nil,
-    rename_file = nil,
-    current_metadata = nil,
-    filename_template = nil,
-    on_filename_template = nil,
-    folder_template = nil,
-    on_folder_template = nil,
-    custom_filename_template = nil,
-    on_custom_filename_template = nil,
-    custom_folder_template = nil,
-    on_custom_folder_template = nil,
+    save_as = nil,
+    on_save_as_change = nil,
+    on_choose_root = nil,
     edition_label = nil,
     on_open_source = nil,
     hardcover_missing = false,
@@ -67,27 +57,12 @@ function DiffPicker:init()
     self.covers_fullscreen = true
     self.dimen = Geom:new{ x = 0, y = 0, w = self.width, h = self.height }
 
-    if self.keep_backup == nil then
-        self.keep_backup = true
-    end
-    if self.move_to_sorted == nil then
-        self.move_to_sorted = false
-    end
-    if self.rename_file == nil then
-        self.rename_file = true
-    end
-    if self.filename_template == nil then
-        self.filename_template = Organize.DEFAULT_FILENAME_TEMPLATE
-    end
-    if self.folder_template == nil then
-        self.folder_template = Organize.DEFAULT_FOLDER_TEMPLATE
-    end
-
     if Device:hasKeys() then
         self.key_events = { Close = { { Device.input.group.Back } } }
     end
 
     self.state = PickerState.new(self.fields)
+    self.state:set_save_as(self.save_as)
 
     self:_build()
 end
@@ -571,6 +546,7 @@ function DiffPicker:_build()
 
     local apply_btn = Button:new{
         text = self.state:apply_label(),
+        enabled = self.state:apply_enabled(),
         radius = sc(4),
         padding = sc(11),
         bordersize = 0,
@@ -581,80 +557,53 @@ function DiffPicker:_build()
             self:_apply()
         end,
     }
-    if apply_btn.label_widget then
+    if apply_btn.label_widget and self.state:apply_enabled() then
         apply_btn.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
     end
-    local toggle_w = math.floor((content_inner - sc(8)) / 2)
-    local backup_btn = Button:new{
-        text = self.keep_backup and _("Keep backup: On") or _("Keep backup: Off"),
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = toggle_w,
-        show_parent = self,
-        callback = function()
-            self.keep_backup = not self.keep_backup
-            self:_refresh()
-        end,
+    local summary_top, summary_bottom = self.state:save_as_summary()
+    local summary_w = footer_inner - sc(24)
+    local summary_group = VerticalGroup:new{
+        align = "left",
+        TextWidget:new{
+            text = summary_top,
+            face = Font:getFace("cfont", 15),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+            max_width = summary_w,
+        },
+        TextWidget:new{
+            text = summary_bottom,
+            face = Font:getFace("cfont", 17),
+            bold = self.state:name_clash(),
+            max_width = summary_w,
+        },
     }
-    local move_btn = Button:new{
-        text = self.move_to_sorted and _("Sort book: On") or _("Sort book: Off"),
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = toggle_w,
-        show_parent = self,
-        callback = function()
-            self.move_to_sorted = not self.move_to_sorted
-            self:_refresh()
+    local summary_row = TapRow:new{
+        on_tap = function()
+            self:_show_save_as()
         end,
-    }
-    local naming_btn = Button:new{
-        text = _("Naming…"),
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = math.floor((content_inner - sc(8)) / 2),
-        show_parent = self,
-        callback = function()
-            self:_show_naming()
-        end,
-    }
-    local rename_btn = Button:new{
-        text = self.rename_file and _("Rename file: On") or _("Rename file: Off"),
-        radius = sc(4),
-        padding = sc(8),
-        bordersize = Size.border.button,
-        width = math.floor((content_inner - sc(8)) / 2),
-        show_parent = self,
-        callback = function()
-            self.rename_file = not self.rename_file
-            self:_refresh()
-        end,
-    }
-    local toggles = FrameContainer:new{
-        bordersize = 0,
-        padding = Size.padding.default,
-        VerticalGroup:new{
-            align = "left",
-            HorizontalGroup:new{
-                backup_btn,
-                HorizontalSpan:new{ width = sc(8) },
-                move_btn,
+        dimen = Geom:new{ w = footer_inner, h = summary_group:getSize().h },
+        HorizontalGroup:new{
+            align = "center",
+            LeftContainer:new{
+                dimen = Geom:new{ w = summary_w, h = summary_group:getSize().h },
+                summary_group,
             },
-            VerticalSpan:new{ width = sc(6) },
-            HorizontalGroup:new{
-                align = "center",
-                rename_btn,
-                HorizontalSpan:new{ width = sc(8) },
-                naming_btn,
+            HorizontalSpan:new{ width = sc(8) },
+            TextWidget:new{
+                text = "▸",
+                face = Font:getFace("cfont", 22),
             },
         },
     }
     local action_bar = FrameContainer:new{
         bordersize = 0,
         padding = Size.padding.default,
-        apply_btn,
+        VerticalGroup:new{
+            align = "left",
+            summary_row,
+            VerticalSpan:new{ width = sc(8) },
+            apply_btn,
+        },
     }
 
     local scroll_content = VerticalGroup:new{
@@ -665,11 +614,6 @@ function DiffPicker:_build()
             dimen = Geom:new{ w = view_w, h = Size.line.thin },
         },
         body,
-        LineWidget:new{
-            background = Blitbuffer.COLOR_DARK_GRAY,
-            dimen = Geom:new{ w = view_w, h = Size.line.thin },
-        },
-        toggles,
     }
 
     local action_h = action_bar:getSize().h
@@ -727,59 +671,24 @@ function DiffPicker:_selected_changes()
     return self.state:changes()
 end
 
-function DiffPicker:_show_naming()
-    Naming.show{
-        filename_template = self.filename_template,
-        folder_template = self.folder_template,
-        custom_filename_template = self.custom_filename_template,
-        custom_folder_template = self.custom_folder_template,
-        metadata = function()
-            return Organize.with_changes(self.current_metadata, self:_selected_changes())
-        end,
-        on_select_filename = function(template)
-            self.filename_template = template
-            if self.on_filename_template then
-                self.on_filename_template(template)
-            end
-        end,
-        on_select_folder = function(template)
-            self.folder_template = template
-            if self.on_folder_template then
-                self.on_folder_template(template)
-            end
-        end,
-        on_save_custom_filename = function(template)
-            self.custom_filename_template = template
-            self.filename_template = template
-            if self.on_custom_filename_template then
-                self.on_custom_filename_template(template)
-            end
-            if self.on_filename_template then
-                self.on_filename_template(template)
-            end
-        end,
-        on_save_custom_folder = function(template)
-            self.custom_folder_template = template
-            self.folder_template = template
-            if self.on_custom_folder_template then
-                self.on_custom_folder_template(template)
-            end
-            if self.on_folder_template then
-                self.on_folder_template(template)
-            end
+function DiffPicker:_show_save_as()
+    SaveAs.show{
+        state = self.state,
+        on_change = self.on_save_as_change,
+        on_choose_root = self.on_choose_root,
+        on_close = function()
+            self:_refresh()
         end,
     }
 end
 
 function DiffPicker:_apply()
     local changes = self:_selected_changes()
+    local dest = self.state:destination()
+    local keep_backup = self.state.save_as.keep_backup
     UIManager:close(self, "ui")
     if self.on_apply then
-        self.on_apply(changes, {
-            keep_backup = self.keep_backup,
-            move_to_sorted = self.move_to_sorted,
-            rename_file = self.rename_file,
-        })
+        self.on_apply(changes, { keep_backup = keep_backup, dest = dest })
     end
 end
 
