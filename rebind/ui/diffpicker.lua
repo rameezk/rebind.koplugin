@@ -16,6 +16,7 @@ local LeftContainer = require("ui/widget/container/leftcontainer")
 local LineWidget = require("ui/widget/linewidget")
 local Logo = require("rebind/ui/logo")
 local MultiInputDialog = require("ui/widget/multiinputdialog")
+local RenderText = require("ui/rendertext")
 local ScrollableContainer = require("ui/widget/container/scrollablecontainer")
 local Size = require("ui/size")
 local TextBoxWidget = require("ui/widget/textboxwidget")
@@ -25,6 +26,7 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
+local CloseIcon = require("rebind/ui/closeicon")
 local PickerState = require("rebind/picker_state")
 local SaveAs = require("rebind/ui/saveas")
 local TapRow = require("rebind/ui/taprow")
@@ -32,6 +34,9 @@ local Translate = require("rebind/translate")
 local ValueBox = require("rebind/ui/valuebox")
 
 local Screen = Device.screen
+
+local CHIPS_PER_ROW = 2
+local SOURCE_FONT_SIZE = 20
 
 local function sc(v)
     return Screen:scaleBySize(v)
@@ -269,9 +274,15 @@ function DiffPicker:_add_start_from(dialog, field, get_raw, set_raw)
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         max_width = width,
     }, nil, true)
+    local chip_rows = {}
+    for i, chip in ipairs(chips) do
+        local row = math.ceil(i / CHIPS_PER_ROW)
+        chip_rows[row] = chip_rows[row] or {}
+        table.insert(chip_rows[row], chip)
+    end
     dialog:addWidget(ButtonTable:new{
         width = width,
-        buttons = { chips },
+        buttons = chip_rows,
         show_parent = dialog,
     }, nil, true)
     return function()
@@ -393,7 +404,7 @@ function DiffPicker:_edit_series(field, seed)
     dialog:onShowKeyboard()
 end
 
-function DiffPicker:_source_button()
+function DiffPicker:_source_button(max_width)
     if self.state:manual() then
         if self.hardcover_missing then
             return _("Hardcover plugin not installed"), false
@@ -407,10 +418,13 @@ function DiffPicker:_source_button()
     if self.edition_label and self.edition_label ~= "" then
         label = label .. " · " .. self.edition_label
     end
-    if self.on_open_source then
-        return label .. " ▸", true
+    if not self.on_open_source then
+        return label, false
     end
-    return label, false
+    local face = Font:getFace("cfont", SOURCE_FONT_SIZE)
+    local arrow = " ▸"
+    local arrow_w = RenderText:sizeUtf8Text(0, math.huge, face, arrow, true, false).x
+    return RenderText:truncateTextByWidth(label, face, max_width - arrow_w) .. arrow, true
 end
 
 function DiffPicker:_build()
@@ -418,24 +432,19 @@ function DiffPicker:_build()
     local view_w = self.width - 3 * ScrollableContainer.scroll_bar_width
     local content_inner = view_w - 2 * Size.padding.default
 
-    local close_btn = Button:new{
-        text = "×",
-        radius = sc(4),
-        bordersize = Size.border.button,
-        padding = sc(4),
-        width = sc(48),
+    local close_btn = CloseIcon.new{
         show_parent = self,
         callback = function()
             self:onClose()
         end,
     }
-    local source_text, source_enabled = self:_source_button()
+    local close_w = close_btn:getSize().w
     local logo_gap = sc(8)
+    local source_padding = sc(8)
     local source_opts = {
-        text = source_text,
-        enabled = source_enabled,
+        text = "Hardcover ▸",
         radius = sc(4),
-        padding = sc(8),
+        padding = source_padding,
         bordersize = Size.border.button,
         show_parent = self,
         callback = function()
@@ -444,7 +453,9 @@ function DiffPicker:_build()
     }
     source_opts.width = content_inner
     local header_height = Button:new(source_opts):getSize().h
-    source_opts.width = content_inner - sc(48) - sc(8) - header_height - logo_gap
+    source_opts.width = content_inner - close_w - sc(8) - header_height - logo_gap
+    local source_text_w = source_opts.width - 2 * (source_padding + Size.border.button)
+    source_opts.text, source_opts.enabled = self:_source_button(source_text_w)
     local source_btn = Button:new(source_opts)
 
     local header_group = HorizontalGroup:new{

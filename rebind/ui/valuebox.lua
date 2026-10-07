@@ -81,6 +81,8 @@ local function tag_widget(tag)
         bordersize = Size.border.thin,
         radius = sc(3),
         padding = sc(2),
+        padding_left = sc(6),
+        padding_right = sc(6),
         margin = 0,
         label,
     }

@@ -1,175 +1,31 @@
 local Blitbuffer = require("ffi/blitbuffer")
-local Button = require("ui/widget/button")
 local ButtonTable = require("ui/widget/buttontable")
 local Device = require("device")
 local Font = require("ui/font")
-local FrameContainer = require("ui/widget/container/framecontainer")
-local Geom = require("ui/geometry")
-local HorizontalGroup = require("ui/widget/horizontalgroup")
-local HorizontalSpan = require("ui/widget/horizontalspan")
 local InfoMessage = require("ui/widget/infomessage")
-local InputContainer = require("ui/widget/container/inputcontainer")
 local InputDialog = require("ui/widget/inputdialog")
-local LineWidget = require("ui/widget/linewidget")
-local Size = require("ui/size")
+local Math = require("optmath")
 local TextBoxWidget = require("ui/widget/textboxwidget")
 local TextViewer = require("ui/widget/textviewer")
 local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
-local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local util = require("util")
 local _ = require("gettext")
 
+local ChoiceList = require("rebind/ui/choicelist")
 local Organize = require("rebind/organize")
-local Radio = require("rebind/ui/radio")
-local TapRow = require("rebind/ui/taprow")
 
 local Screen = Device.screen
 
 local Naming = {}
 
 local EXAMPLE_FILE = "book.epub"
-local CHIPS_PER_ROW = 3
+local TEMPLATE_LINES = 3
+local TEMPLATE_FONT_SIZE = 20
 
 local function sc(v)
     return Screen:scaleBySize(v)
-end
-
-local TemplateList = InputContainer:extend{
-    title = nil,
-    rows = nil,
-    on_close = nil,
-}
-
-function TemplateList:init()
-    self.width = Screen:getWidth()
-    self.height = Screen:getHeight()
-    self.covers_fullscreen = true
-    self.dimen = Geom:new{ x = 0, y = 0, w = self.width, h = self.height }
-    if Device:hasKeys() then
-        self.key_events = { Close = { { Device.input.group.Back } } }
-    end
-
-    local pad = sc(12)
-    local inner = self.width - 2 * pad
-    local content = VerticalGroup:new{ align = "left" }
-
-    table.insert(content, FrameContainer:new{
-        bordersize = 0,
-        padding = pad,
-        TextWidget:new{
-            text = self.title,
-            face = Font:getFace("cfont", 24),
-            bold = true,
-            max_width = inner,
-        },
-    })
-    table.insert(content, LineWidget:new{
-        background = Blitbuffer.COLOR_DARK_GRAY,
-        dimen = Geom:new{ w = self.width, h = Size.line.thin },
-    })
-
-    for _i, row in ipairs(self.rows) do
-        local edit_w = 0
-        local edit_btn
-        if row.on_edit then
-            edit_btn = Button:new{
-                text = _("Edit"),
-                bordersize = Size.border.button,
-                margin = 0,
-                radius = Size.radius.button,
-                callback = row.on_edit,
-                show_parent = self,
-            }
-            edit_w = edit_btn:getSize().w + sc(8)
-        end
-        local mark = Radio:new{ selected = row.selected }
-        local text_w = inner - mark:getSize().w - sc(12) - edit_w
-        local lines = VerticalGroup:new{
-            align = "left",
-            TextBoxWidget:new{
-                text = row.label,
-                face = Font:getFace("cfont", 20),
-                bold = row.selected,
-                width = text_w,
-            },
-        }
-        if row.pattern then
-            table.insert(lines, TextBoxWidget:new{
-                text = row.pattern,
-                face = Font:getFace("cfont", 15),
-                fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-                width = text_w,
-            })
-        end
-        local line = HorizontalGroup:new{
-            align = "center",
-            mark,
-            HorizontalSpan:new{ width = sc(12) },
-            lines,
-        }
-        if edit_btn then
-            table.insert(line, HorizontalSpan:new{ width = sc(8) })
-            table.insert(line, edit_btn)
-        end
-        local cell = FrameContainer:new{
-            bordersize = 0,
-            padding = pad,
-            padding_top = sc(10),
-            padding_bottom = sc(10),
-            width = self.width,
-            line,
-        }
-        local tap = TapRow:new{
-            on_tap = row.on_select,
-            dimen = Geom:new{ w = self.width, h = cell:getSize().h },
-            cell,
-        }
-        table.insert(content, tap)
-        table.insert(content, LineWidget:new{
-            background = Blitbuffer.COLOR_LIGHT_GRAY,
-            dimen = Geom:new{ w = self.width, h = Size.line.thin },
-        })
-    end
-
-    table.insert(content, VerticalSpan:new{ width = sc(16) })
-    table.insert(content, FrameContainer:new{
-        bordersize = 0,
-        padding = pad,
-        Button:new{
-            text = _("Close"),
-            width = inner,
-            bordersize = Size.border.button,
-            radius = Size.radius.button,
-            callback = function()
-                self:onClose()
-            end,
-            show_parent = self,
-        },
-    })
-
-    self[1] = FrameContainer:new{
-        background = Blitbuffer.COLOR_WHITE,
-        bordersize = 0,
-        padding = 0,
-        width = self.width,
-        height = self.height,
-        content,
-    }
-end
-
-function TemplateList:onClose()
-    UIManager:close(self, "ui")
-    if self.on_close then
-        self.on_close()
-    end
-    return true
-end
-
-function TemplateList:onShow()
-    UIManager:setDirty(self, "full")
-    return true
 end
 
 local function char_to_byte_offset(charlist, char_pos)
@@ -306,30 +162,26 @@ function Naming.show(opts)
             apply(text, cursor)
         end
 
-        local chips = {}
-        for _i, chip in ipairs(Organize.editor_chips(kind)) do
-            chips[#chips + 1] = {
-                text = _(chip.label),
-                callback = function()
-                    insert(chip.token)
-                end,
-            }
-        end
-        chips[#chips + 1] = {
-            text = _("{ Optional }"),
-            callback = wrap_optional,
-        }
         local chip_rows = {}
-        for i, chip in ipairs(chips) do
-            local row = math.ceil(i / CHIPS_PER_ROW)
-            chip_rows[row] = chip_rows[row] or {}
-            table.insert(chip_rows[row], chip)
+        for _i, row in ipairs(Organize.editor_chip_rows(kind)) do
+            local buttons = {}
+            for _j, chip in ipairs(row) do
+                buttons[#buttons + 1] = {
+                    text = _(chip.label),
+                    callback = chip.token and function()
+                        insert(chip.token)
+                    end or wrap_optional,
+                }
+            end
+            chip_rows[#chip_rows + 1] = buttons
         end
+        local input_face = Font:getFace("infont", TEMPLATE_FONT_SIZE)
 
         editor = InputDialog:new{
             title = section.editor_title,
             input = custom[kind] or selected[kind],
-            input_face = Font:getFace("infont", 20),
+            input_face = input_face,
+            text_height = TEMPLATE_LINES * Math.round((1 + TextBoxWidget.line_height) * input_face.size),
             edited_callback = refresh_example,
             buttons = {
                 {
@@ -415,8 +267,8 @@ function Naming.show(opts)
         local rows = {}
         for _i, template in ipairs(section.presets) do
             rows[#rows + 1] = {
-                label = section.label(template),
-                pattern = Organize.pattern_label(template),
+                title = section.label(template),
+                subtitle = Organize.pattern_label(template),
                 selected = template == selected[kind],
                 on_select = function()
                     choose[kind](template)
@@ -426,8 +278,8 @@ function Naming.show(opts)
         end
         local own = custom[kind]
         rows[#rows + 1] = {
-            label = own and section.label(own) or _("Custom…"),
-            pattern = own and Organize.pattern_label(own) or nil,
+            title = own and section.label(own) or _("Custom…"),
+            subtitle = own and Organize.pattern_label(own) or nil,
             selected = own ~= nil and selected[kind] == own and not is_preset(own),
             on_select = function()
                 if own then
@@ -437,17 +289,17 @@ function Naming.show(opts)
                     open_editor(kind, reopen)
                 end
             end,
-            on_edit = own and function()
+            action_text = own and _("Edit") or nil,
+            on_action = own and function()
                 open_editor(kind, reopen)
             end or nil,
         }
 
-        list = TemplateList:new{
+        list = ChoiceList.show{
             title = section.title,
             rows = rows,
             on_close = on_close,
         }
-        UIManager:show(list)
     end
 
     show_list(opts.kind, opts.on_close)

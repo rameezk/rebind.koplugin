@@ -546,17 +546,49 @@ T["token_help shows each Token with this book's value and (empty) when it has no
     a.eq(by_token["%language"], "en")
 end
 
-T["only the folder editor offers / New folder and mentions folders in Help"] = function(a)
-    local function has_new_folder(kind)
-        for _i, chip in ipairs(Organize.editor_chips(kind)) do
-            if chip.label == "/ New folder" then
-                return chip.token == "/"
-            end
+local function chip_labels(kind)
+    local rows = {}
+    for _i, row in ipairs(Organize.editor_chip_rows(kind)) do
+        local labels = {}
+        for _j, chip in ipairs(row) do
+            labels[#labels + 1] = chip.label
         end
-        return false
+        rows[#rows + 1] = table.concat(labels, " | ")
     end
-    a.eq(has_new_folder("folder"), true)
-    a.eq(has_new_folder("filename"), false)
+    return rows
+end
+
+T["folder editor chips come back as the agreed rows"] = function(a)
+    a.eq(table.concat(chip_labels("folder"), "\n"), table.concat({
+        "Title | Author | All authors",
+        "Author surname first | Series",
+        "Series # | Year | Language",
+        "Publisher | / New folder | { Optional }",
+    }, "\n"))
+end
+
+T["filename editor chips have no / New folder"] = function(a)
+    a.eq(table.concat(chip_labels("filename"), "\n"), table.concat({
+        "Title | Author | All authors",
+        "Author surname first | Series",
+        "Series # | Year | Language",
+        "Publisher | { Optional }",
+    }, "\n"))
+end
+
+T["chips carry the Token they insert"] = function(a)
+    local tokens = {}
+    for _i, row in ipairs(Organize.editor_chip_rows("folder")) do
+        for _j, chip in ipairs(row) do
+            tokens[chip.label] = chip.token
+        end
+    end
+    a.eq(tokens["Author surname first"], "%author_sort")
+    a.eq(tokens["/ New folder"], "/")
+    a.eq(tokens["{ Optional }"], nil)
+end
+
+T["only the folder editor mentions folders in Help"] = function(a)
     a.eq(Organize.help_notes("folder")[1], "/ starts a new folder")
     for _i, note in ipairs(Organize.help_notes("filename")) do
         a.eq(note:find("folder", 1, true), nil)
