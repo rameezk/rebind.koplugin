@@ -152,7 +152,7 @@ function Rebind:onRebindCurrentBook()
     return true
 end
 
-function Rebind:sortedRoot()
+function Rebind:libraryRoot()
     local root = self.settings:readSetting("sorted_root")
     if root and root ~= "" then
         return root
@@ -648,8 +648,8 @@ function Rebind:_showDiff(file, current, book, Api, results)
         save_as = {
             source_path = file,
             metadata = current,
-            root = self:sortedRoot(),
-            sort = self.settings:isTrue("move_after_rebind") and self:sortedRoot() ~= nil,
+            library = self:libraryRoot(),
+            sort = self.settings:isTrue("move_after_rebind") and self:libraryRoot() ~= nil,
             rename = self:renameFile(),
             keep_backup = self:keepBackup(),
             filename_template = self:filenameTemplate(),
@@ -660,8 +660,8 @@ function Rebind:_showDiff(file, current, book, Api, results)
         on_save_as_change = function(save_as)
             self:_rememberSaveAs(save_as)
         end,
-        on_choose_root = function(on_ready)
-            self:_chooseSortedRoot(on_ready)
+        on_choose_library = function(on_ready)
+            self:_chooseLibraryRoot(on_ready)
         end,
         on_apply = function(changes, opts)
             self:_write(file, changes, opts.keep_backup, opts.dest)
@@ -678,8 +678,8 @@ function Rebind:_rememberSaveAs(save_as)
     self.settings:saveSetting("folder_template", save_as.folder_template)
     self.settings:saveSetting("custom_filename_template", save_as.custom_filename_template)
     self.settings:saveSetting("custom_folder_template", save_as.custom_folder_template)
-    if save_as.root then
-        self.settings:saveSetting("sorted_root", save_as.root)
+    if save_as.library then
+        self.settings:saveSetting("sorted_root", save_as.library)
     end
     self.settings:flush()
 end
@@ -731,13 +731,13 @@ function Rebind:defaultBrowseDir()
     return nil
 end
 
-function Rebind:_chooseSortedRoot(on_ready)
+function Rebind:_chooseLibraryRoot(on_ready)
     local PathChooser = require("ui/widget/pathchooser")
     UIManager:show(PathChooser:new{
-        title = _("Choose your sorted books folder"),
+        title = _("Choose your library folder"),
         select_file = false,
         show_files = false,
-        path = self:sortedRoot() or self:defaultBrowseDir(),
+        path = self:libraryRoot() or self:defaultBrowseDir(),
         onConfirm = on_ready,
     })
 end

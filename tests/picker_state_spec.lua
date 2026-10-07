@@ -288,7 +288,7 @@ local function save_as(overrides)
     local cfg = {
         source_path = "/inbox/book.epub",
         metadata = CURRENT,
-        root = "/lib",
+        library = "/lib",
         sort = false,
         rename = false,
         keep_backup = true,
@@ -336,8 +336,8 @@ T["Apply says No changes and is disabled when nothing would change"] = function(
     a.eq(state:apply_enabled(), false)
 end
 
-T["Sort without a Sorted library leaves the file where it is"] = function(a)
-    local state = on_book_values({ sort = true, root = false })
+T["Sort without a Library leaves the file where it is"] = function(a)
+    local state = on_book_values({ sort = true, library = false })
     a.eq(state:apply_label(), "No changes")
 end
 

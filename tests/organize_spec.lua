@@ -29,14 +29,14 @@ T["surname_first returns nil for empty input"] = function(a)
     a.eq(Organize.surname_first("   "), nil)
 end
 
-T["target_path builds root/Author/Title/Author - Title.ext"] = function(a)
-    local p = Organize.target_path("/books/Sorted", meta({ "Frank Herbert" }, "Dune"), "dune.epub")
-    a.eq(p, "/books/Sorted/Herbert, Frank/Dune/Herbert, Frank - Dune.epub")
+T["target_path builds library/Author/Title/Author - Title.ext"] = function(a)
+    local p = Organize.target_path("/books/Library", meta({ "Frank Herbert" }, "Dune"), "dune.epub")
+    a.eq(p, "/books/Library/Herbert, Frank/Dune/Herbert, Frank - Dune.epub")
 end
 
-T["target_path strips a trailing slash from the root"] = function(a)
-    local p = Organize.target_path("/books/Sorted/", meta({ "Isaac Asimov" }, "Foundation"), "f.epub")
-    a.eq(p, "/books/Sorted/Asimov, Isaac/Foundation/Asimov, Isaac - Foundation.epub")
+T["target_path strips a trailing slash from the library"] = function(a)
+    local p = Organize.target_path("/books/Library/", meta({ "Isaac Asimov" }, "Foundation"), "f.epub")
+    a.eq(p, "/books/Library/Asimov, Isaac/Foundation/Asimov, Isaac - Foundation.epub")
 end
 
 T["target_path sanitizes a title with a slash"] = function(a)
@@ -45,8 +45,8 @@ T["target_path sanitizes a title with a slash"] = function(a)
 end
 
 T["target_path keeps the original filename when rename is off"] = function(a)
-    local p = Organize.target_path("/books/Sorted", meta({ "Frank Herbert" }, "Dune"), "dune.epub", "nested", false)
-    a.eq(p, "/books/Sorted/Herbert, Frank/Dune/dune.epub")
+    local p = Organize.target_path("/books/Library", meta({ "Frank Herbert" }, "Dune"), "dune.epub", "nested", false)
+    a.eq(p, "/books/Library/Herbert, Frank/Dune/dune.epub")
 end
 
 T["basename returns the final path component"] = function(a)
@@ -70,7 +70,7 @@ T["target_dir omits the filename"] = function(a)
     a.eq(Organize.target_dir("/r/", meta({ "Frank Herbert" }, "Dune")), "/r/Herbert, Frank/Dune")
 end
 
-T["flat structure moves the file directly into the root"] = function(a)
+T["flat structure moves the file directly into the library"] = function(a)
     a.eq(Organize.target_dir("/r/", meta({ "Frank Herbert" }, "Dune"), "flat"), "/r")
     a.eq(Organize.target_path("/r", meta({ "Frank Herbert" }, "Dune"), "d.epub", "flat"),
         "/r/Herbert, Frank - Dune.epub")
@@ -243,7 +243,7 @@ T["a token value cannot add folders"] = function(a)
     a.eq(folders(Organize.FOLDER_PRESETS[2], { authors = { "AC/DC" } }), "/lib/AC_DC")
 end
 
-T["a literal dot-dot segment cannot climb out of the Sorted library"] = function(a)
+T["a literal dot-dot segment cannot climb out of the Library"] = function(a)
     a.eq(folders("../%author_sort/./%title", { title = "Dune", authors = { "Frank Herbert" } }),
         "/lib/Herbert, Frank/Dune")
 end
@@ -403,10 +403,10 @@ T["destination renames in place with the Filename template"] = function(a)
     a.eq(dest, "/books/inbox/Dune - Frank Herbert.epub")
 end
 
-T["destination sorts into the Sorted library with the Folder template and keeps the name"] = function(a)
+T["destination sorts into the Library with the Folder template and keeps the name"] = function(a)
     local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, {
         sort = true,
-        root = "/lib/",
+        library = "/lib/",
         rename = false,
         folder_template = "%author_sort/%title",
     })
@@ -416,7 +416,7 @@ end
 T["destination renames and sorts together"] = function(a)
     local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, {
         sort = true,
-        root = "/lib",
+        library = "/lib",
         rename = true,
         filename_template = "%author_sort - %title",
         folder_template = "%author_sort",
@@ -424,7 +424,7 @@ T["destination renames and sorts together"] = function(a)
     a.eq(dest, "/lib/Herbert, Frank/Herbert, Frank - Dune.epub")
 end
 
-T["destination does not sort when there is no Sorted library yet"] = function(a)
+T["destination does not sort when there is no Library yet"] = function(a)
     local dest = Organize.destination("/books/inbox/dune.epub", SAVE_AS_META, { sort = true, rename = false })
     a.eq(dest, "/books/inbox/dune.epub")
 end

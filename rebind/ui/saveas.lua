@@ -33,7 +33,7 @@ end
 local SaveAs = InputContainer:extend{
     state = nil,
     on_change = nil,
-    on_choose_root = nil,
+    on_choose_library = nil,
     on_close = nil,
 }
 
@@ -65,18 +65,18 @@ function SaveAs:_update(patch)
 end
 
 function SaveAs:_choose_sort()
-    if self.state.save_as.root then
+    if self.state.save_as.library then
         self:_update{ sort = true }
         return
     end
-    self.on_choose_root(function(dir)
-        self:_update{ root = dir, sort = true }
+    self.on_choose_library(function(dir)
+        self:_update{ library = dir, sort = true }
     end)
 end
 
-function SaveAs:_change_root()
-    self.on_choose_root(function(dir)
-        self:_update{ root = dir }
+function SaveAs:_change_library()
+    self.on_choose_library(function(dir)
+        self:_update{ library = dir }
     end)
 end
 
@@ -257,7 +257,7 @@ function SaveAs:_build()
     })
     add(self:_separator())
     add(self:_row{
-        title = _("Sort into the Sorted library"),
+        title = _("Sort into your library"),
         selected = save_as.sort == true,
         on_tap = function()
             self:_choose_sort()
@@ -275,12 +275,12 @@ function SaveAs:_build()
         })
         add(self:_separator())
         add(self:_row{
-            title = _("Sorted library"),
-            subtitle = save_as.root or _("Not chosen yet"),
+            title = _("Library folder"),
+            subtitle = save_as.library or _("Not chosen yet"),
             action_text = _("Change ▸"),
             indent = sc(36),
             on_tap = function()
-                self:_change_root()
+                self:_change_library()
             end,
         })
         add(self:_separator())
@@ -422,7 +422,7 @@ function SaveAs.show(opts)
     local screen = SaveAs:new{
         state = opts.state,
         on_change = opts.on_change,
-        on_choose_root = opts.on_choose_root,
+        on_choose_library = opts.on_choose_library,
         on_close = opts.on_close,
     }
     UIManager:show(screen)
