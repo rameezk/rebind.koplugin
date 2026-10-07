@@ -42,14 +42,20 @@ history and may be public, so treat publishing as irreversible.
 Sensitive includes: secrets, tokens, API keys, passwords, and credentials;
 personal data (real names, emails, phone numbers, addresses, avatars of real
 people); customer, tenant, or production data; account, organisation, or billing
-identifiers; internal hostnames, IPs, and URLs; and session details exposed in
-the page, URL, or devtools.
+identifiers; internal hostnames, IPs, and URLs; local filesystem paths that
+reveal a username, home directory, machine, or project layout (`/Users/<name>/...`,
+`/home/<name>/...`, `C:\Users\<name>\...`, `file://` URLs); and session details
+exposed in the page, URL, or devtools.
 
 - Run the app locally or in a dev environment against seed, fixture, or
   obviously fake data (`Jane Example`, `jane@example.com`). Never capture
   production or a real user's account.
 - Capture only the page viewport or the affected element - never the whole
   desktop, browser chrome, terminal, or other windows.
+- Watch for directory paths leaking into the frame - error overlays and stack
+  traces, dev tool panels, file pickers, upload previews, build info footers,
+  and anything else that renders a path from the machine running the app. Point
+  any path the UI must show at a neutral fixture location (`/tmp/example`).
 - Inspect every image yourself before publishing (see Review the pairs). If
   anything sensitive shows, re-capture with fake data. If that is impossible,
   drop the pair and tell the user why. Never blur or pixelate - that is
@@ -113,7 +119,8 @@ Open every image and look at it before publishing. Check that:
 - the intended state was captured - not a spinner, skeleton, error page, login
   wall, cookie banner, or half-loaded fonts
 - the pair is comparable - same size, scroll position, and data
-- nothing sensitive is visible anywhere in the frame
+- nothing sensitive is visible anywhere in the frame, including local directory
+  paths
 
 Be picky. If the after reveals something visibly off - misalignment, clipping,
 overflow, wrong spacing, broken dark mode - do not publish it as if it were
@@ -201,7 +208,7 @@ Stop every app you started, remove every temporary worktree, and prune with
 
 ## Guardrails
 
-- No sensitive data in any capture, ever.
+- No sensitive data in any capture, ever - including local directory paths.
 - Nothing to present means do nothing - no section, no push.
 - Never stash, reset, or check out in the user's working tree; use temporary
   worktrees.
