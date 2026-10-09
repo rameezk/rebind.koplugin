@@ -1,6 +1,6 @@
 # Rebind
 
-A KOReader plugin that rewrites an EPUB's embedded metadata on the device, from Hardcover or by hand.
+A KOReader plugin that rewrites an EPUB's embedded metadata on the device, from an online catalogue or by hand.
 
 ## Language
 
@@ -9,15 +9,23 @@ Replacing a book's embedded metadata with the values chosen in the Picker.
 _Avoid_: fix, sync
 
 **Book**:
-A work as Hardcover models it, independent of any one printing. It owns the author, series, genres and description.
+A work as a Provider models it, independent of any one printing. It owns the author, series, genres and description.
 _Avoid_: work
 
 **Edition**:
 One published form of a Book, such as a particular paperback or translation. It owns the title, publisher and language.
 _Avoid_: version, release
 
+**Provider**:
+An online catalogue Rebind looks books up in, such as Hardcover.
+_Avoid_: source, service, backend
+
+**Provider chain**:
+The user's ordered list of enabled Providers that a lookup tries in turn until one returns a Match.
+_Avoid_: fallback list, provider order
+
 **Match**:
-A Book returned by a Hardcover lookup, before an Edition has been chosen.
+A Book returned by a Provider lookup, before an Edition has been chosen.
 _Avoid_: result
 
 **Field**:
@@ -34,7 +42,7 @@ _Avoid_: old value
 
 **Proposed value**:
 A Field's value taken from the chosen Edition or its Book.
-_Avoid_: new value, Hardcover value
+_Avoid_: new value, Hardcover value, provider value
 
 **Custom value**:
 A Field value the user typed in an editor.
