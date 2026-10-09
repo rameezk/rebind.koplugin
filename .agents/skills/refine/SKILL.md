@@ -16,6 +16,12 @@ Move through the tree in **rounds**, guided by the **frontier** - the set of cho
 
 Every set of answers redraws the tree: resolved choices extend the frontier and open up whatever was waiting on them. Rebuild the frontier from there and run the next round.
 
+## No work breakdown
+
+Refine decides what gets built, never how the work is broken down for delivery. Do not ask how many PRs, tickets, or slices the work should take, which PR or ticket a piece belongs in, what order the pieces land in, or whether something should be split off into its own change. Sizing and splitting are owned entirely by [[to-spec]] and [[to-tickets]].
+
+If a branch of the tree only exists to settle the breakdown, prune it. If a design choice happens to affect how the work could be split, settle the design choice on its own merits and leave the split to [[to-tickets]].
+
 ## Round format
 
 Number the questions and lead each with the answer you'd pick, so the user can sign off with a single word.
@@ -46,12 +52,12 @@ Refining is where decisions get made, so it is also where they get recorded - in
 
 Refine is the one place questions get answered, so no question may leave it open. An answer the user has not explicitly agreed to is not an answer: the recommended pick is a proposal until they sign off, and a gap you quietly filled to keep moving is an assumption, not a decision. Every branch either settles on the user's word or stays on the frontier - it never gets written down as though it were resolved.
 
-This holds past the end of the session too. When a later step surfaces a question that was never actually decided - a seam that cannot be placed, a slice that cannot be sized, a fork that only shows up mid-build - that question belongs back here, not in the spec or the ticket.
+This holds past the end of the session too. When a later step surfaces a question that was never actually decided - a seam that cannot be placed, a slice that cannot be cut because a design call is missing, a fork that only shows up mid-build - that question belongs back here, not in the spec or the ticket.
 
 ## Completion
 
 The calls belong to the user: surface each one and wait for it. You're finished when the frontier runs dry - every branch of the tree walked, nothing quietly assumed and nothing left open behind a pick the user never confirmed.
 
-Refining is not building. When the frontier runs dry, stop. Summarize the agreed plan and hand it back - do not start implementing, and do not ask "shall I build it now?" as a way to keep going. Reaching shared understanding is the end of this skill, not a checkpoint on the way to writing code. Implementation happens only when the user comes back and explicitly asks for it in a separate step.
+Refining is not building. When the frontier runs dry, stop. Summarize the agreed plan, with no proposed PR or ticket breakdown, and hand it back - do not start implementing, and do not ask "shall I build it now?" as a way to keep going. Reaching shared understanding is the end of this skill, not a checkpoint on the way to writing code. Implementation happens only when the user comes back and explicitly asks for it in a separate step.
 
 If the agreed plan needs to outlive this session - picked up after a context clear or split across sessions - the user can invoke [[to-spec]] to capture it as a durable record. That is a separate step they choose, not something you roll into refining.
