@@ -305,10 +305,9 @@ function Rebind:_showEditions(book, chain, on_pick)
             local list
             local rows = {}
             for _i, edition in ipairs(editions) do
-                local m = edition
                 rows[#rows + 1] = {
-                    title = m.title or _("Unknown edition"),
-                    subtitle = Labels.edition_label(m),
+                    title = edition.title or _("Unknown edition"),
+                    subtitle = Labels.edition_label(edition),
                     on_select = function()
                         UIManager:close(list)
                         on_pick(edition)
@@ -328,10 +327,9 @@ function Rebind:_showChooser(results, chain, handlers)
     local chooser
     local rows = {}
     for _i, book in ipairs(results) do
-        local m = book
         local row = {
-            title = m.title or _("Unknown title"),
-            subtitle = Labels.match_subtitle(m),
+            title = book.title or _("Unknown title"),
+            subtitle = Labels.match_subtitle(book),
             on_select = function()
                 UIManager:close(chooser)
                 handlers.on_match(book)
@@ -427,12 +425,11 @@ function Rebind:_showEditionList(editions, name, on_pick)
     local dialog
     local buttons = {}
     for _i, edition in ipairs(editions) do
-        local m = edition
-        local label = Labels.edition_label(m, true)
+        local label = Labels.edition_label(edition, true)
         if label == "" then
-            label = m.title or _("Unknown edition")
-        elseif m.title and m.title ~= "" then
-            label = m.title .. " - " .. label
+            label = edition.title or _("Unknown edition")
+        elseif edition.title and edition.title ~= "" then
+            label = edition.title .. " - " .. label
         end
         buttons[#buttons + 1] = {
             {
@@ -535,9 +532,9 @@ function Rebind:_translateText(text, target)
 end
 
 function Rebind:_useSource(picker, current, shown, source)
-    local m = source or {}
-    shown.proposed = m
-    picker:setFields(Fields.build(current, m), m.edition_id and Labels.header_label(m) or nil)
+    local proposed = source or {}
+    shown.proposed = proposed
+    picker:setFields(Fields.build(current, proposed), proposed.edition_id and Labels.header_label(proposed) or nil)
 end
 
 function Rebind:_findMatches(current, chain, shown, on_results)
