@@ -1,4 +1,5 @@
 local Hardcover = require("rebind/hardcover")
+local Labels = require("rebind/labels")
 local FakeApi = require("tests/support/fake_api")
 
 local T = {}
@@ -83,50 +84,6 @@ T["extract carries the edition id through"] = function(a)
     a.eq(m.edition_id, 99)
 end
 
-T["edition_label describes format, year, publisher, pages and language"] = function(a)
-    local label = Hardcover.edition_label({
-        edition_format = "Paperback",
-        release_year = "2010",
-        publisher = "Penguin",
-        pages = 412,
-        language = "en",
-    })
-    a.eq(label, "Paperback · 2010 · Penguin · 412pp · en")
-end
-
-T["edition_label skips the parts an edition does not have"] = function(a)
-    a.eq(Hardcover.edition_label({ edition_format = "Ebook", pages = 300 }), "Ebook · 300pp")
-    a.eq(Hardcover.edition_label({}), "")
-end
-
-T["header_label is year, publisher and language without format or pages"] = function(a)
-    local m = {
-        edition_format = "Hardcover",
-        release_year = "2020",
-        publisher = "Ballantine Books",
-        pages = 367,
-        language = "en",
-    }
-    a.eq(Hardcover.header_label(m), "2020 · Ballantine Books · en")
-end
-
-T["header_label leaves out the parts an edition does not have"] = function(a)
-    a.eq(Hardcover.header_label({ edition_format = "Ebook", pages = 300, language = "de" }), "de")
-    a.eq(Hardcover.header_label({ release_year = 1999, publisher = "Penguin" }), "1999 · Penguin")
-    a.eq(Hardcover.header_label({}), "")
-end
-
-T["match_subtitle joins author, year and readers"] = function(a)
-    local m = { authors = { "Frank Herbert", "Someone Else" }, release_year = 1965, users_read_count = 1204 }
-    a.eq(Hardcover.match_subtitle(m), "Frank Herbert · 1965 · 1204 readers")
-end
-
-T["match_subtitle skips what a match does not have and singularises one reader"] = function(a)
-    a.eq(Hardcover.match_subtitle({ authors = { "Solo" }, users_read_count = 1 }), "Solo · 1 reader")
-    a.eq(Hardcover.match_subtitle({ release_year = 1972 }), "1972")
-    a.eq(Hardcover.match_subtitle({}), "")
-end
-
 T["list_editions asks the API for one more edition than it shows"] = function(a)
     local api = FakeApi.new({ editions = { { id = 1, title = "Dune" } } })
     local editions = Hardcover.list_editions(api, { book_id = 7 })
@@ -143,11 +100,6 @@ T["list_editions leaves audiobooks out of the query"] = function(a)
     a.contains(api.calls.editions_query.query, "reading_format_id: { _neq: 2 }")
 end
 
-T["edition_label can leave the language out"] = function(a)
-    local m = { edition_format = "Paperback", release_year = "1999", language = "es" }
-    a.eq(Hardcover.edition_label(m), "Paperback · 1999 · es")
-    a.eq(Hardcover.edition_label(m, true), "Paperback · 1999")
-end
 
 T["list_editions drops audiobooks the server filter lets through"] = function(a)
     local api = FakeApi.new({
@@ -379,7 +331,7 @@ T["an Edition keeps the Book's First published while its label shows its own yea
     local editions = Hardcover.list_editions(api, { book_id = 7, release_year = 1983 })
     local m = Hardcover.extract(editions[1])
     a.eq(m.first_published, "1983")
-    a.contains(Hardcover.edition_label(m), "2012")
+    a.contains(Labels.edition_label(m), "2012")
 end
 
 T["an Edition of a Book with no release year proposes no First published"] = function(a)
