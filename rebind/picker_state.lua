@@ -5,8 +5,13 @@ local Organize = require("rebind/organize")
 local PickerState = {}
 PickerState.__index = PickerState
 
-function PickerState.new(fields)
-    local self = setmetatable({ fields = fields, chosen = {}, extra = {} }, PickerState)
+function PickerState.new(fields, provider_name)
+    local self = setmetatable({
+        fields = fields,
+        provider_name = provider_name or _("Provider"),
+        chosen = {},
+        extra = {},
+    }, PickerState)
     self:_open_selection()
     self.opened = { chosen = {} }
     for key, choice in pairs(self.chosen) do
@@ -72,14 +77,34 @@ function PickerState:differing_keys()
     return keys
 end
 
-function PickerState:matching_fields()
+function PickerState:_unlisted(want_empty)
     local out = {}
     for _i, f in ipairs(self.fields) do
-        if not self:_listed(f) then
+        if not self:_listed(f) and f.is_empty(f.new_value) == want_empty then
             out[#out + 1] = f
         end
     end
     return out
+end
+
+function PickerState:matching_fields()
+    return self:_unlisted(false)
+end
+
+function PickerState:not_found_fields()
+    return self:_unlisted(true)
+end
+
+function PickerState:not_found_keys()
+    local keys = {}
+    for _i, f in ipairs(self:not_found_fields()) do
+        keys[#keys + 1] = f.key
+    end
+    return keys
+end
+
+function PickerState:provider_label()
+    return string.format(_("%s values"), self.provider_name)
 end
 
 function PickerState:differ_heading()
@@ -95,22 +120,35 @@ function PickerState:differ_heading()
     return string.format(_("%d FIELDS DIFFER"), n)
 end
 
-function PickerState:matching_summary()
+local function labels_of(fields)
     local labels = {}
-    for _i, f in ipairs(self:matching_fields()) do
+    for _i, f in ipairs(fields) do
         labels[#labels + 1] = f.label
     end
+    return labels
+end
+
+function PickerState:matching_summary()
+    local labels = labels_of(self:matching_fields())
     local n = #labels
     local head = n == 1 and _("1 field already matches") or string.format(_("%d fields already match"), n)
     return head .. " · " .. table.concat(labels, ", ")
 end
 
+function PickerState:not_found_summary()
+    local labels = labels_of(self:not_found_fields())
+    local n = #labels
+    local head = n == 1 and string.format(_("1 field not found on %s"), self.provider_name)
+        or string.format(_("%d fields not found on %s"), n, self.provider_name)
+    return head .. " · " .. table.concat(labels, ", ")
+end
+
 local SOURCE_ORDER = {
-    { choice = "new", label = _("Hardcover values") },
-    { choice = "current", label = _("Book values") },
-    { choice = "custom", label = _("Custom values") },
-    { choice = "translated", label = _("Translated values") },
-    { choice = "removed", label = _("Removed") },
+    { choice = "new", label = function(self) return self:provider_label() end },
+    { choice = "current", label = function() return _("Book values") end },
+    { choice = "custom", label = function() return _("Custom values") end },
+    { choice = "translated", label = function() return _("Translated values") end },
+    { choice = "removed", label = function() return _("Removed") end },
 }
 
 function PickerState:_source(field)
@@ -133,7 +171,7 @@ function PickerState:status_line()
     local parts = {}
     for _i, source in ipairs(SOURCE_ORDER) do
         if counts[source.choice] then
-            parts[#parts + 1] = source.label .. ": " .. counts[source.choice]
+            parts[#parts + 1] = source.label(self) .. ": " .. counts[source.choice]
         end
     end
     return table.concat(parts, " · ")
@@ -151,7 +189,7 @@ end
 function PickerState:bulk_label()
     local fields = self:differing_fields()
     if self:_any_on_book(fields) then
-        return string.format(_("Use Hardcover values for all %d"), #fields)
+        return string.format(_("Use %s values for all %d"), self.provider_name, #fields)
     end
     return string.format(_("Use book values for all %d"), #fields)
 end
@@ -185,7 +223,7 @@ function PickerState:values(key)
     end
     add("current", "book", field.current_value)
     if self:_differs(field) then
-        add("new", "Hardcover", field.new_value)
+        add("new", self.provider_name, field.new_value)
     end
     local extra = self.extra[key]
     if extra then
@@ -206,8 +244,9 @@ function PickerState:selection(key)
     return self.chosen[key]
 end
 
-function PickerState:set_fields(fields)
+function PickerState:set_fields(fields, provider_name)
     self.fields = fields
+    self.provider_name = provider_name or self.provider_name
     self:_open_selection()
 end
 
