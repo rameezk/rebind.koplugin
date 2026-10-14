@@ -200,7 +200,7 @@ Edit this book's metadata by hand instead?]]))
         return
     end
 
-    self:_startLookup(file, current, chain)
+    self:_startLookup(file, current, { HardcoverProvider.new(Api) })
 end
 
 function Rebind:_startLookup(file, current, chain)
@@ -389,7 +389,7 @@ function Rebind:_chooseLanguage(picker, current, chain, shown, on_done)
 
         if not (chain and book and book.has_editions) then
             self:_offerGapTranslation(picker, code, name,
-                _("Rebind has no match for this book, so it cannot look for a %1 edition."))
+                _("Rebind has no Hardcover match for this book, so it cannot look for a %1 edition."))
             on_done()
             return
         end
