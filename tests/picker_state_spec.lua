@@ -55,7 +55,7 @@ end
 
 local function open(overrides)
     local fields = Fields.build(CURRENT, proposed(overrides))
-    return PickerState.new(fields), fields
+    return PickerState.new(fields, "Hardcover"), fields
 end
 
 local FOUR_DIFFER_CURRENT = {
@@ -82,7 +82,7 @@ local function open_four_differing()
         language = "en",
         publisher = "Same House",
     })
-    return PickerState.new(fields), fields
+    return PickerState.new(fields, "Hardcover"), fields
 end
 
 local T = {}
@@ -183,6 +183,40 @@ T["a Field Hardcover has no value for stays current"] = function(a)
     a.eq(state:selection("publisher"), "current")
 end
 
+T["a Field the Provider had nothing for is listed apart from the ones that already match"] = function(a)
+    local state = open({ series = "", series_index = "" })
+    a.eq(table.concat(state:not_found_keys(), ","), "series,first_published")
+    a.eq(state:not_found_summary(), "2 fields not found on Hardcover · Series, First published")
+    for _i, f in ipairs(state:matching_fields()) do
+        a.is_true(f.key ~= "series")
+    end
+    a.eq(state:matching_summary(), "5 fields already match · Title, Author(s), Genre(s), Language, Publisher")
+end
+
+T["a Field the Provider had nothing for can be given a Custom value"] = function(a)
+    local state, fields = open({ series = "", series_index = "" })
+    state:save_custom("series", field_for(fields, "series").from_input({ name = "Dune", index = "2" }))
+    a.eq(state:selection("series"), "custom")
+    a.eq(state:changes().series, "Dune")
+end
+
+T["the not found summary names the Provider and counts Fields"] = function(a)
+    local fields = Fields.build(CURRENT, proposed({ series = "", series_index = "", publisher = "" }))
+    local state = PickerState.new(fields, "Open Library")
+    a.eq(state:not_found_summary(), "3 fields not found on Open Library · Series, First published, Publisher")
+end
+
+T["the Proposed value choice, status line and bulk action name the Provider"] = function(a)
+    local fields = Fields.build(CURRENT, proposed())
+    local state = PickerState.new(fields, "Inventaire")
+    a.eq(tags_of(state, "series"), "book,Inventaire")
+    a.eq(state:status_line(), "Inventaire values: 2")
+    a.eq(state:bulk_label(), "Use book values for all 2")
+    state:bulk()
+    a.eq(state:bulk_label(), "Use Inventaire values for all 2")
+    a.eq(state:provider_label(), "Inventaire values")
+end
+
 T["a saved Custom value is selected and written"] = function(a)
     local state, fields = open()
     local genre = field_for(fields, "genre")
@@ -243,7 +277,7 @@ T["a Description differing only past the preview limit is still written"] = func
     current.description = shared .. " old"
     local p = proposed()
     p.description = shared .. " new"
-    local state = PickerState.new(Fields.build(current, p))
+    local state = PickerState.new(Fields.build(current, p), "Hardcover")
     a.eq(table.concat(state:differing_keys(), ","), "series,description")
     a.eq(state:changes().description, shared .. " new")
 end

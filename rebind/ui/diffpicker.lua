@@ -52,9 +52,11 @@ local DiffPicker = InputContainer:extend{
     edition_label = nil,
     on_open_source = nil,
     hardcover_missing = false,
+    provider_name = nil,
     translate_targets = nil,
     on_translate = nil,
     matching_open = false,
+    not_found_open = false,
 }
 
 function DiffPicker:init()
@@ -67,16 +69,17 @@ function DiffPicker:init()
         self.key_events = { Close = { { Device.input.group.Back } } }
     end
 
-    self.state = PickerState.new(self.fields)
+    self.state = PickerState.new(self.fields, self.provider_name)
     self.state:set_save_as(self.save_as)
 
     self:_build()
 end
 
-function DiffPicker:setFields(fields, edition_label)
+function DiffPicker:setFields(fields, edition_label, provider_name)
     self.fields = fields
     self.edition_label = edition_label
-    self.state:set_fields(fields)
+    self.provider_name = provider_name
+    self.state:set_fields(fields, provider_name)
     self:_refresh()
 end
 
@@ -236,7 +239,7 @@ function DiffPicker:_add_start_from(dialog, field, get_raw, set_raw)
     }
     if not field.is_empty(field.new_value) then
         chips[#chips + 1] = {
-            text = _("Hardcover"),
+            text = self.state.provider_name,
             callback = function()
                 set_raw(field.new_value)
             end,
@@ -410,11 +413,11 @@ function DiffPicker:_source_button(max_width)
             return _("Hardcover plugin not installed"), false
         end
         if self.on_open_source then
-            return _("Not using Hardcover ▸"), true
+            return _("Not using a lookup ▸"), true
         end
-        return _("Not using Hardcover"), false
+        return _("Not using a lookup"), false
     end
-    local label = "Hardcover"
+    local label = self.state.provider_name
     if self.edition_label and self.edition_label ~= "" then
         label = label .. " · " .. self.edition_label
     end
@@ -540,17 +543,19 @@ function DiffPicker:_build()
         add_block(field)
     end
 
-    local matching = self.state:matching_fields()
-    if #matching > 0 then
+    local function add_fold(fields, summary_text, is_open, toggle)
+        if #fields == 0 then
+            return
+        end
         add_separator()
         local summary = TextBoxWidget:new{
-            text = (self.matching_open and "▾ " or "▸ ") .. self.state:matching_summary(),
+            text = (is_open and "▾ " or "▸ ") .. summary_text,
             face = Font:getFace("cfont", 16),
             width = content_inner - 2 * Size.padding.default,
         }
         table.insert(body, TapRow:new{
             on_tap = function()
-                self.matching_open = not self.matching_open
+                toggle()
                 self:_refresh()
             end,
             dimen = Geom:new{ w = view_w, h = summary:getSize().h + 4 * Size.padding.default },
@@ -560,12 +565,19 @@ function DiffPicker:_build()
                 summary,
             },
         })
-        if self.matching_open then
-            for _i, field in ipairs(matching) do
+        if is_open then
+            for _i, field in ipairs(fields) do
                 add_block(field)
             end
         end
     end
+
+    add_fold(self.state:not_found_fields(), self.state:not_found_summary(), self.not_found_open, function()
+        self.not_found_open = not self.not_found_open
+    end)
+    add_fold(self.state:matching_fields(), self.state:matching_summary(), self.matching_open, function()
+        self.matching_open = not self.matching_open
+    end)
 
     local apply_btn = Button:new{
         text = self.state:apply_label(),

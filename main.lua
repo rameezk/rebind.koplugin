@@ -203,6 +203,18 @@ Edit this book's metadata by hand instead?]]))
     self:_startLookup(file, current, { HardcoverProvider.new(Api) })
 end
 
+local function chain_names(chain)
+    local names = {}
+    for _i, provider in ipairs(chain or {}) do
+        names[#names + 1] = provider.name
+    end
+    if #names <= 1 then
+        return names[1] or _("lookup providers")
+    end
+    local last = table.remove(names)
+    return table.concat(names, ", ") .. _(" or ") .. last
+end
+
 function Rebind:_startLookup(file, current, chain)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
@@ -230,13 +242,14 @@ function Rebind:_withAutoEdition(current, chain, book, done)
 end
 
 function Rebind:_lookup(file, current, chain)
-    local busy = Logo.show_message(_("Looking up on Hardcover…"))
+    local busy = Logo.show_message(_("Looking up your book…"))
     local ok, err = pcall(function()
         local results = Lookup.find(chain, current).matches
         Logo.close_message(busy)
 
         if not results or #results == 0 then
-            self:_offerManualEdit(file, current, chain)
+            self:_offerManualEdit(file, current, chain, string.format(
+                _("No match found on %s.\n\nEdit the metadata yourself?"), chain_names(chain)))
             return
         end
 
@@ -264,7 +277,7 @@ function Rebind:_lookup(file, current, chain)
     if not ok then
         Logo.close_message(busy)
         UIManager:show(MultiConfirmBox:new{
-            text = _("Hardcover lookup failed:\n") .. tostring(err),
+            text = _("Lookup failed:\n") .. tostring(err),
             choice1_text = _("Retry"),
             choice1_callback = function()
                 self:_startLookup(file, current, chain)
@@ -279,7 +292,7 @@ end
 
 function Rebind:_offerManualEdit(file, current, chain, text)
     UIManager:show(ConfirmBox:new{
-        text = text or _("No match found on Hardcover.\n\nEdit the metadata yourself?"),
+        text = text or _("No match found.\n\nEdit the metadata yourself?"),
         ok_text = _("Edit"),
         cancel_text = _("Cancel"),
         ok_callback = function()
@@ -298,7 +311,7 @@ function Rebind:_showEditions(book, chain, on_pick)
             Trapper:clear()
 
             if not ok or type(editions) ~= "table" or #editions == 0 then
-                info(_("No editions found for this book on Hardcover."))
+                info(string.format(_("No editions found for this book on %s."), book.provider_name))
                 return
             end
 
@@ -387,7 +400,7 @@ function Rebind:_chooseLanguage(picker, current, chain, shown, on_done)
 
         if not (chain and book and book.has_editions) then
             self:_offerGapTranslation(picker, code, name,
-                _("Rebind has no Hardcover match for this book, so it cannot look for a %1 edition."))
+                _("Rebind has no match for this book, so it cannot look for a %1 edition."))
             on_done()
             return
         end
@@ -534,7 +547,11 @@ end
 function Rebind:_useSource(picker, current, shown, source)
     local proposed = source or {}
     shown.proposed = proposed
-    picker:setFields(Fields.build(current, proposed), proposed.edition_id and Labels.header_label(proposed) or nil)
+    picker:setFields(
+        Fields.build(current, proposed),
+        proposed.edition_id and Labels.header_label(proposed) or nil,
+        proposed.provider_name
+    )
 end
 
 function Rebind:_findMatches(current, chain, shown, on_results)
@@ -544,17 +561,17 @@ function Rebind:_findMatches(current, chain, shown, on_results)
     end
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
-            local busy = Logo.show_message(_("Looking up on Hardcover…"))
+            local busy = Logo.show_message(_("Looking up your book…"))
             local ok, results = pcall(function()
                 return Lookup.find(chain, current).matches
             end)
             Logo.close_message(busy)
             if not ok then
-                info(_("Hardcover lookup failed:\n") .. tostring(results))
+                info(_("Lookup failed:\n") .. tostring(results))
                 return
             end
             if type(results) ~= "table" or #results == 0 then
-                info(_("No match found on Hardcover."))
+                info(string.format(_("No match found on %s."), chain_names(chain)))
                 return
             end
             shown.results = results
@@ -637,7 +654,7 @@ function Rebind:_sourceRows(picker, current, chain, shown, close)
     }
     if shown.book then
         rows[#rows + 1] = {
-            title = _("Don't use Hardcover"),
+            title = string.format(_("Don't use %s"), shown.book.provider_name),
             subtitle = _("Type every value yourself"),
             on_select = self:_sourceHandlers(picker, current, chain, shown, close).on_none,
         }
@@ -663,6 +680,7 @@ function Rebind:_showDiff(file, current, book, chain, results)
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
         edition_label = proposed.edition_id and Labels.header_label(proposed) or nil,
+        provider_name = proposed.provider_name,
         hardcover_missing = chain == nil,
         on_open_source = chain and function(picker)
             self:_showSource(picker, current, chain, shown)
