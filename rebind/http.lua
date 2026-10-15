@@ -4,6 +4,7 @@ Http.__index = Http
 Http.MAX_ATTEMPTS = 3
 Http.BASE_BACKOFF = 2
 Http.MAX_WAIT = 30
+Http.MAX_BODY = 4 * 1024 * 1024
 Http.HOMEPAGE = "https://github.com/rameezk/rebind.koplugin"
 
 function Http.user_agent(version)
@@ -29,9 +30,22 @@ function Http.query_string(params)
     return table.concat(parts, "&")
 end
 
+function Http.limited_sink(chunks, limit)
+    local size = 0
+    return function(chunk)
+        if chunk then
+            size = size + #chunk
+            if size > limit then
+                return nil, "response too large"
+            end
+            chunks[#chunks + 1] = chunk
+        end
+        return 1
+    end
+end
+
 function Http.default_transport(req)
     local http = require("socket.http")
-    local ltn12 = require("ltn12")
     local socketutil = require("socketutil")
     local chunks = {}
     socketutil:set_timeout(socketutil.LARGE_BLOCK_TIMEOUT, socketutil.LARGE_TOTAL_TIMEOUT)
@@ -39,7 +53,7 @@ function Http.default_transport(req)
         url = req.url,
         method = "GET",
         headers = req.headers,
-        sink = socketutil.table_sink(chunks),
+        sink = Http.limited_sink(chunks, Http.MAX_BODY),
     }
     socketutil:reset_timeout()
     if not ok then

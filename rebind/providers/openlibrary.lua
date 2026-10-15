@@ -35,6 +35,7 @@ local EBOOK_CLAUSE = "(ebook_access:public OR ebook_access:borrowable OR ebook_a
 
 local GENRE_LIMIT = 5
 local GENRE_MAX_LENGTH = 40
+local WORK_KEY_PATTERN = "^/works/OL%d+W$"
 
 local function first_string(list)
     local value = type(list) == "table" and list[1] or list
@@ -64,6 +65,10 @@ local function key_id(key)
         return nil
     end
     return key:match("([^/]+)$")
+end
+
+local function utf8_length(text)
+    return select(2, text:gsub("[^\128-\191]", ""))
 end
 
 local function name_set(list)
@@ -97,7 +102,7 @@ function Provider.genres(doc)
     for _i, subject in ipairs(doc.subject) do
         local key = type(subject) == "string" and subject:lower() or nil
         if key and not subject:find("[:=]") and not excluded[key] and not seen[key]
-            and #subject <= GENRE_MAX_LENGTH and not is_fictional_entity(subject) then
+            and utf8_length(subject) <= GENRE_MAX_LENGTH and not is_fictional_entity(subject) then
             seen[key] = true
             genres[#genres + 1] = subject
             if #genres >= GENRE_LIMIT then
@@ -121,11 +126,12 @@ function Provider:ready()
 end
 
 function Provider:_neutral(doc, edition)
+    local work_key = type(doc.key) == "string" and doc.key:match(WORK_KEY_PATTERN) or nil
     local series_index = type(doc.series_position) == "table" and tonumber(doc.series_position[1]) or nil
     local match = {
         provider_id = Provider.id,
         provider_name = Provider.name,
-        has_editions = type(doc.key) == "string",
+        has_editions = work_key ~= nil,
         is_edition = false,
         title = doc.title,
         authors = type(doc.author_name) == "table" and doc.author_name or {},
@@ -134,7 +140,7 @@ function Provider:_neutral(doc, edition)
         genres = Provider.genres(doc),
         first_published = year_of(doc.first_publish_year),
         release_year = year_of(doc.first_publish_year),
-        ref = { work_key = doc.key, edition = edition },
+        ref = { work_key = work_key, edition = edition },
     }
     if edition then
         match.is_edition = true
@@ -163,7 +169,9 @@ function Provider:_find_by_isbn(meta)
             local doc = self:_search({ q = "isbn:" .. isbn, limit = 1 })[1]
             if doc then
                 local edition = type(doc.editions) == "table" and doc.editions.docs and doc.editions.docs[1]
-                return { self:_neutral(doc, edition) }
+                local match = self:_neutral(doc, edition)
+                match.by_isbn = true
+                return { match }
             end
         end
     end
@@ -206,6 +214,7 @@ end
 
 local function usable(match)
     return type(match) == "table" and type(match.ref) == "table" and type(match.ref.work_key) == "string"
+        and match.ref.work_key:match(WORK_KEY_PATTERN) ~= nil
 end
 
 function Provider:editions(match, language)
@@ -216,10 +225,10 @@ function Provider:editions(match, language)
 end
 
 function Provider:pick_edition(match, language)
-    if not usable(match) then
+    language = Translate.normalize(language)
+    if not usable(match) or not language then
         return nil
     end
-    language = Translate.normalize(language)
     local best
     for _i, ebook_only in ipairs({ true, false }) do
         for _j, candidate in ipairs(self:_candidates(match, language, ebook_only)) do

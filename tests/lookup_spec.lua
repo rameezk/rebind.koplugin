@@ -197,6 +197,34 @@ T["nothing found also says which providers were skipped"] = function(a)
         "Not found on Open Library\n\nHardcover was skipped: Hardcover plugin not installed")
 end
 
+T["every provider failing is told apart from nothing being found"] = function(a)
+    Hardcover._user_id = nil
+    local api = FakeApi.new({})
+    api.me = function()
+        error("no network")
+    end
+    local down = open_library({ { when = "title=", status = 503 } })
+    local failed = Lookup.find({ HardcoverProvider.new(api), down }, { title = "Dune" })
+    a.eq(Lookup.all_failed(failed), true)
+
+    local none = open_library({ { when = "title=", file = "search_none.json" } })
+    local unset = Lookup.find({ HardcoverProvider.new(nil), none }, { title = "Dune" })
+    a.eq(Lookup.all_failed(unset), false)
+end
+
+T["an edition is picked in the current language, then the preferred one"] = function(a)
+    local ol = open_library({
+        { when = "title=Harry", file = "search_harry_potter.json" },
+        { when = "language:jpn", file = "edition_jpn_none.json" },
+        { when = "key:\"/works/OL82563W\"", file = "editions_mixed.json" },
+    })
+    local match = Lookup.find({ ol }, { title = "Harry Potter and the Philosopher's Stone" }).matches[1]
+    a.eq(Lookup.pick_edition(ol, match, { "ja", "de" }).edition_id, "OL47682314M")
+    a.eq(Lookup.pick_edition(ol, match, { "en", "de" }).edition_id, "OL59004869M")
+    a.eq(Lookup.pick_edition(ol, match, { "ja", false }), nil)
+    a.eq(Lookup.pick_edition(ol, match, {}), nil)
+end
+
 T["an empty chain says no lookup providers are enabled"] = function(a)
     local result = Lookup.find({}, { title = "Dune" })
     a.eq(Lookup.not_found_text(result), "No lookup providers enabled")

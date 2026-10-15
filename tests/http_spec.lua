@@ -85,4 +85,14 @@ T["other HTTP errors and bad JSON fail without retrying"] = function(a)
     a.eq(#transport.calls, 2)
 end
 
+T["a response larger than the limit is cut off instead of buffered"] = function(a)
+    local chunks = {}
+    local sink = Http.limited_sink(chunks, 10)
+    a.eq(sink("12345"), 1)
+    a.eq(sink("6789"), 1)
+    local ok, err = sink("0123")
+    a.eq(ok, nil)
+    a.contains(err, "too large")
+end
+
 return T

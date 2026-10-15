@@ -143,13 +143,39 @@ T["a search match gets the english ebook over a paperback and a german ebook"] =
     a.contains(transport.calls[2].decoded, "language:eng")
 end
 
-T["the newest ebook wins when the language is unknown"] = function(a)
-    local provider = setup({
+T["no edition is picked when the language is unknown"] = function(a)
+    local provider, transport = setup({
         { when = "title=Harry", file = "search_harry_potter.json" },
         { when = "key:\"/works/OL82563W\"", file = "editions_mixed.json" },
     })
     local match = first_match(provider, { title = "Harry Potter and the Philosopher's Stone" })
-    a.eq(provider:pick_edition(match, nil).edition_id, "OL59004869M")
+    a.eq(provider:pick_edition(match, nil), nil)
+    a.eq(#transport.calls, 1)
+end
+
+T["an isbn match is marked so no edition is picked over it"] = function(a)
+    local body = '{"numFound":1,"docs":[{"key":"/works/OL1W","title":"A Book"}]}'
+    local provider = setup({ { when = "isbn:", body = body } })
+    local match = first_match(provider, { isbn_13 = ISBN })
+    a.eq(match.by_isbn, true)
+    a.eq(first_match(setup({ { when = "title=", file = "search_dune.json" } }), { title = "Dune" }).by_isbn, nil)
+end
+
+T["a genre is not dropped as too long just because its letters take several bytes"] = function(a)
+    local body = '{"numFound":1,"docs":[{"key":"/works/OL1W","title":"A Book",'
+        .. '"subject":["Научная фантастика и фэнтези"]}]}'
+    local provider = setup({ { when = "title=", body = body } })
+    a.eq(first_match(provider, { title = "A Book" }).genres[1], "Научная фантастика и фэнтези")
+end
+
+T["a work key that is not a work key is never put into a query"] = function(a)
+    local body = '{"numFound":1,"docs":[{"key":"/works/OL1W\\" OR key:\\"x","title":"A Book"}]}'
+    local provider, transport = setup({ { when = "title=", body = body } })
+    local match = first_match(provider, { title = "A Book" })
+    a.eq(match.has_editions, false)
+    a.eq(provider:pick_edition(match, "en"), nil)
+    a.eq(#provider:editions(match), 0)
+    a.eq(#transport.calls, 1)
 end
 
 T["the language alone is searched again when no ebook comes back"] = function(a)

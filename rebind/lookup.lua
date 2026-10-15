@@ -14,8 +14,8 @@ function Lookup.names(providers)
     return table.concat(names, ", ") .. _(" or ") .. last
 end
 
-local function skip(result, provider, reason)
-    result.skipped[#result.skipped + 1] = { provider = provider, reason = reason }
+local function skip(result, provider, reason, failed)
+    result.skipped[#result.skipped + 1] = { provider = provider, reason = reason, failed = failed }
 end
 
 function Lookup.find(chain, meta)
@@ -27,7 +27,7 @@ function Lookup.find(chain, meta)
         else
             local ok, matches, method = pcall(provider.find, provider, meta)
             if not ok then
-                skip(result, provider, _("lookup failed"))
+                skip(result, provider, _("lookup failed"), true)
             else
                 result.tried[#result.tried + 1] = provider
                 if type(matches) == "table" and #matches > 0 then
@@ -40,6 +40,30 @@ function Lookup.find(chain, meta)
         end
     end
     return result
+end
+
+function Lookup.all_failed(result)
+    if #result.tried > 0 then
+        return false
+    end
+    for _i, entry in ipairs(result.skipped) do
+        if entry.failed then
+            return true
+        end
+    end
+    return false
+end
+
+function Lookup.pick_edition(provider, match, languages)
+    for _i, language in ipairs(languages or {}) do
+        if language then
+            local edition = provider:pick_edition(match, language)
+            if edition then
+                return edition
+            end
+        end
+    end
+    return nil
 end
 
 function Lookup.skipped_text(result)

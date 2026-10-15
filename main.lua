@@ -133,8 +133,8 @@ function Rebind:providerChain()
     })
 end
 
-function Rebind:preferredLanguage(current)
-    return (current and current.language) or self.settings:readSetting("preferred_language")
+function Rebind:editionLanguages(current)
+    return { current and current.language, self.settings:readSetting("preferred_language") }
 end
 
 function Rebind:keepBackup()
@@ -225,7 +225,7 @@ function Rebind:_startLookup(file, current, chain)
 end
 
 function Rebind:_withAutoEdition(current, chain, book, done)
-    if not (chain and book and not book.edition_id and book.has_editions) then
+    if not (chain and book and not book.edition_id and not book.by_isbn and book.has_editions) then
         done(book)
         return
     end
@@ -234,7 +234,7 @@ function Rebind:_withAutoEdition(current, chain, book, done)
             Trapper:info(_("Looking for an edition…"))
             local provider = Lookup.provider_for(chain, book)
             local ok, edition = pcall(function()
-                return provider and provider:pick_edition(book, self:preferredLanguage(current))
+                return provider and Lookup.pick_edition(provider, book, self:editionLanguages(current))
             end)
             Trapper:clear()
             done(ok and edition or book)
@@ -248,6 +248,10 @@ function Rebind:_lookup(file, current, chain)
         local found = Lookup.find(chain, current)
         local results = found.matches
         Logo.close_message(busy)
+
+        if Lookup.all_failed(found) then
+            error(Lookup.skipped_text(found), 0)
+        end
 
         if not results or #results == 0 then
             self:_offerManualEdit(file, current, chain,
