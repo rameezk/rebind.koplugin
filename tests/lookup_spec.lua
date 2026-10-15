@@ -1,7 +1,10 @@
+local Http = require("rebind/http")
 local Lookup = require("rebind/lookup")
 local HardcoverProvider = require("rebind/providers/hardcover")
+local OpenLibraryProvider = require("rebind/providers/openlibrary")
 local Hardcover = require("rebind/hardcover")
 local FakeApi = require("tests/support/fake_api")
+local FakeTransport = require("tests/support/fake_transport")
 
 local T = {}
 
@@ -125,6 +128,78 @@ T["the provider that made a match is found again from the match"] = function(a)
     a.eq(Lookup.provider_for(chain, match), chain[1])
     a.eq(Lookup.provider_for(chain, { provider_id = "other" }), nil)
     a.eq(Lookup.provider_for(nil, match), nil)
+end
+
+local function open_library(routes)
+    local transport = FakeTransport.new(routes)
+    local http = Http.new{ transport = transport:fn(), sleep = function() end, version = "2.1.0" }
+    return OpenLibraryProvider.new(http), transport
+end
+
+local DUNE_ROUTES = {
+    { when = "isbn:", file = "isbn_dune.json" },
+    { when = "title=", file = "search_dune.json" },
+}
+
+T["the first provider with a match wins and later providers are not called"] = function(a)
+    Hardcover._user_id = nil
+    local api = FakeApi.new({ by_isbn = { book_id = 7, title = "Dune" } })
+    local ol, transport = open_library(DUNE_ROUTES)
+    local result = Lookup.find({ HardcoverProvider.new(api), ol }, { isbn_13 = "9780441013593", title = "Dune" })
+    a.eq(result.provider.id, "hardcover")
+    a.eq(#transport.calls, 0)
+    a.eq(#result.skipped, 0)
+end
+
+T["a provider with no match hands over to the next one"] = function(a)
+    Hardcover._user_id = nil
+    local ol = open_library(DUNE_ROUTES)
+    local result = Lookup.find({ HardcoverProvider.new(FakeApi.new({})), ol }, { title = "Dune" })
+    a.eq(result.provider.id, "openlibrary")
+    a.eq(result.matches[1].provider_name, "Open Library")
+    a.eq(#result.skipped, 0)
+end
+
+T["a provider that is not set up is skipped and reported"] = function(a)
+    local ol = open_library(DUNE_ROUTES)
+    local result = Lookup.find({ HardcoverProvider.new(nil), ol }, { title = "Dune" })
+    a.eq(result.provider.id, "openlibrary")
+    a.eq(#result.skipped, 1)
+    a.eq(result.skipped[1].provider.id, "hardcover")
+    a.eq(Lookup.skipped_text(result), "Hardcover was skipped: Hardcover plugin not installed")
+end
+
+T["a provider that fails at lookup time is skipped and reported"] = function(a)
+    Hardcover._user_id = nil
+    local api = FakeApi.new({})
+    api.me = function()
+        error("token rejected")
+    end
+    local ol = open_library(DUNE_ROUTES)
+    local result = Lookup.find({ HardcoverProvider.new(api), ol }, { title = "Dune" })
+    a.eq(result.provider.id, "openlibrary")
+    a.eq(result.skipped[1].provider.id, "hardcover")
+    a.eq(Lookup.skipped_text(result), "Hardcover was skipped: lookup failed")
+end
+
+T["nothing found names every provider that was tried"] = function(a)
+    Hardcover._user_id = nil
+    local ol = open_library({ { when = "title=", file = "search_none.json" } })
+    local result = Lookup.find({ HardcoverProvider.new(FakeApi.new({})), ol }, { title = "Zzqxjv" })
+    a.eq(#result.matches, 0)
+    a.eq(Lookup.not_found_text(result), "Not found on Hardcover or Open Library")
+end
+
+T["nothing found also says which providers were skipped"] = function(a)
+    local ol = open_library({ { when = "title=", file = "search_none.json" } })
+    local result = Lookup.find({ HardcoverProvider.new(nil), ol }, { title = "Zzqxjv" })
+    a.eq(Lookup.not_found_text(result),
+        "Not found on Open Library\n\nHardcover was skipped: Hardcover plugin not installed")
+end
+
+T["an empty chain says no lookup providers are enabled"] = function(a)
+    local result = Lookup.find({}, { title = "Dune" })
+    a.eq(Lookup.not_found_text(result), "No lookup providers enabled")
 end
 
 return T

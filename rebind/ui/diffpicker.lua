@@ -51,7 +51,6 @@ local DiffPicker = InputContainer:extend{
     on_choose_library = nil,
     edition_label = nil,
     on_open_source = nil,
-    hardcover_missing = false,
     provider_name = nil,
     translate_targets = nil,
     on_translate = nil,
@@ -409,9 +408,6 @@ end
 
 function DiffPicker:_source_button(max_width)
     if self.state:manual() then
-        if self.hardcover_missing then
-            return _("Hardcover plugin not installed"), false
-        end
         if self.on_open_source then
             return _("Not using a lookup ▸"), true
         end

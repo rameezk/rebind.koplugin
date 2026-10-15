@@ -11,11 +11,14 @@ local specs = {
     "tests/epub_spec",
     "tests/fields_spec",
     "tests/hardcover_spec",
+    "tests/http_spec",
     "tests/labels_spec",
     "tests/logo_spec",
     "tests/lookup_spec",
+    "tests/openlibrary_spec",
     "tests/organize_spec",
     "tests/picker_state_spec",
+    "tests/providers_spec",
     "tests/translate_spec",
 }
 

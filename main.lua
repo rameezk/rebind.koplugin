@@ -20,9 +20,11 @@ local Logo = require("rebind/ui/logo")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local HardcoverProvider = require("rebind/providers/hardcover")
+local Http = require("rebind/http")
 local Labels = require("rebind/labels")
 local Lookup = require("rebind/lookup")
 local Organize = require("rebind/organize")
+local Providers = require("rebind/providers")
 local Translate = require("rebind/translate")
 
 local function info(text, timeout, icon)
@@ -92,6 +94,10 @@ function Rebind:init()
     self:onDispatcherRegisterActions()
     self:promoteMenuOrder()
     self.settings = LuaSettings:open(DataStorage:getSettingsDir() .. "/rebind.lua")
+    if self.settings:readSetting("provider_chain") == nil then
+        self.settings:saveSetting("provider_chain", Providers.enabled_ids(nil))
+        self.settings:flush()
+    end
 
     if self.ui and self.ui.addFileDialogButtons then
         self.ui:addFileDialogButtons("rebind_update_metadata", function(file, is_file)
@@ -112,6 +118,23 @@ function Rebind:init()
     if self.ui and self.ui.menu then
         self.ui.menu:registerToMainMenu(self)
     end
+end
+
+function Rebind:version()
+    local ok, meta = pcall(dofile, (self.path or ".") .. "/_meta.lua")
+    return ok and type(meta) == "table" and meta.version or "dev"
+end
+
+function Rebind:providerChain()
+    local _available, Api = HardcoverProvider.available()
+    return Providers.build(Providers.enabled_ids(self.settings:readSetting("provider_chain")), {
+        hardcover_api = Api,
+        http = Http.new{ version = self:version() },
+    })
+end
+
+function Rebind:preferredLanguage(current)
+    return (current and current.language) or self.settings:readSetting("preferred_language")
 end
 
 function Rebind:keepBackup()
@@ -190,29 +213,7 @@ function Rebind:onRebind(file)
         return
     end
 
-    local available, Api = HardcoverProvider.available()
-    if not available then
-        self:_offerManualEdit(file, current, nil, _([[Rebind needs the Hardcover plugin to look books up.
-
-Install hardcoverapp.koplugin, add your API token to its hardcover_config.lua, and enable it.
-
-Edit this book's metadata by hand instead?]]))
-        return
-    end
-
-    self:_startLookup(file, current, { HardcoverProvider.new(Api) })
-end
-
-local function chain_names(chain)
-    local names = {}
-    for _i, provider in ipairs(chain or {}) do
-        names[#names + 1] = provider.name
-    end
-    if #names <= 1 then
-        return names[1] or _("lookup providers")
-    end
-    local last = table.remove(names)
-    return table.concat(names, ", ") .. _(" or ") .. last
+    self:_startLookup(file, current, self:providerChain())
 end
 
 function Rebind:_startLookup(file, current, chain)
@@ -233,7 +234,7 @@ function Rebind:_withAutoEdition(current, chain, book, done)
             Trapper:info(_("Looking for an edition…"))
             local provider = Lookup.provider_for(chain, book)
             local ok, edition = pcall(function()
-                return provider and provider:pick_edition(book, current and current.language)
+                return provider and provider:pick_edition(book, self:preferredLanguage(current))
             end)
             Trapper:clear()
             done(ok and edition or book)
@@ -244,13 +245,19 @@ end
 function Rebind:_lookup(file, current, chain)
     local busy = Logo.show_message(_("Looking up your book…"))
     local ok, err = pcall(function()
-        local results = Lookup.find(chain, current).matches
+        local found = Lookup.find(chain, current)
+        local results = found.matches
         Logo.close_message(busy)
 
         if not results or #results == 0 then
-            self:_offerManualEdit(file, current, chain, string.format(
-                _("No match found on %s.\n\nEdit the metadata yourself?"), chain_names(chain)))
+            self:_offerManualEdit(file, current, chain,
+                Lookup.not_found_text(found) .. _("\n\nEdit the metadata yourself?"))
             return
+        end
+
+        local skipped = Lookup.skipped_text(found)
+        if skipped ~= "" then
+            info(skipped, 4)
         end
 
         if #results == 1 then
@@ -562,20 +569,20 @@ function Rebind:_findMatches(current, chain, shown, on_results)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             local busy = Logo.show_message(_("Looking up your book…"))
-            local ok, results = pcall(function()
-                return Lookup.find(chain, current).matches
+            local ok, found = pcall(function()
+                return Lookup.find(chain, current)
             end)
             Logo.close_message(busy)
             if not ok then
-                info(_("Lookup failed:\n") .. tostring(results))
+                info(_("Lookup failed:\n") .. tostring(found))
                 return
             end
-            if type(results) ~= "table" or #results == 0 then
-                info(string.format(_("No match found on %s."), chain_names(chain)))
+            if type(found.matches) ~= "table" or #found.matches == 0 then
+                info(Lookup.not_found_text(found))
                 return
             end
-            shown.results = results
-            on_results(results)
+            shown.results = found.matches
+            on_results(found.matches)
         end)
     end)
 end
@@ -681,7 +688,6 @@ function Rebind:_showDiff(file, current, book, chain, results)
         fields = Fields.build(current, proposed),
         edition_label = proposed.edition_id and Labels.header_label(proposed) or nil,
         provider_name = proposed.provider_name,
-        hardcover_missing = chain == nil,
         on_open_source = chain and function(picker)
             self:_showSource(picker, current, chain, shown)
         end or nil,

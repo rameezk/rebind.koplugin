@@ -1,0 +1,10 @@
+{
+  "docs": [],
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "numFound": 0,
+  "numFoundExact": true,
+  "num_found": 0,
+  "offset": null,
+  "q": "key:\"/works/OL82563W\" AND language:xxx",
+  "start": 0
+}
