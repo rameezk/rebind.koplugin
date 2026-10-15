@@ -225,6 +225,33 @@ T["an edition is picked in the current language, then the preferred one"] = func
     a.eq(Lookup.pick_edition(ol, match, {}), nil)
 end
 
+T["a provider with default editions still picks one when no language is known"] = function(a)
+    Hardcover._user_id = nil
+    local api = FakeApi.new({
+        by_search = { { book_id = 7, title = "Dune" } },
+        defaults = { ebook = { id = 11, edition_format = "Kindle", language = { code2 = "de" } } },
+    })
+    local chain = chain_of(api)
+    local match = Lookup.find(chain, { title = "Dune" }).matches[1]
+    a.eq(Lookup.pick_edition(chain[1], match, { false, false }).edition_id, 11)
+    a.eq(Lookup.pick_edition(chain[1], match, nil).edition_id, 11)
+end
+
+T["a provider with default editions follows the current language only"] = function(a)
+    Hardcover._user_id = nil
+    local api = FakeApi.new({
+        by_search = { { book_id = 7, title = "Dune" } },
+        defaults = {
+            ebook = { id = 11, edition_format = "Kindle", language = { code2 = "de" } },
+            physical = { id = 12, edition_format = "Hardcover", language = { code2 = "en" } },
+        },
+    })
+    local chain = chain_of(api)
+    local match = Lookup.find(chain, { title = "Dune" }).matches[1]
+    a.eq(Lookup.pick_edition(chain[1], match, { false, "en" }).edition_id, 11)
+    a.eq(Lookup.pick_edition(chain[1], match, { "en", "de" }).edition_id, 12)
+end
+
 T["an empty chain says no lookup providers are enabled"] = function(a)
     local result = Lookup.find({}, { title = "Dune" })
     a.eq(Lookup.not_found_text(result), "No lookup providers enabled")

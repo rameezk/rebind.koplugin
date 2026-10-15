@@ -5,6 +5,7 @@ Provider.__index = Provider
 
 Provider.id = "openlibrary"
 Provider.name = "Open Library"
+Provider.picks_by_language = true
 
 local SEARCH_URL = "https://openlibrary.org/search.json"
 local SEARCH_LIMIT = 5
@@ -217,15 +218,24 @@ local function usable(match)
         and match.ref.work_key:match(WORK_KEY_PATTERN) ~= nil
 end
 
+local function language_code(language)
+    local code = Translate.normalize(language)
+    if code and not code:match("^%a%a%a?$") then
+        return false
+    end
+    return code
+end
+
 function Provider:editions(match, language)
-    if not usable(match) then
+    local code = language_code(language)
+    if not usable(match) or code == false then
         return {}, false
     end
-    return self:_candidates(match, Translate.normalize(language)), false
+    return self:_candidates(match, code), false
 end
 
 function Provider:pick_edition(match, language)
-    language = Translate.normalize(language)
+    language = language_code(language)
     if not usable(match) or not language then
         return nil
     end

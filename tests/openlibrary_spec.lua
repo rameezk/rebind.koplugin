@@ -153,6 +153,17 @@ T["no edition is picked when the language is unknown"] = function(a)
     a.eq(#transport.calls, 1)
 end
 
+T["a language that is not a language code never reaches the query"] = function(a)
+    local provider, transport = setup({
+        { when = "title=Harry", file = "search_harry_potter.json" },
+        { when = "key:\"/works/OL82563W\"", file = "editions_mixed.json" },
+    })
+    local match = first_match(provider, { title = "Harry Potter and the Philosopher's Stone" })
+    a.eq(provider:pick_edition(match, "*"), nil)
+    a.eq(#provider:editions(match, "x)"), 0)
+    a.eq(#transport.calls, 1)
+end
+
 T["an isbn match is marked so no edition is picked over it"] = function(a)
     local body = '{"numFound":1,"docs":[{"key":"/works/OL1W","title":"A Book"}]}'
     local provider = setup({ { when = "isbn:", body = body } })

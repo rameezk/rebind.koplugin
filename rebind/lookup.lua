@@ -55,15 +55,23 @@ function Lookup.all_failed(result)
 end
 
 function Lookup.pick_edition(provider, match, languages)
+    if not provider.picks_by_language then
+        return provider:pick_edition(match, (languages or {})[1] or nil)
+    end
+    local asked = false
     for _i, language in ipairs(languages or {}) do
         if language then
+            asked = true
             local edition = provider:pick_edition(match, language)
             if edition then
                 return edition
             end
         end
     end
-    return nil
+    if asked then
+        return nil
+    end
+    return provider:pick_edition(match, nil)
 end
 
 function Lookup.skipped_text(result)
