@@ -45,7 +45,8 @@ function Http.limited_sink(chunks, limit)
 end
 
 function Http.default_transport(req)
-    local http = require("socket.http")
+    local https_loaded, https = pcall(require, "ssl.https")
+    local http = https_loaded and req.url:find("^https://") and https or require("socket.http")
     local socketutil = require("socketutil")
     local chunks = {}
     socketutil:set_timeout(socketutil.LARGE_BLOCK_TIMEOUT, socketutil.LARGE_TOTAL_TIMEOUT)
