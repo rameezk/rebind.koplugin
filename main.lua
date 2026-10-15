@@ -133,10 +133,6 @@ function Rebind:providerChain()
     })
 end
 
-function Rebind:editionLanguages(current)
-    return { current and current.language, self.settings:readSetting("preferred_language") }
-end
-
 function Rebind:keepBackup()
     return self.settings:nilOrTrue("keep_backup")
 end
@@ -234,7 +230,8 @@ function Rebind:_withAutoEdition(current, chain, book, done)
             Trapper:info(_("Looking for an edition…"))
             local provider = Lookup.provider_for(chain, book)
             local ok, edition = pcall(function()
-                return provider and Lookup.pick_edition(provider, book, self:editionLanguages(current))
+                return provider and Lookup.pick_edition(
+                    provider, book, current and current.language, self.settings:readSetting("preferred_language"))
             end)
             Trapper:clear()
             done(ok and edition or book)

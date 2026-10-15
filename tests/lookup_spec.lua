@@ -219,10 +219,11 @@ T["an edition is picked in the current language, then the preferred one"] = func
         { when = "key:\"/works/OL82563W\"", file = "editions_mixed.json" },
     })
     local match = Lookup.find({ ol }, { title = "Harry Potter and the Philosopher's Stone" }).matches[1]
-    a.eq(Lookup.pick_edition(ol, match, { "ja", "de" }).edition_id, "OL47682314M")
-    a.eq(Lookup.pick_edition(ol, match, { "en", "de" }).edition_id, "OL59004869M")
-    a.eq(Lookup.pick_edition(ol, match, { "ja", false }), nil)
-    a.eq(Lookup.pick_edition(ol, match, {}), nil)
+    a.eq(Lookup.pick_edition(ol, match, "ja", "de").edition_id, "OL47682314M")
+    a.eq(Lookup.pick_edition(ol, match, "en", "de").edition_id, "OL59004869M")
+    a.eq(Lookup.pick_edition(ol, match, nil, "de").edition_id, "OL47682314M")
+    a.eq(Lookup.pick_edition(ol, match, "ja", nil), nil)
+    a.eq(Lookup.pick_edition(ol, match, nil, nil), nil)
 end
 
 T["a provider with default editions still picks one when no language is known"] = function(a)
@@ -233,8 +234,7 @@ T["a provider with default editions still picks one when no language is known"] 
     })
     local chain = chain_of(api)
     local match = Lookup.find(chain, { title = "Dune" }).matches[1]
-    a.eq(Lookup.pick_edition(chain[1], match, { false, false }).edition_id, 11)
-    a.eq(Lookup.pick_edition(chain[1], match, nil).edition_id, 11)
+    a.eq(Lookup.pick_edition(chain[1], match, nil, nil).edition_id, 11)
 end
 
 T["a provider with default editions follows the current language only"] = function(a)
@@ -248,8 +248,8 @@ T["a provider with default editions follows the current language only"] = functi
     })
     local chain = chain_of(api)
     local match = Lookup.find(chain, { title = "Dune" }).matches[1]
-    a.eq(Lookup.pick_edition(chain[1], match, { false, "en" }).edition_id, 11)
-    a.eq(Lookup.pick_edition(chain[1], match, { "en", "de" }).edition_id, 12)
+    a.eq(Lookup.pick_edition(chain[1], match, nil, "en").edition_id, 11)
+    a.eq(Lookup.pick_edition(chain[1], match, "en", "de").edition_id, 12)
 end
 
 T["an empty chain says no lookup providers are enabled"] = function(a)
