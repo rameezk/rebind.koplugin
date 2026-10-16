@@ -42,7 +42,7 @@ account.
 > token from <https://hardcover.app/account/api> by following
 > [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme).
 > Rebind needs the token to have the `read:catalog` and `read:me` scopes.
-> Without it, Rebind skips Hardcover and says so.
+> Without it, Rebind skips Hardcover.
 
 ### With a plugin manager
 
@@ -77,10 +77,9 @@ Rebind also works from these file browser plugins:
 - [ZenOS](https://github.com/xZenLabs/zen-os): turn on Zen Settings → Library →
   Context menu → Plugin actions, then long-press a book and tap More → Rebind.
 
-Rebind looks the book up on Hardcover first and then on Open Library, and
-stops at the first one that knows it. It shows what differs. Pick the values you
-want and tap Apply. If neither knows the book, Rebind lets you edit the metadata
-by hand.
+Rebind looks up the book on Hardcover first and then on Open Library. It
+returns the first match it finds. If no results are returned from either
+Hardcover or Open Library, then you are still able to edit the metadata by hand.
 
 When the provider has no description or genres in the language you pick, Rebind
 offers to translate them.
