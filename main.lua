@@ -158,25 +158,20 @@ function Rebind:_refreshChain(chain)
     end
 end
 
-function Rebind:_providerNames(ids)
+function Rebind:_chainSummary()
     local names = {}
-    for _i, provider in ipairs(Providers.build(ids, self:providerEnv())) do
+    for _i, provider in ipairs(self:providerChain()) do
         names[#names + 1] = provider.name
     end
-    return names
-end
-
-function Rebind:_chainSummary()
-    local names = self:_providerNames(self:enabledProviderIds())
     if #names == 0 then
         return _("None enabled")
     end
     return table.concat(names, " → ")
 end
 
-function Rebind:showLookupProviders(on_close, list)
-    if list then
-        UIManager:close(list, "ui")
+function Rebind:showLookupProviders(on_close)
+    if self._providers_screen then
+        UIManager:close(self._providers_screen, "ui")
     end
     local env = self:providerEnv()
     local stored = self.settings:readSetting("provider_chain")
@@ -190,14 +185,14 @@ function Rebind:showLookupProviders(on_close, list)
             disabled = locked,
             on_select = not locked and function()
                 self:_saveProviderIds(ProviderSettings.set_enabled(stored, row.id, not row.enabled, env))
-                self:showLookupProviders(on_close, self._providers_screen)
+                self:showLookupProviders(on_close)
             end or nil,
         }
     end
     if #self:enabledProviderIds() > 1 then
         local function reorder()
             self:_reorderProviders(function()
-                self:showLookupProviders(on_close, self._providers_screen)
+                self:showLookupProviders(on_close)
             end)
         end
         rows[#rows + 1] = {
@@ -217,7 +212,7 @@ end
 
 function Rebind:_reorderProviders(on_done)
     local item_table = {}
-    for _i, provider in ipairs(Providers.build(self:enabledProviderIds(), self:providerEnv())) do
+    for _i, provider in ipairs(self:providerChain()) do
         item_table[#item_table + 1] = { text = provider.name, label = provider.id }
     end
     local sort_widget

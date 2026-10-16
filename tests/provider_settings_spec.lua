@@ -61,7 +61,6 @@ T["a disabled provider is not called when a book is looked up"] = function(a)
     local ids = ProviderSettings.set_enabled({ "openlibrary", "hardcover" }, "hardcover", false, env)
     local result = Lookup.find(Providers.build(ids, env), { isbn_13 = "9780441013593", title = "Dune" })
     a.eq(result.provider.id, "openlibrary")
-    a.eq(api.calls.by_isbn, nil)
     a.eq(next(api.calls), nil)
 end
 
