@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "wd:Q663632": {
+      "uri": "wd:Q663632",
+      "lastrevid": 2536162927,
+      "claims": {
+        "wdt:P31": [
+          "wd:Q7725634"
+        ],
+        "wdt:P136": [
+          "wd:Q740919"
+        ],
+        "wdt:P179": [
+          "wd:Q6027"
+        ],
+        "wdt:P268": [
+          "11935174h"
+        ],
+        "wdt:P407": [
+          "wd:Q150"
+        ],
+        "wdt:P577": [
+          "1893"
+        ],
+        "wdt:P648": [
+          "OL118966W"
+        ],
+        "wdt:P1085": [
+          "19383"
+        ],
+        "wdt:P7937": [
+          "wd:Q8261"
+        ],
+        "wdt:P50": [
+          "wd:Q504"
+        ],
+        "wdt:P1476": [
+          "Le Docteur Pascal"
+        ],
+        "wdt:P155": [
+          "wd:Q2409203"
+        ],
+        "wdt:P953": [
+          "https://www.projekt-gutenberg.org/zola/pascal/pascal.html"
+        ],
+        "wdt:P2034": [
+          "10720"
+        ],
+        "wdt:P18": [
+          "ZolaDoctorPascal.jpg"
+        ],
+        "wdt:P1545": [
+          "20"
+        ]
+      },
+      "labels": {
+        "pl": "Doktor Pascal",
+        "en": "Doctor Pascal",
+        "fa": "دکتر پاسکال",
+        "fr": "Le Docteur Pascal",
+        "it": "Il dottor Pascal",
+        "de": "Doktor Pascal",
+        "ar": "الدكتور باسكال",
+        "es": "El doctor Pascal",
+        "ru": "Доктор Паскаль",
+        "el": "Ο Γιατρός Πασκάλ",
+        "nl": "Doctor Pascal",
+        "ja": "パスカル博士",
+        "eo": "Doktoro Paskalo",
+        "ko": "파스칼 박사",
+        "ga": "Le Docteur Pascal",
+        "avk": "Pascal kurmikye (suterot)",
+        "uk": "Доктор Паскаль",
+        "cs": "Doktor Pascal",
+        "ur": "لے ڈاکٹر پاسکل"
+      }
+    },
+    "inv:ffdf39bf868b538fa59f1f53cae44d26": {
+      "uri": "inv:ffdf39bf868b538fa59f1f53cae44d26",
+      "_rev": "9-f7557018871044b13eec0b0d436ba6fd",
+      "claims": {
+        "wdt:P179": [
+          "wd:Q3206885"
+        ],
+        "wdt:P1545": [
+          "3"
+        ],
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "wd:Q3479409",
+          "wd:Q3063843"
+        ],
+        "wdt:P110": [
+          "wd:Q3104470"
+        ],
+        "wdt:P407": [
+          "wd:Q150"
+        ]
+      },
+      "labels": {
+        "fr": "La Brigade chimérique III : L'Homme cassé - Bon anniversaire docteur Séverac"
+      }
+    },
+    "inv:36829e21389c27c629a3181e31dba318": {
+      "uri": "inv:36829e21389c27c629a3181e31dba318",
+      "_rev": "1-81ec4d358b11677faf079b34c3991e7a",
+      "claims": {
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "wd:Q3367401"
+        ]
+      },
+      "labels": {
+        "fr": "Et si c'était niais ?"
+      }
+    },
+    "inv:9f88ec825979fd6543e08ae0fed32f5d": {
+      "uri": "inv:9f88ec825979fd6543e08ae0fed32f5d",
+      "_rev": "3-5786f4cf98e8cd41a29f2aecb3516f0c",
+      "claims": {
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "wd:Q3367401"
+        ],
+        "wdt:P648": [
+          "OL44999035W"
+        ]
+      },
+      "labels": {
+        "fr": "Mélatonine"
+      }
+    },
+    "inv:f0bea439fbe350c0e00178a12c795424": {
+      "uri": "inv:f0bea439fbe350c0e00178a12c795424",
+      "_rev": "2-31730db9b31e2d21e1a968f0abb4190c",
+      "claims": {
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "wd:Q3367401"
+        ]
+      },
+      "labels": {
+        "fr": "L'élégance du maigrichon"
+      }
+    }
+  },
+  "redirects": {}
+}

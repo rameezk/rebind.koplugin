@@ -10,8 +10,8 @@ local function ids_of(chain)
     return table.concat(ids, ",")
 end
 
-T["a fresh install or an upgrade starts with hardcover then open library"] = function(a)
-    a.eq(table.concat(Providers.enabled_ids(nil), ","), "hardcover,openlibrary")
+T["a fresh install or an upgrade starts with hardcover then open library then inventaire"] = function(a)
+    a.eq(table.concat(Providers.enabled_ids(nil), ","), "hardcover,openlibrary,inventaire")
 end
 
 T["the stored order is kept and unknown providers are dropped"] = function(a)

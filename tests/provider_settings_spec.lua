@@ -25,9 +25,12 @@ end
 
 T["enabled providers come first in the stored order, then the disabled ones"] = function(a)
     local rows = ProviderSettings.rows({ "openlibrary" }, { hardcover_api = {}, http = {} })
-    a.eq(row_ids(rows), "openlibrary,hardcover")
+    a.eq(row_ids(rows), "openlibrary,hardcover,inventaire")
     a.eq(rows[1].enabled, true)
     a.eq(rows[2].enabled, false)
+    a.eq(rows[3].enabled, false)
+    a.eq(rows[3].name, "Inventaire")
+    a.eq(rows[3].can_enable, true)
 end
 
 T["a provider that is not set up cannot be enabled and says why"] = function(a)

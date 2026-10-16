@@ -14,12 +14,12 @@ local function decode_url(url)
     end):gsub("%+", " "))
 end
 
-function FakeTransport.fixture(name)
-    return read("tests/fixtures/openlibrary/" .. name)
+function FakeTransport.fixture(name, dir)
+    return read("tests/fixtures/" .. (dir or "openlibrary") .. "/" .. name)
 end
 
-function FakeTransport.new(routes)
-    return setmetatable({ routes = routes or {}, calls = {} }, FakeTransport)
+function FakeTransport.new(routes, dir)
+    return setmetatable({ routes = routes or {}, calls = {}, dir = dir or "openlibrary" }, FakeTransport)
 end
 
 function FakeTransport:request(req)
@@ -32,7 +32,7 @@ function FakeTransport:request(req)
             local response = responses[math.min(route.served, #responses)]
             local body = response.body
             if response.file then
-                body = read("tests/fixtures/openlibrary/" .. response.file)
+                body = read("tests/fixtures/" .. self.dir .. "/" .. response.file)
             end
             return { status = response.status or 200, body = body or "", headers = response.headers or {} }
         end

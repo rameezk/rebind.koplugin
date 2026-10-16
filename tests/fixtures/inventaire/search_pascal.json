@@ -1,0 +1,57 @@
+{
+  "results": [
+    {
+      "id": "Q663632",
+      "type": "works",
+      "uri": "wd:Q663632",
+      "label": "Doctor Pascal",
+      "description": "1893 novel by Émile Zola",
+      "image": "ZolaDoctorPascal.jpg",
+      "claims": {},
+      "_score": 260125.2,
+      "_popularity": 15
+    },
+    {
+      "id": "ffdf39bf868b538fa59f1f53cae44d26",
+      "type": "works",
+      "uri": "inv:ffdf39bf868b538fa59f1f53cae44d26",
+      "label": "La Brigade chimérique III : L'Homme cassé - Bon anniversaire docteur Séverac",
+      "image": "/img/entities/ac6ff5d6954343ba98db0129963f48865c021831",
+      "claims": {},
+      "_score": 41041.99,
+      "_popularity": 10
+    },
+    {
+      "id": "36829e21389c27c629a3181e31dba318",
+      "type": "works",
+      "uri": "inv:36829e21389c27c629a3181e31dba318",
+      "label": "Et si c'était niais ?",
+      "image": "/img/entities/45a28d125ac82732a3ff805c83966616ea5bedb5",
+      "claims": {},
+      "_score": 13122.962,
+      "_popularity": 3
+    },
+    {
+      "id": "9f88ec825979fd6543e08ae0fed32f5d",
+      "type": "works",
+      "uri": "inv:9f88ec825979fd6543e08ae0fed32f5d",
+      "label": "Mélatonine",
+      "image": "/img/entities/a27f456829119f41298da159b3f2a2fe0003bf46",
+      "claims": {},
+      "_score": 11303.504,
+      "_popularity": 2
+    },
+    {
+      "id": "f0bea439fbe350c0e00178a12c795424",
+      "type": "works",
+      "uri": "inv:f0bea439fbe350c0e00178a12c795424",
+      "label": "L'élégance du maigrichon",
+      "image": "/img/entities/4125579b0a3906d85538a741822ae24b9a765db8",
+      "claims": {},
+      "_score": 11303.504,
+      "_popularity": 2
+    }
+  ],
+  "total": 10000,
+  "continue": 5
+}
