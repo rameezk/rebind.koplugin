@@ -120,6 +120,11 @@ Lookup providers row on the Source screen:
 - With no provider enabled, Rebind skips the lookup and lets you edit the
   metadata by hand.
 
+When a lookup does not bring back the book you expected, tap the Provider row on
+the Source screen to look it up in one provider only. A dialog lets you edit the
+title, author and ISBN first. The edited terms are used for that search only and
+are never written to the book.
+
 ### Fields
 
 | Field | EPUB metadata |

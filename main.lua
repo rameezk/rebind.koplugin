@@ -6,6 +6,7 @@ local Event = require("ui/event")
 local InfoMessage = require("ui/widget/infomessage")
 local LuaSettings = require("luasettings")
 local MultiConfirmBox = require("ui/widget/multiconfirmbox")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
 local NetworkMgr = require("ui/network/manager")
 local SortWidget = require("ui/widget/sortwidget")
 local Trapper = require("ui/trapper")
@@ -697,6 +698,85 @@ function Rebind:_findMatches(current, chain, shown, on_results)
     end)
 end
 
+function Rebind:_showSearchDialog(current, provider, on_search)
+    local terms = Lookup.search_terms(current)
+    local dialog
+    dialog = MultiInputDialog:new{
+        title = string.format(_("Search %s"), provider.name),
+        fields = {
+            { description = _("Title"), text = terms.title, hint = _("Title") },
+            { description = _("Author"), text = terms.author, hint = _("Author") },
+            { description = _("ISBN"), text = terms.isbn, hint = _("ISBN") },
+        },
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    id = "close",
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+                {
+                    text = _("Search"),
+                    callback = function()
+                        local values = dialog:getFields()
+                        UIManager:close(dialog)
+                        on_search(Lookup.with_terms(current, {
+                            title = values[1],
+                            author = values[2],
+                            isbn = values[3],
+                        }))
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function Rebind:_findInProvider(provider, meta, shown, on_results)
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            local busy = Logo.show_message(_("Looking up your book…"))
+            local ok, found = pcall(function()
+                return Lookup.find_in(provider, meta)
+            end)
+            Logo.close_message(busy)
+            if not ok then
+                info(_("Lookup failed:\n") .. tostring(found))
+                return
+            end
+            if type(found.matches) ~= "table" or #found.matches == 0 then
+                info(Lookup.not_found_text(found))
+                return
+            end
+            shown.results = found.matches
+            on_results(found.matches)
+        end)
+    end)
+end
+
+function Rebind:_chooseProvider(chain, shown, on_pick)
+    local list
+    local rows = {}
+    for _i, provider in ipairs(chain) do
+        rows[#rows + 1] = {
+            title = provider.name,
+            selected = shown.book ~= nil and shown.book.provider_id == provider.id,
+            on_select = function()
+                UIManager:close(list, "ui")
+                on_pick(provider)
+            end,
+        }
+    end
+    list = ChoiceList.show{
+        title = _("Look up in"),
+        rows = rows,
+    }
+end
+
 function Rebind:_sourceHandlers(picker, current, chain, shown, close)
     local function pick(book)
         shown.book = book
@@ -720,6 +800,19 @@ function Rebind:_sourceRows(picker, current, chain, shown, close)
     local function change_book()
         self:_findMatches(current, chain, shown, function(results)
             self:_showChooser(results, chain, self:_sourceHandlers(picker, current, chain, shown, close))
+        end)
+    end
+    local function change_provider()
+        if #chain == 0 then
+            info(Lookup.not_found_text(Lookup.find(chain, current)))
+            return
+        end
+        self:_chooseProvider(chain, shown, function(provider)
+            self:_showSearchDialog(current, provider, function(meta)
+                self:_findInProvider(provider, meta, shown, function(results)
+                    self:_showChooser(results, chain, self:_sourceHandlers(picker, current, chain, shown, close))
+                end)
+            end)
         end)
     end
     local function change_edition()
@@ -746,6 +839,15 @@ function Rebind:_sourceRows(picker, current, chain, shown, close)
             action_text = _("Change ▸"),
             on_select = change_book,
             on_action = change_book,
+        }
+    end
+    if chain then
+        rows[#rows + 1] = {
+            title = _("Provider"),
+            subtitle = Lookup.provider_text(shown.book),
+            action_text = _("Change ▸"),
+            on_select = change_provider,
+            on_action = change_provider,
         }
     end
     if chain and shown.book and shown.book.has_editions then
