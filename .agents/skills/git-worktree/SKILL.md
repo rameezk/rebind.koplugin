@@ -59,6 +59,12 @@ Create a dedicated Git worktree before making implementation changes. Keep the u
    git worktree add <worktree-path> <branch-name>
    ```
 
+   If the branch is already checked out in another worktree, use that worktree
+   instead of creating one - Git refuses a second checkout of the same branch.
+   `git worktree list --porcelain` names its path in the entry whose `branch`
+   line is `refs/heads/<branch-name>`. If that worktree is the user's main
+   checkout, ask the user before working in it.
+
 5. Change into the new worktree and verify it before doing any work:
 
    ```bash
