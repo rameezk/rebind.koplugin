@@ -12,7 +12,8 @@
 # Rebind
 
 A KOReader plugin that fixes a book's metadata on your device, using
-[Hardcover](https://hardcover.app) or values you type yourself.
+[Open Library](https://openlibrary.org), [Hardcover](https://hardcover.app) or
+values you type yourself.
 
 KOReader's own metadata editing only saves to its sidecar, so the changes stay in
 KOReader. Rebind writes them into the book file itself, so they go wherever the book
@@ -33,11 +34,15 @@ choose or write yourself.
 
 ## Install
 
-> **Lookups need the [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin).**
-> Install and enable it, then set an API token from <https://hardcover.app/account/api>
-> by following [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme).
+Lookups work with no setup: Rebind looks books up in Open Library, which needs no
+account.
+
+> **Hardcover is optional.** To also look books up on Hardcover, install and enable the
+> [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin), then set an API
+> token from <https://hardcover.app/account/api> by following
+> [its setup instructions](https://github.com/billiam/hardcoverapp.koplugin#readme).
 > Rebind needs the token to have the `read:catalog` and `read:me` scopes.
-> Without it, Rebind lets you edit the metadata by hand.
+> Without it, Rebind skips Hardcover.
 
 ### With a plugin manager
 
@@ -72,10 +77,11 @@ Rebind also works from these file browser plugins:
 - [ZenOS](https://github.com/xZenLabs/zen-os): turn on Zen Settings → Library →
   Context menu → Plugin actions, then long-press a book and tap More → Rebind.
 
-Rebind looks the book up on Hardcover and shows what differs. Pick the values
-you want and tap Apply.
+Rebind looks up the book on Hardcover first and then on Open Library. It
+returns the first match it finds. If no results are returned from either
+Hardcover or Open Library, then you are still able to edit the metadata by hand.
 
-When Hardcover has no description or genres in the language you pick, Rebind
+When the provider has no description or genres in the language you pick, Rebind
 offers to translate them.
 
 ## Safety
@@ -98,7 +104,11 @@ EPUB.
 
 ### Lookup providers
 
-Hardcover.
+- Hardcover, through the Hardcover plugin (optional, needs an account token).
+- Open Library, which needs no account.
+
+Rebind tries them in that order. Each book's values come from one provider; they
+are never mixed.
 
 ### Fields
 

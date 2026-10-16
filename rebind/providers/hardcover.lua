@@ -1,3 +1,4 @@
+local _ = require("gettext")
 local Hardcover = require("rebind/hardcover")
 
 local Provider = {}
@@ -8,6 +9,13 @@ Provider.name = "Hardcover"
 
 function Provider.available()
     return Hardcover.available()
+end
+
+function Provider:ready()
+    if self.api then
+        return true
+    end
+    return false, _("Hardcover plugin not installed")
 end
 
 function Provider.new(api)

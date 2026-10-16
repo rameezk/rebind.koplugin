@@ -1,0 +1,68 @@
+{
+  "docs": [
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "editions": {
+        "docs": [
+          {
+            "ebook_access": "printdisabled",
+            "key": "/books/OL17952222M",
+            "language": [
+              "eng"
+            ],
+            "publish_date": [
+              "2005"
+            ],
+            "publisher": [
+              "Ace Books"
+            ],
+            "title": "Dune"
+          }
+        ],
+        "numFound": 4,
+        "numFoundExact": true,
+        "start": 0
+      },
+      "first_publish_year": 1965,
+      "key": "/works/OL893414W",
+      "series_name": [
+        "Dune"
+      ],
+      "series_position": [
+        "1"
+      ],
+      "subject": [
+        "Dune (Imaginary place)",
+        "Fiction",
+        "Fiction, science fiction, general",
+        "Dune (imaginary place), fiction",
+        "New York Times reviewed",
+        "Science fiction",
+        "Science-fiction",
+        "American literature",
+        "nyt:mass-market-monthly=2021-11-07",
+        "New York Times bestseller",
+        "award:nebula_award=novel",
+        "nyt:trade-fiction-paperback=2021-11-07",
+        "Hugo Award Winner",
+        "award:hugo_award=1966",
+        "award:hugo_award=novel",
+        "American Science fiction",
+        "Long Now Manual for Civilization",
+        "Ecology",
+        "Fantasy fiction",
+        "Large type books"
+      ],
+      "title": "Dune"
+    }
+  ],
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "numFound": 1,
+  "numFoundExact": true,
+  "num_found": 1,
+  "offset": null,
+  "q": "isbn:9780441013593",
+  "start": 0
+}
