@@ -11,8 +11,8 @@ T["no _meta.lua field replaces a plugin method when koreader loads the plugin"] 
         end
     end
     PluginLoader.apply_meta(plugin, ".")
-    for k in pairs(dofile("_meta.lua")) do
-        a.eq(methods[k], nil, "_meta.lua field '" .. k .. "' replaces Rebind:" .. k .. "()")
+    for k in pairs(methods) do
+        a.eq(type(plugin[k]), "function", "_meta.lua field '" .. k .. "' replaces Rebind:" .. k .. "()")
     end
 end
 

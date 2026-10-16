@@ -10,7 +10,8 @@ load it through the committed `.envrc`. CI and forge use the same devshell.
 
 The test suite is zero-dependency - no luarocks, no busted - and stubs
 KOReader's `ffi/archiver` with an in-memory archive so the pure-logic modules can
-be exercised off-device.
+be exercised off-device. `tests/plugin_spec.lua` loads `main.lua` the way
+KOReader's PluginLoader does, with every KOReader module it needs stubbed.
 
 ```bash
 git clone https://github.com/rameezk/rebind.koplugin.git
@@ -24,8 +25,8 @@ Without Nix, install LuaJIT yourself (`luajit`, `lua5.1` or `lua` on your
 
 ## Testing UI changes in the emulator
 
-The pure-logic modules are covered by the test suite, but `main.lua` and the
-diff picker need a live KOReader runtime. Instead of round-tripping to a real
+The pure-logic modules are covered by the test suite, but Rebind's menus and
+dialogs need a live KOReader runtime. Instead of round-tripping to a real
 device, run KOReader's macOS emulator with Rebind loaded. Run it from inside the
 devshell: on macOS it also provides the 7-Zip, unzip and python3 the emulator
 script needs to unpack KOReader and the Hardcover plugin.
