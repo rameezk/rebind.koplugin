@@ -13,9 +13,10 @@ description: Prepare and open a GitHub pull request cleanly and consistently. Us
 Assumes commits are already made via [[git-committing]] and the branch
 follows [[git-branching]]'s naming convention.
 
-Each `[[name]]` here is another skill: when a step hands work to one, load that
-skill and follow its instructions in full before doing the step. Never do the
-step from the summary here.
+Each `[[name]]` here is another skill, whose file is `../<name>/SKILL.md`
+beside this skill's own: when a step hands work to one, load that skill by
+reading that file and follow its instructions in full before doing the step.
+Never do the step from the summary here.
 
 ## Title format
 
@@ -85,7 +86,13 @@ commit a review saw, so never write one a review did not report.
      --title "<title>" \
      --body "<description>"
    ```
-7. Once the PR exists, report its URL.
+
+   When the caller asks for a draft, add `--draft`. A draft is a PR that is not
+   ready for review yet: GitHub does not request reviews from code owners until
+   it is marked ready. GitHub refuses drafts on repositories whose plan lacks
+   them, such as a private repository on a free plan; if it refuses, create the
+   PR without `--draft` and tell the caller it opened ready for review.
+7. Once the PR exists, report its URL and whether it is a draft.
 
 ## Guardrails
 

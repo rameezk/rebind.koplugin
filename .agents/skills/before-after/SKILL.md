@@ -19,7 +19,9 @@ Check this first, and again after capturing. If there is nothing visual to
 present, the skill does **nothing**: no app launched, no screenshots, no branch
 pushed, no PR section. Say so in one line - `No visual change - skipping
 before/after.` - and stop. A caller like [[git-pr]] then simply omits the
-section.
+section. The one exception is an open PR whose body still carries a
+`## Before / After` section from an earlier run: it now shows a change the PR
+no longer makes, so remove it as described in Present.
 
 There is nothing to present when:
 
@@ -86,7 +88,10 @@ the change itself: same data, viewport, scheme, locale, timezone, and browser.
 ## Capture before
 
 Before is the change's base: the PR's base branch, or the merge-base with the
-up-to-date default branch.
+up-to-date default branch. A caller may name a different before ref instead -
+[[git-pr-address-comments]] names the PR's head as it was before a round of
+fixes, to show what the fixes changed. Use that ref as `$base` below; the rest
+of the skill is the same.
 
 - **Invoked before any change is made** (for example at the start of UI work):
   capture from the current checkout now, and keep the images until after.
@@ -134,8 +139,12 @@ dedicated orphan branch, `before-after-assets`, on the same remote, referenced b
 commit SHA so links stay valid forever. Never commit images to the PR branch or
 the default branch - they would pollute the diff and the history.
 
-Layout: one directory per head branch, `<head-branch>/<shot-slug>-before.png`
-and `<head-branch>/<shot-slug>-after.png`.
+Layout: one directory per head branch, and inside it one per comparison, named
+by the short SHAs of its two sides:
+`<head-branch>/<before-sha>..<after-sha>/<shot-slug>-before.png` and
+`<head-branch>/<before-sha>..<after-sha>/<shot-slug>-after.png`. A PR captured
+more than once - after review fixes, or against more than one before ref - then
+never has two images competing for one path.
 
 If `before-after-assets` does not yet exist on the remote, confirm with the user
 before creating it - it is a new branch visible to everyone with access to the
@@ -146,6 +155,7 @@ Publish from a temporary worktree so the user's checkout is never touched:
 ```bash
 assets_branch=before-after-assets
 head_branch="$(git branch --show-current)"
+pair_dir="$head_branch/$(git rev-parse --short "$base")..$(git rev-parse --short HEAD)"
 assets_dir="$(mktemp -d)"
 if git ls-remote --exit-code --heads origin "$assets_branch" >/dev/null; then
   git fetch origin "$assets_branch"
@@ -153,10 +163,10 @@ if git ls-remote --exit-code --heads origin "$assets_branch" >/dev/null; then
 else
   git worktree add --orphan -b "$assets_branch" "$assets_dir"
 fi
-mkdir -p "$assets_dir/$head_branch"
-cp <captured-images> "$assets_dir/$head_branch/"
-git -C "$assets_dir" add "$head_branch"
-git -C "$assets_dir" commit -m "chore: add before/after for $head_branch"
+mkdir -p "$assets_dir/$pair_dir"
+cp <captured-images> "$assets_dir/$pair_dir/"
+git -C "$assets_dir" add "$pair_dir"
+git -C "$assets_dir" commit -m "chore: add before/after for $pair_dir"
 git -C "$assets_dir" push origin "HEAD:refs/heads/$assets_branch"
 assets_sha="$(git -C "$assets_dir" rev-parse HEAD)"
 git worktree remove "$assets_dir"
@@ -167,7 +177,7 @@ Reference each image by that commit SHA. This form also renders in private
 repos for anyone who can see the repo:
 
 ```text
-https://github.com/<owner>/<repo>/blob/<assets_sha>/<head-branch>/<shot-slug>-before.png?raw=true
+https://github.com/<owner>/<repo>/blob/<assets_sha>/<pair_dir>/<shot-slug>-before.png?raw=true
 ```
 
 Resolve `<owner>` and `<repo>` with
@@ -195,10 +205,14 @@ Where the section goes:
 
 - **Called from [[git-pr]] while drafting**: hand the section back for the PR
   description.
+- **Called to hand the pairs back** - [[git-pr-address-comments]] showing what
+  a fix changed in its reply, say: hand back each shot's subsection - its
+  heading and table - and leave the PR body alone.
 - **PR already open**: read the body with `gh pr view <number> --json body -q
   .body`, replace an existing `## Before / After` section or insert one before
   `## Testing`, write the result to a file, and apply it with `gh pr edit
-  <number> --body-file <file>`. Never rewrite the rest of the body.
+  <number> --body-file <file>`. When the escape hatch fired, remove an existing
+  section the same way instead. Never rewrite the rest of the body.
 - **No PR**: show the section and the local image paths to the user.
 
 ## Cleanup
@@ -209,7 +223,8 @@ Stop every app you started, remove every temporary worktree, and prune with
 ## Guardrails
 
 - No sensitive data in any capture, ever - including local directory paths.
-- Nothing to present means do nothing - no section, no push.
+- Nothing to present means do nothing - no section, no push - beyond removing a
+  stale section from an open PR.
 - Never stash, reset, or check out in the user's working tree; use temporary
   worktrees.
 - Never commit images to the PR branch or the default branch.
