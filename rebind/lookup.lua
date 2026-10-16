@@ -42,6 +42,50 @@ function Lookup.find(chain, meta)
     return result
 end
 
+function Lookup.find_in(provider, meta)
+    return Lookup.find({ provider }, meta)
+end
+
+function Lookup.search_terms(meta)
+    meta = meta or {}
+    return {
+        title = meta.title or "",
+        author = meta.authors and meta.authors[1] or "",
+        isbn = meta.isbn_13 or meta.isbn_10 or "",
+    }
+end
+
+local function trimmed(text)
+    return (tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+function Lookup.with_terms(meta, terms)
+    local out = {}
+    for key, value in pairs(meta or {}) do
+        out[key] = value
+    end
+    local title = trimmed(terms.title)
+    local author = trimmed(terms.author)
+    local isbn = trimmed(terms.isbn):gsub("[%s%-]", ""):upper()
+    out.title = title ~= "" and title or nil
+    out.authors = author ~= "" and { author } or {}
+    out.isbn_13, out.isbn_10 = nil, nil
+    if isbn:match("^%d%d%d%d%d%d%d%d%d%d%d%d%d$") then
+        out.isbn_13 = isbn
+    elseif isbn:match("^%d%d%d%d%d%d%d%d%d[%dX]$") then
+        out.isbn_10 = isbn
+    end
+    return out
+end
+
+function Lookup.searchable(meta)
+    return (meta.title ~= nil and meta.title ~= "") or meta.isbn_13 ~= nil or meta.isbn_10 ~= nil
+end
+
+function Lookup.provider_text(match)
+    return match and match.provider_name or _("None")
+end
+
 function Lookup.all_failed(result)
     if #result.tried > 0 then
         return false

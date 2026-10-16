@@ -259,4 +259,101 @@ T["an empty chain says no lookup providers are enabled"] = function(a)
     a.is_true(text:find("Tools → Rebind → Lookup providers", 1, true), "points to the settings")
 end
 
+T["search terms start from the book's title, first author and ISBN"] = function(a)
+    local terms = Lookup.search_terms({ title = "Dune", authors = { "Frank Herbert", "Other" }, isbn_13 = "9780441013593" })
+    a.eq(terms.title, "Dune")
+    a.eq(terms.author, "Frank Herbert")
+    a.eq(terms.isbn, "9780441013593")
+    local bare = Lookup.search_terms({})
+    a.eq(bare.title, "")
+    a.eq(bare.author, "")
+    a.eq(bare.isbn, "")
+end
+
+T["edited search terms replace the lookup fields without touching the book"] = function(a)
+    local current = {
+        title = "Dune (Penguin Classics) - Herbert, Frank",
+        authors = { "Frank Herbert" },
+        isbn_13 = "9780441013593",
+        language = "en",
+    }
+    local meta = Lookup.with_terms(current, { title = "Dune", author = "F. Herbert", isbn = "0-441-17271-7" })
+    a.eq(meta.title, "Dune")
+    a.eq(meta.authors[1], "F. Herbert")
+    a.eq(meta.isbn_10, "0441172717")
+    a.eq(meta.isbn_13, nil)
+    a.eq(meta.language, "en")
+    a.eq(current.title, "Dune (Penguin Classics) - Herbert, Frank")
+    a.eq(current.authors[1], "Frank Herbert")
+    a.eq(current.isbn_13, "9780441013593")
+    a.eq(current.isbn_10, nil)
+end
+
+T["blank search terms are left out of the lookup"] = function(a)
+    local meta = Lookup.with_terms(
+        { title = "x", authors = { "y" }, isbn_13 = "9780441013593" },
+        { title = "Dune", author = "  ", isbn = "" }
+    )
+    a.eq(meta.title, "Dune")
+    a.eq(#meta.authors, 0)
+    a.eq(meta.isbn_13, nil)
+    a.eq(meta.isbn_10, nil)
+end
+
+T["a thirteen digit isbn is searched as isbn_13"] = function(a)
+    local meta = Lookup.with_terms({}, { title = "", author = "", isbn = "978-0-441-01359-3" })
+    a.eq(meta.isbn_13, "9780441013593")
+    a.eq(meta.isbn_10, nil)
+end
+
+T["an isbn that is not ten or thirteen digits is not searched"] = function(a)
+    local junk = Lookup.with_terms({}, { title = "Dune", author = "", isbn = "x OR title:*" })
+    a.eq(junk.isbn_10, nil)
+    a.eq(junk.isbn_13, nil)
+    local short = Lookup.with_terms({}, { title = "Dune", author = "", isbn = "12345678901" })
+    a.eq(short.isbn_10, nil)
+    a.eq(short.isbn_13, nil)
+    local x = Lookup.with_terms({}, { title = "", author = "", isbn = "0-8044-2957-x" })
+    a.eq(x.isbn_10, "080442957X")
+end
+
+T["a search needs a title or an isbn"] = function(a)
+    a.eq(Lookup.searchable({ title = "Dune" }), true)
+    a.eq(Lookup.searchable({ isbn_13 = "9780441013593" }), true)
+    a.eq(Lookup.searchable({ isbn_10 = "0441172717" }), true)
+    a.eq(Lookup.searchable({ authors = { "Frank Herbert" } }), false)
+    a.eq(Lookup.searchable(Lookup.with_terms({}, { title = " ", author = "", isbn = "" })), false)
+end
+
+T["a lookup in one provider calls only that provider with the edited title"] = function(a)
+    local ol, transport = open_library(DUNE_ROUTES)
+    local current = { title = "Dune (Penguin Classics) - Herbert, Frank", authors = { "Frank Herbert" } }
+    local meta = Lookup.with_terms(current, { title = "Dune", author = "Frank Herbert", isbn = "" })
+    local result = Lookup.find_in(ol, meta)
+    a.eq(result.provider.id, "openlibrary")
+    a.eq(result.matches[1].provider_name, "Open Library")
+    a.eq(#transport.calls, 1)
+    a.is_true(transport.calls[1].decoded:find("title=Dune", 1, true), "searched with the edited title")
+    a.is_true(not transport.calls[1].decoded:find("Penguin", 1, true), "original title not used")
+end
+
+T["a lookup in one provider that finds nothing names only that provider"] = function(a)
+    local ol = open_library({ { when = "title=", file = "search_none.json" } })
+    local result = Lookup.find_in(ol, { title = "Nope" })
+    a.eq(#result.matches, 0)
+    a.eq(Lookup.not_found_text(result), "Not found on Open Library")
+end
+
+T["an isbn match from one provider is returned as an isbn match"] = function(a)
+    local ol = open_library(DUNE_ROUTES)
+    local result = Lookup.find_in(ol, { isbn_13 = "9780441013593", title = "Dune" })
+    a.eq(result.method, "isbn")
+    a.eq(result.matches[1].by_isbn, true)
+end
+
+T["the provider row names the provider of the current match"] = function(a)
+    a.eq(Lookup.provider_text({ provider_name = "Open Library" }), "Open Library")
+    a.eq(Lookup.provider_text(nil), "None")
+end
+
 return T
