@@ -322,7 +322,8 @@ item gets an answer; none is left silent.
 Say what was done (name the fix commit), answer the question, or - for a
 declined note - say why not. An item whose fix changed the UI carries the pairs
 [[before-after]] handed back for it below that line, so the reviewer sees the
-fix without checking the branch out:
+fix without checking the branch out. Paste each handed-back subsection exactly
+as given - never retype it or rebuild its image URLs:
 
 ```markdown
 Fixed in <sha>: <short description>.
@@ -332,6 +333,11 @@ Fixed in <sha>: <short description>.
 | --- | --- |
 | ![Settings save button before](<before-url>) | ![Settings save button after](<after-url>) |
 ```
+
+An answer that carries images is written to a file first and passes
+[[before-after]]'s link check before it is posted, then goes up from that file:
+`-F body=@<file>` for a thread reply, `--body-file <file>` for a conversation
+comment.
 
 For a **review thread**, reply to its first comment's `databaseId`, and always
 in writing, even for an acknowledgement:
