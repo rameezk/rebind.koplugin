@@ -19,6 +19,7 @@ local specs = {
     "tests/openlibrary_spec",
     "tests/organize_spec",
     "tests/picker_state_spec",
+    "tests/plugin_spec",
     "tests/provider_settings_spec",
     "tests/providers_spec",
     "tests/translate_spec",

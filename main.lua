@@ -123,16 +123,11 @@ function Rebind:init()
     end
 end
 
-function Rebind:version()
-    local ok, meta = pcall(dofile, (self.path or ".") .. "/_meta.lua")
-    return ok and type(meta) == "table" and meta.version or "dev"
-end
-
 function Rebind:providerEnv()
     local _available, Api = HardcoverProvider.available()
     return {
         hardcover_api = Api,
-        http = Http.new{ version = self:version() },
+        http = Http.new{ version = self.version },
     }
 end
 

@@ -97,7 +97,8 @@ make clean     # remove build artifacts
 | `rebind/hardcover.lua` | `tests/hardcover_spec.lua` | Hardcover lookup and extraction |
 | `rebind/organize.lua` | `tests/organize_spec.lua` | Destination path logic |
 | `rebind/translate.lua` | `tests/translate_spec.lua` | Language targets, batching, text chunking |
-| `main.lua`, `rebind/ui/diffpicker.lua` | - | Need a live KOReader runtime; exercise via `make emulator` (or on-device) |
+| `main.lua` | `tests/plugin_spec.lua` | Loaded the way KOReader's PluginLoader loads it; menus and dialogs still need `make emulator` (or on-device) |
+| `rebind/ui/diffpicker.lua` | - | Needs a live KOReader runtime; exercise via `make emulator` (or on-device) |
 | `rebind/vendor/` | - | Vendored SLAXML; please don't modify locally |
 
 If you change a pure-logic module, add or update its spec. UI changes should be
