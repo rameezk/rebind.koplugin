@@ -7,6 +7,7 @@ local InfoMessage = require("ui/widget/infomessage")
 local LuaSettings = require("luasettings")
 local MultiConfirmBox = require("ui/widget/multiconfirmbox")
 local NetworkMgr = require("ui/network/manager")
+local SortWidget = require("ui/widget/sortwidget")
 local Trapper = require("ui/trapper")
 local Translator = require("ui/translator")
 local UIManager = require("ui/uimanager")
@@ -24,6 +25,7 @@ local Http = require("rebind/http")
 local Labels = require("rebind/labels")
 local Lookup = require("rebind/lookup")
 local Organize = require("rebind/organize")
+local ProviderSettings = require("rebind/provider_settings")
 local Providers = require("rebind/providers")
 local Translate = require("rebind/translate")
 
@@ -125,12 +127,108 @@ function Rebind:version()
     return ok and type(meta) == "table" and meta.version or "dev"
 end
 
-function Rebind:providerChain()
+function Rebind:providerEnv()
     local _available, Api = HardcoverProvider.available()
-    return Providers.build(Providers.enabled_ids(self.settings:readSetting("provider_chain")), {
+    return {
         hardcover_api = Api,
         http = Http.new{ version = self:version() },
-    })
+    }
+end
+
+function Rebind:enabledProviderIds()
+    return Providers.enabled_ids(self.settings:readSetting("provider_chain"))
+end
+
+function Rebind:providerChain()
+    return Providers.build(self:enabledProviderIds(), self:providerEnv())
+end
+
+function Rebind:_saveProviderIds(ids)
+    self.settings:saveSetting("provider_chain", ids)
+    self.settings:flush()
+end
+
+function Rebind:_refreshChain(chain)
+    local fresh = self:providerChain()
+    for i = #chain, 1, -1 do
+        chain[i] = nil
+    end
+    for i, provider in ipairs(fresh) do
+        chain[i] = provider
+    end
+end
+
+function Rebind:_chainSummary()
+    local names = {}
+    for _i, provider in ipairs(self:providerChain()) do
+        names[#names + 1] = provider.name
+    end
+    if #names == 0 then
+        return _("None enabled")
+    end
+    return table.concat(names, " → ")
+end
+
+function Rebind:showLookupProviders(on_close)
+    if self._providers_screen then
+        UIManager:close(self._providers_screen, "ui")
+    end
+    local env = self:providerEnv()
+    local stored = self.settings:readSetting("provider_chain")
+    local rows = {}
+    for _i, row in ipairs(ProviderSettings.rows(stored, env)) do
+        local locked = not row.enabled and not row.can_enable
+        rows[#rows + 1] = {
+            title = row.name,
+            subtitle = (not row.can_enable) and row.reason or nil,
+            checked = row.enabled,
+            disabled = locked,
+            on_select = not locked and function()
+                self:_saveProviderIds(ProviderSettings.set_enabled(stored, row.id, not row.enabled, env))
+                self:showLookupProviders(on_close)
+            end or nil,
+        }
+    end
+    if #self:enabledProviderIds() > 1 then
+        local function reorder()
+            self:_reorderProviders(function()
+                self:showLookupProviders(on_close)
+            end)
+        end
+        rows[#rows + 1] = {
+            title = _("Change order"),
+            subtitle = self:_chainSummary(),
+            action_text = _("Reorder ▸"),
+            on_select = reorder,
+            on_action = reorder,
+        }
+    end
+    self._providers_screen = ChoiceList.show{
+        title = _("Lookup providers"),
+        rows = rows,
+        on_close = on_close,
+    }
+end
+
+function Rebind:_reorderProviders(on_done)
+    local item_table = {}
+    for _i, provider in ipairs(self:providerChain()) do
+        item_table[#item_table + 1] = { text = provider.name, label = provider.id }
+    end
+    local sort_widget
+    sort_widget = SortWidget:new{
+        title = _("Order of lookup providers"),
+        item_table = item_table,
+        callback = function()
+            local ordered = {}
+            for _i, item in ipairs(item_table) do
+                ordered[#ordered + 1] = item.label
+            end
+            self:_saveProviderIds(ProviderSettings.reorder(self.settings:readSetting("provider_chain"), ordered))
+            on_done()
+        end,
+    }
+    UIManager:show(sort_widget)
 end
 
 function Rebind:keepBackup()
@@ -186,14 +284,25 @@ function Rebind:addToMainMenu(menu_items)
     menu_items.rebind = {
         text = _("Rebind"),
         sorting_hint = "tools",
-        callback = function()
-            local file = self:currentFile()
-            if file then
-                self:onRebind(file)
-            else
-                info(_("Long-press a book in the file browser to rebind it."))
-            end
-        end,
+        sub_item_table = {
+            {
+                text = _("Rebind current book"),
+                callback = function()
+                    local file = self:currentFile()
+                    if file then
+                        self:onRebind(file)
+                    else
+                        info(_("Long-press a book in the file browser to rebind it."))
+                    end
+                end,
+            },
+            {
+                text = _("Lookup providers"),
+                callback = function()
+                    self:showLookupProviders()
+                end,
+            },
+        },
     }
 end
 
@@ -659,6 +768,21 @@ function Rebind:_sourceRows(picker, current, chain, shown, close)
         action_text = _("Change ▸"),
         on_select = change_language,
         on_action = change_language,
+    }
+    local function change_providers()
+        self:showLookupProviders(function()
+            self:_refreshChain(chain)
+            shown.results = {}
+            close()
+            self:_showSource(picker, current, chain, shown)
+        end)
+    end
+    rows[#rows + 1] = {
+        title = _("Lookup providers"),
+        subtitle = self:_chainSummary(),
+        action_text = _("Change ▸"),
+        on_select = change_providers,
+        on_action = change_providers,
     }
     if shown.book then
         rows[#rows + 1] = {

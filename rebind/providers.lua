@@ -3,15 +3,21 @@ local OpenLibraryProvider = require("rebind/providers/openlibrary")
 
 local Providers = {}
 
+local REGISTRY = {
+    hardcover = function(env)
+        return HardcoverProvider.new(env.hardcover_api)
+    end,
+    openlibrary = function(env)
+        return OpenLibraryProvider.new(env.http)
+    end,
+}
+
+Providers.KNOWN_IDS = { "hardcover", "openlibrary" }
 Providers.DEFAULT_IDS = { "hardcover", "openlibrary" }
 
 local function build_one(id, env)
-    if id == "hardcover" then
-        return HardcoverProvider.new(env.hardcover_api)
-    elseif id == "openlibrary" then
-        return OpenLibraryProvider.new(env.http)
-    end
-    return nil
+    local new = REGISTRY[id]
+    return new and new(env) or nil
 end
 
 function Providers.enabled_ids(stored)

@@ -75,7 +75,7 @@ end
 
 function Lookup.not_found_text(result)
     if result.empty_chain then
-        return _("No lookup providers enabled")
+        return _("No lookup providers enabled") .. "\n\n" .. _("Turn some on under Tools → Rebind → Lookup providers.")
     end
     local text
     if #result.tried > 0 then
