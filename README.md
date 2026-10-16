@@ -106,8 +106,7 @@ EPUB.
 
 - Hardcover, through the Hardcover plugin (optional, needs an account token).
 - Open Library, which needs no account.
-- Inventaire, which needs no account. It is strong on non-English and especially European
-  books, and gives each edition's language.
+- Inventaire, which needs no account.
 
 Rebind tries the enabled providers in order: Hardcover, Open Library, then Inventaire,
 unless you change it. Each book's values come from one
