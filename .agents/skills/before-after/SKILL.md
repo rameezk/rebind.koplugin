@@ -169,19 +169,49 @@ git -C "$assets_dir" add "$pair_dir"
 git -C "$assets_dir" commit -m "chore: add before/after for $pair_dir"
 git -C "$assets_dir" push origin "HEAD:refs/heads/$assets_branch"
 assets_sha="$(git -C "$assets_dir" rev-parse HEAD)"
+repo="$(gh repo view --json owner,name -q '.owner.login + "/" + .name')"
+for image in "$assets_dir/$pair_dir"/*; do
+  echo "https://github.com/$repo/blob/$assets_sha/$pair_dir/$(basename "$image")?raw=true"
+done
 git worktree remove "$assets_dir"
 git branch -D "$assets_branch" 2>/dev/null || true
 ```
 
-Reference each image by that commit SHA. This form also renders in private
-repos for anyone who can see the repo:
+Run it as one shell command. It ends by printing one finished URL per image,
+referenced by the assets commit SHA so it stays valid forever and also renders
+in private repos for anyone who can see the repo:
 
 ```text
 https://github.com/<owner>/<repo>/blob/<assets_sha>/<pair_dir>/<shot-slug>-before.png?raw=true
 ```
 
-Resolve `<owner>` and `<repo>` with
-`gh repo view --json owner,name -q '.owner.login + "/" + .name'`.
+Copy those printed URLs verbatim into every section and subsection. Never
+rebuild one from a saved variable, a scratch file, or a SHA remembered from
+earlier output - each shell command starts fresh, and a value carried between
+commands by hand is how a URL ends up pointing nowhere.
+
+## Check the image links
+
+Every body that carries images - a PR body here, a reply in
+[[git-pr-address-comments]] - is written to a file and checked before it is
+posted. The check asks GitHub whether each image exists at the exact SHA and
+path its URL names, so it works in private repos too:
+
+```bash
+grep -oE '!\[[^]]*\]\([^)]*\)' "$body_file" | sed -E 's/^!\[[^]]*\]\((.*)\)$/\1/' |
+  while IFS= read -r url; do
+    api="$(printf '%s\n' "$url" | sed -nE 's#^https://github\.com/([^/[:space:]]+/[^/[:space:]]+)/blob/([0-9a-f]{40})/([^?[:space:]]+)\?raw=true$#repos/\1/contents/\3?ref=\2#p')"
+    if [ -z "$api" ]; then
+      echo "malformed: $url"
+    elif ! gh api "$api" --silent 2>/dev/null; then
+      echo "missing: $url"
+    fi
+  done
+```
+
+No output means every image resolves. Any `malformed` or `missing` line means
+the body is wrong: fix it from the URLs the publish step printed and check
+again. Never post a body that fails the check.
 
 ## Present
 
@@ -212,7 +242,8 @@ Where the section goes:
   .body`, replace an existing `## Before / After` section or insert one before
   `## Testing`, write the result to a file, and apply it with `gh pr edit
   <number> --body-file <file>`. When the escape hatch fired, remove an existing
-  section the same way instead. Never rewrite the rest of the body.
+  section the same way instead. Never rewrite the rest of the body. Run the
+  link check on that file before `gh pr edit`.
 - **No PR**: show the section and the local image paths to the user.
 
 ## Cleanup
@@ -231,6 +262,8 @@ Stop every app you started, remove every temporary worktree, and prune with
 - `before-after-assets` is append-only. Never force-push or rewrite it - earlier
   PRs link to its commits.
 - Never fake a side of a pair. If one cannot be captured, stop and report.
+- Image URLs are only ever copied from what the publish step printed, and no
+  body with images is posted before it passes the link check.
 - NEVER add an agent co-author trailer, attribution, generated-by credit, or
   session link to an assets commit or the PR body.
 - Missing tooling is fetched one-off with nix, never installed globally - see
