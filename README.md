@@ -68,7 +68,7 @@ up to date.
 ## Getting started
 
 Long-press a book in the file browser and tap Rebind. While reading, use
-Tools → Rebind, or bind "Rebind current book" to a gesture.
+Tools → Rebind → Rebind current book, or bind "Rebind current book" to a gesture.
 
 Rebind also works from these file browser plugins:
 
@@ -77,9 +77,9 @@ Rebind also works from these file browser plugins:
 - [ZenOS](https://github.com/xZenLabs/zen-os): turn on Zen Settings → Library →
   Context menu → Plugin actions, then long-press a book and tap More → Rebind.
 
-Rebind looks up the book on Hardcover first and then on Open Library. It
-returns the first match it finds. If no results are returned from either
-Hardcover or Open Library, then you are still able to edit the metadata by hand.
+Rebind tries your lookup providers in order and returns the first match it
+finds. If none of them has a match, or none is enabled, you can still edit the
+metadata by hand.
 
 When the provider has no description or genres in the language you pick, Rebind
 offers to translate them.
@@ -107,8 +107,18 @@ EPUB.
 - Hardcover, through the Hardcover plugin (optional, needs an account token).
 - Open Library, which needs no account.
 
-Rebind tries them in that order. Each book's values come from one provider; they
-are never mixed.
+Rebind tries the enabled providers in order. Each book's values come from one
+provider; they are never mixed.
+
+To choose and order them, open Tools → Rebind → Lookup providers, or tap the
+Lookup providers row on the Source screen:
+
+- Tick a provider to enable it. A provider that is not set up, such as Hardcover
+  without its plugin or token, is greyed out and says why.
+- Tap Reorder to drag the enabled providers into the order Rebind should try
+  them. The order is remembered.
+- With no provider enabled, Rebind skips the lookup and lets you edit the
+  metadata by hand.
 
 ### Fields
 

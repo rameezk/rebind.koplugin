@@ -4,6 +4,7 @@ local OpenLibraryProvider = require("rebind/providers/openlibrary")
 local Providers = {}
 
 Providers.DEFAULT_IDS = { "hardcover", "openlibrary" }
+Providers.KNOWN_IDS = { "hardcover", "openlibrary" }
 
 local function build_one(id, env)
     if id == "hardcover" then

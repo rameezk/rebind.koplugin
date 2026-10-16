@@ -16,6 +16,7 @@ local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 
+local Checkbox = require("rebind/ui/checkbox")
 local CloseIcon = require("rebind/ui/closeicon")
 local Radio = require("rebind/ui/radio")
 local TapRow = require("rebind/ui/taprow")
@@ -93,7 +94,10 @@ function ChoiceList:init()
         end
         local mark
         local mark_w = 0
-        if row.selected ~= nil then
+        if row.checked ~= nil then
+            mark = Checkbox:new{ checked = row.checked, disabled = row.disabled }
+            mark_w = mark:getSize().w + sc(12)
+        elseif row.selected ~= nil then
             mark = Radio:new{ selected = row.selected }
             mark_w = mark:getSize().w + sc(12)
         end
@@ -103,7 +107,8 @@ function ChoiceList:init()
             TextBoxWidget:new{
                 text = row.title,
                 face = Font:getFace("cfont", 20),
-                bold = row.selected ~= false,
+                bold = row.selected ~= false and not row.disabled,
+                fgcolor = row.disabled and Blitbuffer.COLOR_GRAY or nil,
                 width = text_w,
             },
         }

@@ -254,7 +254,9 @@ end
 
 T["an empty chain says no lookup providers are enabled"] = function(a)
     local result = Lookup.find({}, { title = "Dune" })
-    a.eq(Lookup.not_found_text(result), "No lookup providers enabled")
+    local text = Lookup.not_found_text(result)
+    a.eq(text:match("^[^\n]+"), "No lookup providers enabled")
+    a.is_true(text:find("Tools → Rebind → Lookup providers", 1, true), "points to the settings")
 end
 
 return T
