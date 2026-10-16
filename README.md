@@ -114,9 +114,9 @@ To choose and order them, open Tools → Rebind → Lookup providers, or tap the
 Lookup providers row on the Source screen:
 
 - Tick a provider to enable it. A provider that is not set up, such as Hardcover
-  without its plugin or token, is greyed out and says why.
+  without its plugin or token, is greyed out.
 - Tap Change order to drag the enabled providers into the order Rebind should try
-  them. The order is remembered.
+  them.
 - With no provider enabled, Rebind skips the lookup and lets you edit the
   metadata by hand.
 
