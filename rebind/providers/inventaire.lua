@@ -17,6 +17,7 @@ local BATCH_SIZE = 50
 local EDITION_SCAN_LIMIT = 100
 local GENRE_LIMIT = 5
 local AUTHOR_LIMIT = 10
+local MAX_URI_LENGTH = 40
 local DEFAULT_LANGUAGE = "en"
 
 local AUTHOR = "wdt:P50"
@@ -25,17 +26,19 @@ local SERIES = "wdt:P179"
 local SERIES_ORDINAL = "wdt:P1545"
 local PUBLICATION_DATE = "wdt:P577"
 local PUBLISHER = "wdt:P123"
+local REF_LIMITS = { [AUTHOR] = AUTHOR_LIMIT, [GENRE] = GENRE_LIMIT, [SERIES] = 1 }
 local EDITION_OF = "wdt:P629"
 local EDITION_TITLE = "wdt:P1476"
 local EDITION_LANGUAGE = "wdt:P407"
 local LANGUAGE_ISO_639_1 = "wdt:P218"
 
 local function entity_uri(uri)
-    return type(uri) == "string" and (uri:match("^wd:Q%d+$") ~= nil or uri:match("^inv:%x+$") ~= nil)
+    return type(uri) == "string" and #uri <= MAX_URI_LENGTH
+        and (uri:match("^wd:Q%d+$") ~= nil or uri:match("^inv:%x+$") ~= nil)
 end
 
 local function valid_uri(uri)
-    return entity_uri(uri) or (type(uri) == "string" and uri:match("^isbn:%d+X?$") ~= nil)
+    return entity_uri(uri) or (type(uri) == "string" and #uri <= MAX_URI_LENGTH and uri:match("^isbn:%d+X?$") ~= nil)
 end
 
 local function claim(entity, property)
@@ -138,6 +141,7 @@ function Provider:_entities(uris, attributes)
         local data = self:_get(BY_URIS_URL, { uris = table.concat(chunk, "|"), attributes = attributes })
         for uri, entity in pairs(type(data.entities) == "table" and data.entities or {}) do
             if type(entity) == "table" then
+                entity.uri = uri
                 found[uri] = entity
             end
         end
@@ -153,8 +157,7 @@ function Provider:_books(uris, language)
     local refs = {}
     for _i, uri in ipairs(uris) do
         for _j, property in ipairs({ AUTHOR, GENRE, SERIES }) do
-            local limit = property == AUTHOR and AUTHOR_LIMIT or property == GENRE and GENRE_LIMIT or 1
-            for _k, ref in ipairs(uris_of(works[uri], property, limit)) do
+            for _k, ref in ipairs(uris_of(works[uri], property, REF_LIMITS[property])) do
                 refs[#refs + 1] = ref
             end
         end
@@ -164,7 +167,7 @@ function Provider:_books(uris, language)
     for _i, uri in ipairs(uris) do
         local work = works[uri]
         if work then
-            local series = labels_for(uris_of(work, SERIES, 1), labels, language)[1]
+            local series = labels_for(uris_of(work, SERIES, REF_LIMITS[SERIES]), labels, language)[1]
             local year = year_of(claim(work, PUBLICATION_DATE)[1])
             books[#books + 1] = {
                 provider_id = Provider.id,
@@ -172,10 +175,10 @@ function Provider:_books(uris, language)
                 has_editions = true,
                 is_edition = false,
                 title = label_of(work, language),
-                authors = labels_for(uris_of(work, AUTHOR, AUTHOR_LIMIT), labels, language),
+                authors = labels_for(uris_of(work, AUTHOR, REF_LIMITS[AUTHOR]), labels, language),
                 series = series,
                 series_index = series and tonumber(claim(work, SERIES_ORDINAL)[1]) or nil,
-                genres = labels_for(uris_of(work, GENRE, GENRE_LIMIT), labels, language),
+                genres = labels_for(uris_of(work, GENRE, REF_LIMITS[GENRE]), labels, language),
                 first_published = year,
                 release_year = year,
                 ref = { work_uri = uri },
@@ -278,7 +281,7 @@ function Provider:_search(meta, language)
     })
     local uris = {}
     for _i, result in ipairs(type(data.results) == "table" and data.results or {}) do
-        if type(result) == "table" and valid_uri(result.uri) then
+        if type(result) == "table" and entity_uri(result.uri) and #uris < SEARCH_LIMIT then
             uris[#uris + 1] = result.uri
         end
     end
@@ -318,7 +321,6 @@ function Provider:_scan(match, language)
     local editions = {}
     for _i, uri in ipairs(uris) do
         if entities[uri] then
-            entities[uri].uri = uri
             editions[#editions + 1] = entities[uri]
         end
     end

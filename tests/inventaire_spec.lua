@@ -293,4 +293,27 @@ T["an entity that is not an object is ignored instead of failing the lookup"] = 
     a.eq(edition, nil)
 end
 
+T["only as many search results as were asked for are looked up"] = function(a)
+    local results = {}
+    for i = 1, 9 do
+        results[#results + 1] = string.format('{"uri":"wd:Q%d","label":"Book %d"}', i, i)
+    end
+    local provider, transport = setup({
+        { when = "api/search", body = '{"results":[' .. table.concat(results, ",") .. ']}' },
+        { when = "attributes=claims|labels", file = "works_curee.json" },
+    })
+    lookup(provider, { title = "Book" })
+    local asked = transport.calls[2].decoded:match("uris=(.*)$")
+    a.eq(select(2, asked:gsub("|", "|")), 4)
+end
+
+T["a uri longer than any real entity uri is never put into a request"] = function(a)
+    local long = "wd:Q" .. string.rep("1", 200)
+    local provider, transport = setup({
+        { when = "api/search", body = '{"results":[{"uri":"' .. long .. '","label":"Book"}]}' },
+    })
+    a.eq(#lookup(provider, { title = "Book" }).matches, 0)
+    a.eq(#transport.calls, 1)
+end
+
 return T
