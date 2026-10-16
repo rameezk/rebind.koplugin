@@ -1,5 +1,6 @@
 local HardcoverProvider = require("rebind/providers/hardcover")
 local OpenLibraryProvider = require("rebind/providers/openlibrary")
+local InventaireProvider = require("rebind/providers/inventaire")
 
 local Providers = {}
 
@@ -10,10 +11,13 @@ local REGISTRY = {
     openlibrary = function(env)
         return OpenLibraryProvider.new(env.http)
     end,
+    inventaire = function(env)
+        return InventaireProvider.new(env.http)
+    end,
 }
 
-Providers.KNOWN_IDS = { "hardcover", "openlibrary" }
-Providers.DEFAULT_IDS = { "hardcover", "openlibrary" }
+Providers.KNOWN_IDS = { "hardcover", "openlibrary", "inventaire" }
+Providers.DEFAULT_IDS = { "hardcover", "openlibrary", "inventaire" }
 
 local function build_one(id, env)
     local new = REGISTRY[id]

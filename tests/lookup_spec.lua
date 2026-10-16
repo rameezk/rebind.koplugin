@@ -2,6 +2,8 @@ local Http = require("rebind/http")
 local Lookup = require("rebind/lookup")
 local HardcoverProvider = require("rebind/providers/hardcover")
 local OpenLibraryProvider = require("rebind/providers/openlibrary")
+local InventaireProvider = require("rebind/providers/inventaire")
+local PickerState = require("rebind/picker_state")
 local Hardcover = require("rebind/hardcover")
 local FakeApi = require("tests/support/fake_api")
 local FakeTransport = require("tests/support/fake_transport")
@@ -158,6 +160,31 @@ T["a provider with no match hands over to the next one"] = function(a)
     a.eq(result.provider.id, "openlibrary")
     a.eq(result.matches[1].provider_name, "Open Library")
     a.eq(#result.skipped, 0)
+end
+
+local function inventaire(routes)
+    local transport = FakeTransport.new(routes, "inventaire")
+    local http = Http.new{ transport = transport:fn(), sleep = function() end, version = "2.1.0" }
+    return InventaireProvider.new(http), transport
+end
+
+local CUREE_ROUTES = {
+    { when = "api/search", file = "search_curee.json" },
+    { when = "attributes=claims|labels&uris=wd:Q962265", file = "works_curee.json" },
+    { when = "attributes=labels&uris=", file = "labels_curee.json" },
+}
+
+T["a french book neither hardcover nor open library has is matched in inventaire"] = function(a)
+    Hardcover._user_id = nil
+    local ol = open_library({ { when = "title=", file = "search_none.json" } })
+    local chain = { HardcoverProvider.new(FakeApi.new({})), ol, (inventaire(CUREE_ROUTES)) }
+    local result = Lookup.find(chain, { title = "La Curée", language = "fr" })
+    a.eq(result.provider.id, "inventaire")
+    a.eq(result.matches[1].title, "La Curée")
+    a.eq(#result.skipped, 0)
+    a.eq(#result.tried, 3)
+    local state = PickerState.new({}, result.matches[1].provider_name)
+    a.eq(state:provider_label(), "Inventaire values")
 end
 
 T["a provider that is not set up is skipped and reported"] = function(a)

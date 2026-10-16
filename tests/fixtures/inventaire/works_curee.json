@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "wd:Q962265": {
+      "uri": "wd:Q962265",
+      "lastrevid": 2489397211,
+      "claims": {
+        "wdt:P31": [
+          "wd:Q7725634"
+        ],
+        "wdt:P136": [
+          "wd:Q55996"
+        ],
+        "wdt:P179": [
+          "wd:Q6027"
+        ],
+        "wdt:P214": [
+          "183534548"
+        ],
+        "wdt:P227": [
+          "4247994-0"
+        ],
+        "wdt:P268": [
+          "12043503d"
+        ],
+        "wdt:P407": [
+          "wd:Q150"
+        ],
+        "wdt:P577": [
+          "1871-10"
+        ],
+        "wdt:P648": [
+          "OL118974W"
+        ],
+        "wdt:P1085": [
+          "171224"
+        ],
+        "wdt:P7937": [
+          "wd:Q8261"
+        ],
+        "wdt:P50": [
+          "wd:Q504"
+        ],
+        "wdt:P840": [
+          "wd:Q90"
+        ],
+        "wdt:P1476": [
+          "La Curée"
+        ],
+        "wdt:P155": [
+          "wd:Q2714636"
+        ],
+        "wdt:P156": [
+          "wd:Q338034"
+        ],
+        "wdt:P2034": [
+          "17553"
+        ],
+        "wdt:P18": [
+          "Lacuree.jpg"
+        ],
+        "wdt:P1545": [
+          "2"
+        ]
+      },
+      "labels": {
+        "pl": "Zdobycz",
+        "en": "La Curée",
+        "es": "La jauría",
+        "fr": "La Curée",
+        "it": "La cuccagna",
+        "ja": "獲物の分け前",
+        "de": "Die Beute",
+        "nl": "La Curée",
+        "fa": "سهم سگان شکاری",
+        "zh": "贪欲的角逐",
+        "ru": "Добыча",
+        "eo": "La Ĉasaĵo",
+        "ko": "쟁탈전",
+        "ga": "La Curée",
+        "avk": "Guinera (suterot)",
+        "el": "Η αμοιβή των σκύλων",
+        "uk": "Здобич",
+        "cs": "Štvanice",
+        "ur": "لا کیورے"
+      }
+    },
+    "wd:Q3208037": {
+      "uri": "wd:Q3208037",
+      "lastrevid": 2519235981,
+      "claims": {
+        "wdt:P31": [
+          "wd:Q7725634",
+          "wd:Q1347298"
+        ],
+        "wdt:P136": [
+          "wd:Q24925"
+        ],
+        "wdt:P179": [
+          "wd:Q7537821"
+        ],
+        "wdt:P214": [
+          "6628153063201119320009"
+        ],
+        "wdt:P407": [
+          "wd:Q1860"
+        ],
+        "wdt:P577": [
+          "1928"
+        ],
+        "wdt:P648": [
+          "OL20326573M",
+          "OL3292450W"
+        ],
+        "wdt:P1085": [
+          "40327"
+        ],
+        "wdt:P1274": [
+          "1193",
+          "1535124"
+        ],
+        "wdt:P1433": [
+          "wd:Q132411248"
+        ],
+        "wdt:P5331": [
+          "1520752"
+        ],
+        "wdt:P5571": [
+          "3249"
+        ],
+        "wdt:P6221": [
+          "114876"
+        ],
+        "wdt:P7937": [
+          "wd:Q8261"
+        ],
+        "wdt:P8383": [
+          "1379469"
+        ],
+        "wdt:P50": [
+          "wd:Q144090",
+          "wd:Q6513844"
+        ],
+        "wdt:P110": [
+          "wd:Q5082389"
+        ],
+        "wdt:P1476": [
+          "The Skylark of Space"
+        ],
+        "wdt:P156": [
+          "wd:Q7537832"
+        ],
+        "wdt:P18": [
+          "Amazing Stories-1928-08 001.jpg"
+        ]
+      },
+      "labels": {
+        "fr": "La Curée des astres",
+        "en": "The Skylark of Space",
+        "ja": "宇宙のスカイラーク",
+        "ko": "우주의 종달새",
+        "eo": "La Kosma Kampalaŭdo",
+        "ga": "The Skylark of Space",
+        "sv": "The Skylark of Space",
+        "pt": "A Cotovia do Espaço",
+        "ru": "Космический Жаворонок",
+        "ur": "دی اسکائی لارک آف اسپیس"
+      }
+    },
+    "wd:Q134584508": {
+      "uri": "wd:Q134584508",
+      "lastrevid": 2546957504,
+      "claims": {
+        "wdt:P31": [
+          "wd:Q7725634"
+        ],
+        "wdt:P179": [
+          "wd:Q110940312"
+        ],
+        "wdt:P407": [
+          "wd:Q150"
+        ],
+        "wdt:P1274": [
+          "2808936"
+        ],
+        "wdt:P5571": [
+          "46950"
+        ],
+        "wdt:P7937": [
+          "wd:Q8261"
+        ],
+        "wdt:P50": [
+          "wd:Q3168813"
+        ],
+        "wdt:P1476": [
+          "Chasse royale 4 - Curée chaude"
+        ],
+        "wdt:P1545": [
+          "5"
+        ]
+      },
+      "labels": {
+        "fr": "Chasse royale 4 - Curée chaude"
+      }
+    },
+    "inv:a0312c58f7f50f16a74db2b334ed1d70": {
+      "uri": "inv:a0312c58f7f50f16a74db2b334ed1d70",
+      "_rev": "2-3b0a5673a33896eb18ca79ca61caf0ee",
+      "claims": {
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "wd:Q2926885"
+        ]
+      },
+      "labels": {
+        "fr": "Journal d'une curée de campagne"
+      }
+    },
+    "inv:06b73c5bc425bfadb3350c48cdddf0d1": {
+      "uri": "inv:06b73c5bc425bfadb3350c48cdddf0d1",
+      "_rev": "3-0f9c6f8199a68955c56559e794c5f345",
+      "claims": {
+        "wdt:P31": [
+          "wd:Q47461344"
+        ],
+        "wdt:P50": [
+          "inv:06b73c5bc425bfadb3350c48cddde6e3"
+        ],
+        "wdt:P577": [
+          "2007"
+        ],
+        "wdt:P648": [
+          "OL13758480W"
+        ]
+      },
+      "labels": {
+        "fr": "Journal d'une curée de campagne"
+      }
+    }
+  },
+  "redirects": {}
+}

@@ -12,8 +12,8 @@
 # Rebind
 
 A KOReader plugin that fixes a book's metadata on your device, using
-[Open Library](https://openlibrary.org), [Hardcover](https://hardcover.app) or
-values you type yourself.
+[Open Library](https://openlibrary.org), [Inventaire](https://inventaire.io),
+[Hardcover](https://hardcover.app) or values you type yourself.
 
 KOReader's own metadata editing only saves to its sidecar, so the changes stay in
 KOReader. Rebind writes them into the book file itself, so they go wherever the book
@@ -34,8 +34,8 @@ choose or write yourself.
 
 ## Install
 
-Lookups work with no setup: Rebind looks books up in Open Library, which needs no
-account.
+Lookups work with no setup: Rebind looks books up in Open Library and
+Inventaire, which need no account.
 
 > **Hardcover is optional.** To also look books up on Hardcover, install and enable the
 > [Hardcover plugin](https://github.com/billiam/hardcoverapp.koplugin), then set an API
@@ -106,8 +106,10 @@ EPUB.
 
 - Hardcover, through the Hardcover plugin (optional, needs an account token).
 - Open Library, which needs no account.
+- Inventaire, which needs no account.
 
-Rebind tries the enabled providers in order. Each book's values come from one
+Rebind tries the enabled providers in order: Hardcover, Open Library, then Inventaire,
+unless you change it. Each book's values come from one
 provider; they are never mixed.
 
 To choose and order them, open Tools → Rebind → Lookup providers, or tap the

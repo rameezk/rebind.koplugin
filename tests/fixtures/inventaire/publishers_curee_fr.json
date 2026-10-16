@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "wd:Q1629027": {
+      "uri": "wd:Q1629027",
+      "lastrevid": 2530405896,
+      "labels": {
+        "de": "Le Livre de Poche",
+        "fr": "Le Livre de poche",
+        "en": "Le Livre de poche",
+        "es": "Le Livre de poche",
+        "nl": "Le Livre de Poche",
+        "zh": "Le Livre de Poche",
+        "ru": "Le Livre de Poche",
+        "hy": "Le Livre de Poche",
+        "eo": "Le Livre de poche",
+        "ar": "كتاب الجيب",
+        "ro": "Le Livre de Poche",
+        "br": "Le Livre de Poche",
+        "it": "Le livre de poche",
+        "mul": "Le Livre de Poche",
+        "pl": "Le Livre de poche",
+        "en-us": "Le Livre de poche",
+        "ur": "لے لیور دے پوچے"
+      }
+    },
+    "wd:Q273819": {
+      "uri": "wd:Q273819",
+      "lastrevid": 2530414695,
+      "labels": {
+        "ru": "Галлимар",
+        "fr": "Éditions Gallimard",
+        "en": "Éditions Gallimard",
+        "zh": "伽利玛出版社",
+        "pt": "Gallimard",
+        "it": "Gallimard",
+        "de": "Éditions Gallimard",
+        "sv": "Gallimard",
+        "ja": "ガリマール出版社",
+        "fa": "انتشارات گلیمر",
+        "pl": "Gallimard",
+        "uk": "Галлімар",
+        "et": "Éditions Gallimard",
+        "cs": "Nakladatelství Gallimard",
+        "fi": "Gallimard",
+        "gl": "Éditions Gallimard",
+        "id": "Gallimard",
+        "es": "Éditions Gallimard",
+        "he": "הוצאת גלימאר",
+        "ro": "Éditions Gallimard",
+        "nl": "Éditions Gallimard",
+        "ar": "غاليمار",
+        "nb": "Éditions Gallimard",
+        "fy": "Éditions Gallimard",
+        "hy": "Գալլիմար",
+        "mk": "Галимар",
+        "hu": "Éditions Gallimard",
+        "ca": "Éditions Gallimard",
+        "zh-tw": "加利瑪出版社",
+        "en-gb": "Éditions Gallimard",
+        "el": "Éditions Gallimard",
+        "en-ca": "Éditions Gallimard",
+        "pt-br": "Gallimard",
+        "ga": "Éditions Gallimard",
+        "ast": "Éditions Gallimard",
+        "be-tarask": "Галімар",
+        "ko": "갈리마르 출판사",
+        "bn": "এদিসিওঁ গায়িমার",
+        "eu": "Éditions Gallimard",
+        "eo": "eldonejo Gallimard",
+        "be": "Éditions Gallimard",
+        "tr": "Éditions Gallimard",
+        "sl": "Éditions Gallimard",
+        "pa": "ਐਡੀਸ਼ਨ ਗੈਲੀਮਾਰਡ",
+        "lt": "Éditions Gallimard",
+        "bg": "Галимар",
+        "tt": "Галлимар басмаханәсе",
+        "ur": "ایڈیشنز گالیمارڈ"
+      }
+    },
+    "wd:Q3080726": {
+      "uri": "wd:Q3080726",
+      "lastrevid": 2547123731,
+      "labels": {
+        "fr": "France Loisirs",
+        "mul": "France Loisirs"
+      }
+    },
+    "wd:Q2635075": {
+      "uri": "wd:Q2635075",
+      "lastrevid": 2537010702,
+      "labels": {
+        "pl": "Éditions du Seuil",
+        "fr": "Éditions du Seuil",
+        "es": "Seuil",
+        "en": "Éditions du Seuil",
+        "uk": "Сей",
+        "it": "Éditions du Seuil",
+        "de": "Éditions du Seuil",
+        "nl": "Éditions du Seuil",
+        "ru": "Издательство Сёй",
+        "fy": "Éditions du Seuil",
+        "cs": "Éditions du Seuil",
+        "zh-hant": "門檻出版社",
+        "zh-cn": "门槛出版社",
+        "zh": "門檻出版社",
+        "ja": "スイユ出版社",
+        "eo": "Éditions du Seuil",
+        "zh-hans": "门槛出版社",
+        "be-tarask": "Сэй",
+        "ast": "Éditions du Seuil",
+        "hy": "Սեյ հրատարակչատուն",
+        "be": "Éditions du Seuil",
+        "pt": "Éditions du Seuil",
+        "ca": "Éditions du Seuil",
+        "nb": "Éditions du Seuil",
+        "ar": "دار النشر سوي",
+        "sl": "Éditions du Seuil",
+        "ur": "ایڈیشنز دو سیوئیل",
+        "gl": "Éditions du Seuil"
+      }
+    },
+    "wd:Q20828340": {
+      "uri": "wd:Q20828340",
+      "lastrevid": 2522070270,
+      "labels": {
+        "fr": "Librairie générale française",
+        "en": "Librairie générale française",
+        "ru": "Librairie générale française",
+        "lb": "Librairie générale française",
+        "de": "Librairie générale française",
+        "eo": "Librairie générale française",
+        "cs": "Librairie générale française",
+        "hr": "Librairie générale française",
+        "pl": "Librairie générale française",
+        "sk": "Librairie générale française",
+        "mul": "Librairie générale française"
+      }
+    },
+    "wd:Q3117417": {
+      "uri": "wd:Q3117417",
+      "lastrevid": 2522072570,
+      "labels": {
+        "fr": "Flammarion",
+        "uk": "Фламмаріон (видавництво)",
+        "ru": "Фламмарион",
+        "ja": "フラマリオン",
+        "fa": "انتشارات فلاماریون",
+        "zh": "弗拉马利翁出版社",
+        "mul": "Groupe Flammarion",
+        "ur": "گروپ فلاماریون",
+        "nl": "Flammarion (uitgeverij)",
+        "es": "Grupo Flammarion"
+      }
+    },
+    "wd:Q2696397": {
+      "uri": "wd:Q2696397",
+      "lastrevid": 2536433788,
+      "labels": {
+        "pt": "Éditions Robert Laffont",
+        "fr": "Éditions Robert Laffont",
+        "en": "Éditions Robert Laffont",
+        "es": "Éditions Robert Laffont",
+        "uk": "Робер Лаффон",
+        "it": "Éditions Robert Laffont",
+        "de": "Éditions Robert Laffont",
+        "br": "Éditions Robert Laffont",
+        "nl": "Éditions Robert Laffont",
+        "fa": "انتشارات روبر لافون",
+        "he": "הוצאת רובר לפונט",
+        "zh": "罗贝尔·拉丰出版社",
+        "zh-tw": "勞勃·拉豐出版社",
+        "ro": "Éditions Robert Laffont",
+        "zh-hant": "羅伯特·拉封出版社",
+        "zh-hans": "罗贝尔·拉丰出版社",
+        "ast": "Éditions Robert Laffont",
+        "sv": "Éditions Robert Laffont",
+        "ja": "ロベール・ラフォン出版社",
+        "ru": "Робер Лаффон",
+        "az": "Rober Laffon",
+        "nb": "Éditions Robert Laffont",
+        "hy": "«Ռոբեր Լաֆոն» հրատարակչություն",
+        "ca": "Éditions Robert Laffont",
+        "sl": "Éditions Robert Laffont",
+        "zh-cn": "罗贝尔·拉丰出版社",
+        "mul": "Éditions Robert Laffont",
+        "ur": "ایڈیشنز رابرٹ لافونٹ",
+        "ar": "دار نشر روبرت لافونت"
+      }
+    },
+    "wd:Q3128309": {
+      "uri": "wd:Q3128309",
+      "lastrevid": 2510016249,
+      "labels": {
+        "fr": "Hatier",
+        "en": "Hatier",
+        "nl": "Hatier",
+        "br": "Hatier",
+        "cs": "Hatier",
+        "de": "Hatier",
+        "hr": "Hatier",
+        "pl": "Hatier",
+        "sk": "Hatier",
+        "fi": "Hatier",
+        "sq": "Hatier",
+        "ca": "Hatier",
+        "ur": "ہاتیئر (پبلشر)"
+      }
+    },
+    "inv:bab13824f933fae304c8ebe80fdca26d": {
+      "uri": "inv:bab13824f933fae304c8ebe80fdca26d",
+      "_rev": "2-c686488d607598e857aeb425f623ae8b",
+      "labels": {
+        "fr": "Garnier-Flammarion"
+      }
+    },
+    "inv:2274b0b417a2538c15ff75500e74eb9d": {
+      "uri": "inv:2274b0b417a2538c15ff75500e74eb9d",
+      "_rev": "2-13b1a901b127034273df0d0b184bc427",
+      "labels": {
+        "fr": "Le Cercle du bibliophile"
+      }
+    }
+  },
+  "redirects": {}
+}

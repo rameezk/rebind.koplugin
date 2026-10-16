@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "inv:fee7944f22dfef2a2cf0e48e43bce761": {
+      "uri": "inv:fee7944f22dfef2a2cf0e48e43bce761",
+      "_rev": "2-d830afc5334acfee9020667e4b9ac26d",
+      "claims": {
+        "wdt:P1476": [
+          "La curée"
+        ],
+        "wdt:P577": [
+          "2011"
+        ],
+        "wdt:P268": [
+          "437300430"
+        ],
+        "wdt:P407": [
+          "wd:Q150"
+        ],
+        "wdt:P123": [
+          "wd:Q3128309"
+        ],
+        "wdt:P31": [
+          "wd:Q3331189"
+        ],
+        "wdt:P629": [
+          "wd:Q962265"
+        ],
+        "wdt:P212": [
+          "978-2-218-95884-7"
+        ],
+        "wdt:P957": [
+          "2-218-95884-8"
+        ],
+        "wdt:P1680": [
+          "1872"
+        ],
+        "invp:P2": [
+          "9cae9b708982d7743dc52ccc28ea4b4e558cf3c5"
+        ],
+        "wdt:P648": [
+          "OL47825245M"
+        ]
+      }
+    }
+  },
+  "redirects": {
+    "isbn:9782218958847": "inv:fee7944f22dfef2a2cf0e48e43bce761"
+  }
+}

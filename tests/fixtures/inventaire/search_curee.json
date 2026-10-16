@@ -1,0 +1,59 @@
+{
+  "results": [
+    {
+      "id": "Q962265",
+      "type": "works",
+      "uri": "wd:Q962265",
+      "label": "La Curée",
+      "description": "roman d'Émile Zola",
+      "image": "/img/entities/8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd",
+      "claims": {},
+      "_score": 304586,
+      "_popularity": 50
+    },
+    {
+      "id": "Q3208037",
+      "type": "works",
+      "uri": "wd:Q3208037",
+      "label": "La Curée des astres",
+      "description": "roman d'Edward Elmer Smith",
+      "image": "/img/entities/39799efe4312cde603ed1c82c848e7a77b9d7a03",
+      "claims": {},
+      "_score": 144741.58,
+      "_popularity": 9
+    },
+    {
+      "id": "a0312c58f7f50f16a74db2b334ed1d70",
+      "type": "works",
+      "uri": "inv:a0312c58f7f50f16a74db2b334ed1d70",
+      "label": "Journal d'une curée de campagne",
+      "image": "/img/entities/6de1f4ccdc401ebe1b0775fa4541a32c45f03b4f",
+      "claims": {},
+      "_score": 58078.285,
+      "_popularity": 3
+    },
+    {
+      "id": "06b73c5bc425bfadb3350c48cdddf0d1",
+      "type": "works",
+      "uri": "inv:06b73c5bc425bfadb3350c48cdddf0d1",
+      "label": "Journal d'une curée de campagne",
+      "image": "/img/entities/80aa062787cdd16941c0a58c084286252f288f9c",
+      "claims": {},
+      "_score": 50025.91,
+      "_popularity": 2
+    },
+    {
+      "id": "Q134584508",
+      "type": "works",
+      "uri": "wd:Q134584508",
+      "label": "Chasse royale 4 - Curée chaude",
+      "description": "2020 novel by Jean-Philippe Jaworski",
+      "image": "/img/entities/f601adb9bd9412301807323f81274bdf8414e7a5",
+      "claims": {},
+      "_score": 20230.682,
+      "_popularity": 0
+    }
+  ],
+  "total": 10000,
+  "continue": 5
+}
