@@ -24,4 +24,8 @@ T["lookups identify themselves with the installed version when koreader loads th
     a.contains(env.http.user_agent, "Rebind/" .. dofile("_meta.lua").version .. " ")
 end
 
+T["_meta.lua leaves the plugin name to main.lua so koreader logs no deprecation warning"] = function(a)
+    a.eq(dofile("_meta.lua").name, nil)
+end
+
 return T
