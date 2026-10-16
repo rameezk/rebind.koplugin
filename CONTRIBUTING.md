@@ -10,7 +10,8 @@ load it through the committed `.envrc`. CI and forge use the same devshell.
 
 The test suite is zero-dependency - no luarocks, no busted - and stubs
 KOReader's `ffi/archiver` with an in-memory archive so the pure-logic modules can
-be exercised off-device.
+be exercised off-device. `tests/plugin_spec.lua` loads `main.lua` the way
+KOReader's PluginLoader does, with every KOReader module it needs stubbed.
 
 ```bash
 git clone https://github.com/rameezk/rebind.koplugin.git
@@ -24,8 +25,8 @@ Without Nix, install LuaJIT yourself (`luajit`, `lua5.1` or `lua` on your
 
 ## Testing UI changes in the emulator
 
-The pure-logic modules are covered by the test suite, but `main.lua` and the
-diff picker need a live KOReader runtime. Instead of round-tripping to a real
+The pure-logic modules are covered by the test suite, but Rebind's menus and
+dialogs need a live KOReader runtime. Instead of round-tripping to a real
 device, run KOReader's macOS emulator with Rebind loaded. Run it from inside the
 devshell: on macOS it also provides the 7-Zip, unzip and python3 the emulator
 script needs to unpack KOReader and the Hardcover plugin.
@@ -97,7 +98,8 @@ make clean     # remove build artifacts
 | `rebind/hardcover.lua` | `tests/hardcover_spec.lua` | Hardcover lookup and extraction |
 | `rebind/organize.lua` | `tests/organize_spec.lua` | Destination path logic |
 | `rebind/translate.lua` | `tests/translate_spec.lua` | Language targets, batching, text chunking |
-| `main.lua`, `rebind/ui/diffpicker.lua` | - | Need a live KOReader runtime; exercise via `make emulator` (or on-device) |
+| `main.lua` | `tests/plugin_spec.lua` | Loaded the way KOReader's PluginLoader loads it; menus and dialogs still need `make emulator` (or on-device) |
+| `rebind/ui/diffpicker.lua` | - | Needs a live KOReader runtime; exercise via `make emulator` (or on-device) |
 | `rebind/vendor/` | - | Vendored SLAXML; please don't modify locally |
 
 If you change a pure-logic module, add or update its spec. UI changes should be
