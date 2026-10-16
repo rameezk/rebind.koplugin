@@ -672,17 +672,11 @@ function Rebind:_useSource(picker, current, shown, source)
     )
 end
 
-function Rebind:_findMatches(current, chain, shown, on_results)
-    if #shown.results > 0 then
-        on_results(shown.results)
-        return
-    end
+function Rebind:_runLookup(shown, search, on_results)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             local busy = Logo.show_message(_("Looking up your book…"))
-            local ok, found = pcall(function()
-                return Lookup.find(chain, current)
-            end)
+            local ok, found = pcall(search)
             Logo.close_message(busy)
             if not ok then
                 info(_("Lookup failed:\n") .. tostring(found))
@@ -696,6 +690,16 @@ function Rebind:_findMatches(current, chain, shown, on_results)
             on_results(found.matches)
         end)
     end)
+end
+
+function Rebind:_findMatches(current, chain, shown, on_results)
+    if #shown.results > 0 then
+        on_results(shown.results)
+        return
+    end
+    self:_runLookup(shown, function()
+        return Lookup.find(chain, current)
+    end, on_results)
 end
 
 function Rebind:_showSearchDialog(current, provider, on_search)
@@ -737,25 +741,13 @@ function Rebind:_showSearchDialog(current, provider, on_search)
 end
 
 function Rebind:_findInProvider(provider, meta, shown, on_results)
-    NetworkMgr:runWhenOnline(function()
-        Trapper:wrap(function()
-            local busy = Logo.show_message(_("Looking up your book…"))
-            local ok, found = pcall(function()
-                return Lookup.find_in(provider, meta)
-            end)
-            Logo.close_message(busy)
-            if not ok then
-                info(_("Lookup failed:\n") .. tostring(found))
-                return
-            end
-            if type(found.matches) ~= "table" or #found.matches == 0 then
-                info(Lookup.not_found_text(found))
-                return
-            end
-            shown.results = found.matches
-            on_results(found.matches)
-        end)
-    end)
+    if not Lookup.searchable(meta) then
+        info(_("Enter a title or an ISBN to search."))
+        return
+    end
+    self:_runLookup(shown, function()
+        return Lookup.find_in(provider, meta)
+    end, on_results)
 end
 
 function Rebind:_chooseProvider(chain, shown, on_pick)

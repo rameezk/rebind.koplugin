@@ -66,16 +66,20 @@ function Lookup.with_terms(meta, terms)
     end
     local title = trimmed(terms.title)
     local author = trimmed(terms.author)
-    local isbn = trimmed(terms.isbn):gsub("[%s%-]", "")
+    local isbn = trimmed(terms.isbn):gsub("[%s%-]", ""):upper()
     out.title = title ~= "" and title or nil
     out.authors = author ~= "" and { author } or {}
     out.isbn_13, out.isbn_10 = nil, nil
-    if #isbn == 13 then
+    if isbn:match("^%d%d%d%d%d%d%d%d%d%d%d%d%d$") then
         out.isbn_13 = isbn
-    elseif isbn ~= "" then
+    elseif isbn:match("^%d%d%d%d%d%d%d%d%d[%dX]$") then
         out.isbn_10 = isbn
     end
     return out
+end
+
+function Lookup.searchable(meta)
+    return (meta.title ~= nil and meta.title ~= "") or meta.isbn_13 ~= nil or meta.isbn_10 ~= nil
 end
 
 function Lookup.provider_text(match)

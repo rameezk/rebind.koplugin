@@ -306,6 +306,25 @@ T["a thirteen digit isbn is searched as isbn_13"] = function(a)
     a.eq(meta.isbn_10, nil)
 end
 
+T["an isbn that is not ten or thirteen digits is not searched"] = function(a)
+    local junk = Lookup.with_terms({}, { title = "Dune", author = "", isbn = "x OR title:*" })
+    a.eq(junk.isbn_10, nil)
+    a.eq(junk.isbn_13, nil)
+    local short = Lookup.with_terms({}, { title = "Dune", author = "", isbn = "12345678901" })
+    a.eq(short.isbn_10, nil)
+    a.eq(short.isbn_13, nil)
+    local x = Lookup.with_terms({}, { title = "", author = "", isbn = "0-8044-2957-x" })
+    a.eq(x.isbn_10, "080442957X")
+end
+
+T["a search needs a title or an isbn"] = function(a)
+    a.eq(Lookup.searchable({ title = "Dune" }), true)
+    a.eq(Lookup.searchable({ isbn_13 = "9780441013593" }), true)
+    a.eq(Lookup.searchable({ isbn_10 = "0441172717" }), true)
+    a.eq(Lookup.searchable({ authors = { "Frank Herbert" } }), false)
+    a.eq(Lookup.searchable(Lookup.with_terms({}, { title = " ", author = "", isbn = "" })), false)
+end
+
 T["a lookup in one provider calls only that provider with the edited title"] = function(a)
     local ol, transport = open_library(DUNE_ROUTES)
     local current = { title = "Dune (Penguin Classics) - Herbert, Frank", authors = { "Frank Herbert" } }
