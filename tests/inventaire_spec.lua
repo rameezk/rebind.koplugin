@@ -5,9 +5,9 @@ local FakeTransport = require("tests/support/fake_transport")
 
 local T = {}
 
-local CURSEE_ISBN = "9782218958847"
+local CUREE_ISBN = "9782218958847"
 
-local WORKS_CURSEE = "attributes=claims|labels&uris=wd:Q962265|wd:Q3208037"
+local WORKS_CUREE = "attributes=claims|labels&uris=wd:Q962265|wd:Q3208037"
 local WORKS_PASCAL = "attributes=claims|labels&uris=wd:Q663632|"
 
 local function setup(routes)
@@ -30,7 +30,7 @@ end
 local function curee_routes()
     return {
         { when = "api/search", file = "search_curee.json" },
-        { when = WORKS_CURSEE, file = "works_curee.json" },
+        { when = WORKS_CUREE, file = "works_curee.json" },
         { when = "attributes=labels&uris=", file = "labels_curee.json" },
     }
 end
@@ -61,7 +61,7 @@ end
 
 local function isbn_routes()
     return {
-        { when = "uris=isbn:" .. CURSEE_ISBN, file = "isbn_curee.json" },
+        { when = "uris=isbn:" .. CUREE_ISBN, file = "isbn_curee.json" },
         { when = "attributes=claims|labels&uris=wd:Q962265", file = "work_curee.json" },
         { when = "attributes=labels&uris=", file = "labels_curee_isbn.json" },
         { when = "attributes=claims&uris=wd:Q150", file = "languages_curee.json" },
@@ -70,7 +70,7 @@ end
 
 T["an isbn the catalogue knows returns that edition with its book's fields"] = function(a)
     local provider, transport = setup(isbn_routes())
-    local result = lookup(provider, { isbn_13 = CURSEE_ISBN, title = "La Curée" })
+    local result = lookup(provider, { isbn_13 = CUREE_ISBN, title = "La Curée" })
     a.eq(result.method, "isbn")
     a.eq(#result.matches, 1)
     local match = result.matches[1]
@@ -87,7 +87,7 @@ T["an isbn the catalogue knows returns that edition with its book's fields"] = f
     a.eq(match.first_published, "1871")
     a.eq(match.series, "Les Rougon-Macquart")
     a.eq(match.series_index, 2)
-    a.contains(transport.calls[1].decoded, "uris=isbn:" .. CURSEE_ISBN)
+    a.contains(transport.calls[1].decoded, "uris=isbn:" .. CUREE_ISBN)
 end
 
 T["an isbn the catalogue does not know falls back to the title search"] = function(a)
@@ -104,6 +104,7 @@ local function edition_routes()
         { when = "reverse-claims", file = "editions_uris_curee.json" },
         { when = "attributes=claims&uris=wd:Q56611488", file = "editions_curee.json" },
         { when = "attributes=claims&uris=wd:Q1860", file = "languages_curee.json" },
+        { when = "attributes=labels&uris=wd:Q3128309", file = "publishers_curee_fr.json" },
         { when = "attributes=labels&uris=wd:Q1629027", file = "publishers_curee_fr.json" },
         { when = "attributes=labels&uris=wd:Q217595", file = "publishers_curee_en.json" },
     }
@@ -227,7 +228,7 @@ T["a 429 once is waited out and the match is still returned"] = function(a)
             { status = 429, headers = { ["retry-after"] = "3" } },
             { file = "search_curee.json" },
         } },
-        { when = WORKS_CURSEE, file = "works_curee.json" },
+        { when = WORKS_CUREE, file = "works_curee.json" },
         { when = "attributes=labels&uris=", file = "labels_curee.json" },
     })
     local result = lookup(provider, { title = "La Curée" })
@@ -244,6 +245,52 @@ T["a failing request raises so the chain can skip the provider"] = function(a)
     a.eq(Lookup.all_failed(result), true)
     local ok = pcall(provider.pick_edition, provider, { ref = { work_uri = "wd:Q962265" } }, "fr")
     a.eq(ok, false)
+end
+
+T["picking an edition only asks for the publisher of the edition it picked"] = function(a)
+    local provider, transport = setup(edition_routes())
+    local edition = provider:pick_edition(curee_book(provider), "fr")
+    a.eq(edition.publisher, "Hatier")
+    for _i, call in ipairs(transport.calls) do
+        a.is_true(not call.decoded:find("Q1629027", 1, true), "asked for a publisher of an edition it did not pick")
+    end
+end
+
+T["a language the catalogue could not return is asked for once"] = function(a)
+    local routes = edition_routes()
+    table.insert(routes, 1, { when = "attributes=claims&uris=wd:Q1860", body = '{"entities":{}}' })
+    local provider, transport = setup(routes)
+    local match = curee_book(provider)
+    a.eq(provider:pick_edition(match, "fr"), nil)
+    a.eq(provider:pick_edition(match, "fr"), nil)
+    local asked = 0
+    for _i, call in ipairs(transport.calls) do
+        if call.decoded:find("attributes=claims&uris=wd:Q1860", 1, true) then
+            asked = asked + 1
+        end
+    end
+    a.eq(asked, 1)
+end
+
+T["an isbn answer keyed by something that is not an entity uri is ignored"] = function(a)
+    local routes = curee_routes()
+    table.insert(routes, 1, {
+        when = "uris=isbn:",
+        body = '{"entities":{"x|y":{"claims":{"wdt:P629":["wd:Q962265"]}}}}',
+    })
+    local provider = setup(routes)
+    local result = lookup(provider, { isbn_13 = CUREE_ISBN, title = "La Curée" })
+    a.eq(result.method, "search")
+    a.eq(#result.matches, 5)
+end
+
+T["an entity that is not an object is ignored instead of failing the lookup"] = function(a)
+    local routes = edition_routes()
+    table.insert(routes, 1, { when = "attributes=claims&uris=wd:Q56611488", body = '{"entities":{"wd:Q56611488":"x"}}' })
+    local provider = setup(routes)
+    local ok, edition = pcall(provider.pick_edition, provider, curee_book(provider), "fr")
+    a.eq(ok, true)
+    a.eq(edition, nil)
 end
 
 return T

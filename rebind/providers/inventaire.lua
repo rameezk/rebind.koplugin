@@ -30,9 +30,12 @@ local EDITION_TITLE = "wdt:P1476"
 local EDITION_LANGUAGE = "wdt:P407"
 local LANGUAGE_ISO_639_1 = "wdt:P218"
 
+local function entity_uri(uri)
+    return type(uri) == "string" and (uri:match("^wd:Q%d+$") ~= nil or uri:match("^inv:%x+$") ~= nil)
+end
+
 local function valid_uri(uri)
-    return type(uri) == "string"
-        and (uri:match("^wd:Q%d+$") ~= nil or uri:match("^inv:%x+$") ~= nil or uri:match("^isbn:%d+X?$") ~= nil)
+    return entity_uri(uri) or (type(uri) == "string" and uri:match("^isbn:%d+X?$") ~= nil)
 end
 
 local function claim(entity, property)
@@ -134,7 +137,9 @@ function Provider:_entities(uris, attributes)
         local chunk = { unpack(wanted, first, math.min(first + BATCH_SIZE - 1, #wanted)) }
         local data = self:_get(BY_URIS_URL, { uris = table.concat(chunk, "|"), attributes = attributes })
         for uri, entity in pairs(type(data.entities) == "table" and data.entities or {}) do
-            found[uri] = entity
+            if type(entity) == "table" then
+                found[uri] = entity
+            end
         end
         for from, to in pairs(type(data.redirects) == "table" and data.redirects or {}) do
             found[from] = found[to]
@@ -189,8 +194,9 @@ function Provider:_language_codes(editions)
             unknown[#unknown + 1] = uri
         end
     end
-    for uri, entity in pairs(self:_entities(unknown, "claims")) do
-        local code = claim(entity, LANGUAGE_ISO_639_1)[1]
+    local found = self:_entities(unknown, "claims")
+    for _i, uri in ipairs(unknown) do
+        local code = claim(found[uri], LANGUAGE_ISO_639_1)[1]
         self.language_codes[uri] = type(code) == "string" and code:lower() or false
     end
 end
@@ -217,7 +223,7 @@ function Provider:_edition_matches(editions, book, language)
         match.publisher = publishers[i] and label_of(labels[publishers[i]], language) or nil
         match.language = code or nil
         match.release_year = published or book.release_year
-        match.ref = { work_uri = book.ref.work_uri, edition_uri = edition.uri, published = tonumber(published) or 0 }
+        match.ref = { work_uri = book.ref.work_uri, edition_uri = edition.uri }
         matches[#matches + 1] = match
     end
     return matches
@@ -229,7 +235,7 @@ function Provider:_find_by_isbn(meta, language)
         if digits and valid_uri("isbn:" .. digits) then
             local data = self:_get(BY_URIS_URL, { uris = "isbn:" .. digits, attributes = "claims" })
             local uri, edition = next(type(data.entities) == "table" and data.entities or {})
-            local work_uri = edition and uris_of(edition, EDITION_OF, 1)[1]
+            local work_uri = entity_uri(uri) and type(edition) == "table" and uris_of(edition, EDITION_OF, 1)[1]
             local book = work_uri and self:_books({ work_uri }, language)[1]
             if book then
                 edition.uri = uri
@@ -293,11 +299,14 @@ function Provider:find(meta)
 end
 
 local function usable(match)
-    return type(match) == "table" and type(match.ref) == "table" and valid_uri(match.ref.work_uri)
-        and match.ref.work_uri:match("^isbn:") == nil
+    return type(match) == "table" and type(match.ref) == "table" and entity_uri(match.ref.work_uri)
 end
 
-function Provider:_candidates(match, language)
+local function published_of(edition)
+    return tonumber(year_of(claim(edition, PUBLICATION_DATE)[1])) or 0
+end
+
+function Provider:_scan(match, language)
     local data = self:_get(REVERSE_CLAIMS_URL, { property = EDITION_OF, value = match.ref.work_uri })
     local uris = {}
     for _i, uri in ipairs(type(data.uris) == "table" and data.uris or {}) do
@@ -321,7 +330,7 @@ function Provider:_candidates(match, language)
         end
     end
     local truncated = type(data.uris) == "table" and #data.uris > EDITION_SCAN_LIMIT
-    return self:_edition_matches(wanted, match, language), truncated
+    return wanted, truncated
 end
 
 function Provider:editions(match, language)
@@ -329,7 +338,8 @@ function Provider:editions(match, language)
     if not usable(match) or code == false then
         return {}, false
     end
-    return self:_candidates(match, code)
+    local wanted, truncated = self:_scan(match, code)
+    return self:_edition_matches(wanted, match, code), truncated
 end
 
 function Provider:pick_edition(match, language)
@@ -338,12 +348,12 @@ function Provider:pick_edition(match, language)
         return nil
     end
     local best
-    for _i, candidate in ipairs((self:_candidates(match, language))) do
-        if not best or candidate.ref.published > best.ref.published then
-            best = candidate
+    for _i, edition in ipairs((self:_scan(match, language))) do
+        if not best or published_of(edition) > published_of(best) then
+            best = edition
         end
     end
-    return best
+    return best and self:_edition_matches({ best }, match, language)[1]
 end
 
 return Provider

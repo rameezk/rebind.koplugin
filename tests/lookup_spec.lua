@@ -168,7 +168,7 @@ local function inventaire(routes)
     return InventaireProvider.new(http), transport
 end
 
-local CURSEE_ROUTES = {
+local CUREE_ROUTES = {
     { when = "api/search", file = "search_curee.json" },
     { when = "attributes=claims|labels&uris=wd:Q962265", file = "works_curee.json" },
     { when = "attributes=labels&uris=", file = "labels_curee.json" },
@@ -177,7 +177,7 @@ local CURSEE_ROUTES = {
 T["a french book neither hardcover nor open library has is matched in inventaire"] = function(a)
     Hardcover._user_id = nil
     local ol = open_library({ { when = "title=", file = "search_none.json" } })
-    local chain = { HardcoverProvider.new(FakeApi.new({})), ol, (inventaire(CURSEE_ROUTES)) }
+    local chain = { HardcoverProvider.new(FakeApi.new({})), ol, (inventaire(CUREE_ROUTES)) }
     local result = Lookup.find(chain, { title = "La Curée", language = "fr" })
     a.eq(result.provider.id, "inventaire")
     a.eq(result.matches[1].title, "La Curée")
