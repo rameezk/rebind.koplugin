@@ -172,10 +172,11 @@ merge it in the same way, and go back through *Check what the merge broke*.
 ## Wait for the required checks - and fix what goes red
 
 The push is not the finish line. Wait for the PR's required checks on the pushed
-head exactly as [[work-on]]'s *Wait for the required checks* step does - learn
-which checks are required from the base branch's rules, poll until every one has
-registered on the new head (a "no checks reported" answer is never a result),
-then watch them until they settle with `gh pr checks --watch --required`.
+head exactly as [[work-on]]'s *Wait for the required checks* step does - poll
+until every check has registered on the new head (a "no checks reported" answer
+is never a result), watch them until they settle the way that step does, then
+learn which are required from `gh pr checks --required`, or take every reported
+check when it names none.
 
 Read the PR's mergeability on every poll too. If the base moves while you wait
 and the PR conflicts again:

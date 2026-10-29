@@ -94,8 +94,9 @@ commit a review saw, so never write one a review did not report.
    When the caller asks for a draft, add `--draft`. A draft is a PR that is not
    ready for review yet: GitHub does not request reviews from code owners until
    it is marked ready. GitHub refuses drafts on repositories whose plan lacks
-   them, such as a private repository on a free plan; if it refuses, create the
-   PR without `--draft` and tell the caller it opened ready for review.
+   them, such as a private repository owned by an organization on the free
+   plan; if it refuses, create the PR without `--draft` and tell the caller it
+   opened ready for review.
 7. Once the PR exists, report its URL and whether it is a draft.
 
 ## Guardrails
