@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.0](https://github.com/rameezk/rebind.koplugin/compare/v2.1.0...v2.2.0) (2026-10-29)
+
+
+### Features
+
+* choose and order lookup providers in settings ([#99](https://github.com/rameezk/rebind.koplugin/issues/99)) ([1868981](https://github.com/rameezk/rebind.koplugin/commit/1868981fb81964616156ba315498d01a0ca7c37b))
+* look a book up in one provider with edited search terms ([#103](https://github.com/rameezk/rebind.koplugin/issues/103)) ([f67e35e](https://github.com/rameezk/rebind.koplugin/commit/f67e35edfd4c5c155cf8bd68c06a932cbeace916))
+* look books up in Inventaire when Hardcover and Open Library have no match ([#102](https://github.com/rameezk/rebind.koplugin/issues/102)) ([70bb756](https://github.com/rameezk/rebind.koplugin/commit/70bb756bede892252392d693083ea2ead9386e85))
+* look books up in Open Library when Hardcover has no match ([#98](https://github.com/rameezk/rebind.koplugin/issues/98)) ([bea7562](https://github.com/rameezk/rebind.koplugin/commit/bea75625a599095414a34b55d7e29416d7a7a1bc))
+* name the lookup provider in the picker and list fields it had nothing for separately ([#96](https://github.com/rameezk/rebind.koplugin/issues/96)) ([13f794e](https://github.com/rameezk/rebind.koplugin/commit/13f794e67abbde1b00b0ada17b41c38561db6896))
+
+
+### Bug Fixes
+
+* stop KOReader closing when opening lookup providers or rebinding a book ([#105](https://github.com/rameezk/rebind.koplugin/issues/105)) ([a2719f7](https://github.com/rameezk/rebind.koplugin/commit/a2719f78cec91c4826c76f908ecde0684621b911))
+
 ## [2.1.0](https://github.com/rameezk/rebind.koplugin/compare/v2.0.0...v2.1.0) (2026-10-07)
 
 
