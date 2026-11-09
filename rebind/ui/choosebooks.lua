@@ -88,7 +88,7 @@ function ChooseBooks.show(opts)
     local screen
     local function display_name(file)
         if state.include_subfolders then
-            return file:sub(#state.folder + 2)
+            return file:sub(#Batch.trim_folder(state.folder) + 2)
         end
         return file:match("([^/]+)$")
     end

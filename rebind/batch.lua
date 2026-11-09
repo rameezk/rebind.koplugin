@@ -144,6 +144,10 @@ function Batch.lfs_fs()
     }
 end
 
+function Batch.trim_folder(folder)
+    return (folder:gsub("/+$", ""))
+end
+
 function Batch.collect(folder, opts)
     opts = opts or {}
     local fs = opts.fs or Batch.lfs_fs()
@@ -160,7 +164,7 @@ function Batch.collect(folder, opts)
             end
         end
     end
-    walk(folder, "")
+    walk(Batch.trim_folder(folder), "")
     table.sort(found, function(x, y)
         return Batch.natural_less(x.key, y.key)
     end)
@@ -227,7 +231,14 @@ function Batch:wait_time()
     return math.max(0, self.last_call + self.interval - self.clock())
 end
 
-function Batch:_note_skips(found)
+function Batch:_forget_skips(entry)
+    for name in pairs(entry.skipped or {}) do
+        self.skips[name].count = self.skips[name].count - 1
+    end
+    entry.skipped = {}
+end
+
+function Batch:_note_skips(entry, found)
     for _i, skipped in ipairs(found.skipped or {}) do
         local name = skipped.provider.name
         local note = self.skips[name]
@@ -236,7 +247,10 @@ function Batch:_note_skips(found)
             self.skips[name] = note
             self.skip_order[#self.skip_order + 1] = name
         end
-        note.count = note.count + 1
+        if not entry.skipped[name] then
+            entry.skipped[name] = true
+            note.count = note.count + 1
+        end
     end
 end
 
@@ -244,11 +258,10 @@ function Batch:skip_notices()
     local lines = {}
     for _i, name in ipairs(self.skip_order) do
         local note = self.skips[name]
-        local text = note.count == 1 and _("%s was skipped for 1 book: %s.") or _("%s was skipped for %d books: %s.")
         if note.count == 1 then
-            lines[#lines + 1] = string.format(text, name, note.reason)
-        else
-            lines[#lines + 1] = string.format(text, name, note.count, note.reason)
+            lines[#lines + 1] = string.format(_("%s was skipped for 1 book: %s."), name, note.reason)
+        elseif note.count > 1 then
+            lines[#lines + 1] = string.format(_("%s was skipped for %d books: %s."), name, note.count, note.reason)
         end
     end
     return lines
@@ -265,6 +278,7 @@ end
 
 function Batch:_classify(entry)
     entry.state, entry.kind, entry.book, entry.matches = "review", nil, nil, nil
+    self:_forget_skips(entry)
     local current, err = self.read_metadata(entry.file)
     if not current then
         entry.kind, entry.error = "failed", tostring(err)
@@ -272,7 +286,7 @@ function Batch:_classify(entry)
     end
     entry.current = current
     local found = Lookup.find(self.chain, current)
-    self:_note_skips(found)
+    self:_note_skips(entry, found)
     if Lookup.all_failed(found) then
         entry.kind, entry.error = "failed", Lookup.skipped_text(found)
         return

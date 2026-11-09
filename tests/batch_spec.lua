@@ -93,6 +93,12 @@ T["subfolders are included at any depth, ordered by path"] = function(a)
     )
 end
 
+T["a folder given with a trailing slash lists single-slash paths"] = function(a)
+    local fs = fake_fs({ ["/lib"] = { ["a.epub"] = true }, [""] = { ["b.epub"] = true } })
+    a.eq(joined(Batch.collect("/lib/", { fs = fs })), "/lib/a.epub")
+    a.eq(joined(Batch.collect("/", { fs = fs })), "/b.epub")
+end
+
 T["an isbn match is a sure match tagged with isbn and its provider"] = function(a)
     local batch = batch_for({ ["/b/x.epub"] = { title = "X", authors = { "Y" }, isbn_13 = "9780441013593" } }, function()
         return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
@@ -358,6 +364,24 @@ T["a batch hands out the files it changed once"] = function(a)
     batch:apply(batch.entries[1], { series = "x" }, { keep_backup = false, dest = "/b/a.epub" })
     a.eq(joined(batch:take_changed()), "/b/a.epub")
     a.eq(#batch:take_changed(), 0)
+end
+
+T["retrying a skipped book does not count its skip twice"] = function(a)
+    local slow = {
+        id = "inv",
+        name = "Inventaire",
+        ready = function()
+            return false, "timed out"
+        end,
+        find = function() end,
+    }
+    local batch = batch_for(numbered(1), function()
+        return {}, "search"
+    end)
+    table.insert(batch.chain, 1, slow)
+    batch:lookup_all()
+    batch:retry(batch.entries[1])
+    a.eq(joined(batch:skip_notices()), "Inventaire was skipped for 1 book: timed out.")
 end
 
 return T
