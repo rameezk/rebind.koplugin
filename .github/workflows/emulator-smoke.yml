@@ -54,12 +54,14 @@ jobs:
               *'no widget on screen is labelled "No such label"'*) ;;
               *) echo "Expected the missing-label error." >&2; exit 1 ;;
           esac
-          if message="$($emulator tap chevron.left 2>&1)"; then
+          duplicate="$($emulator dump | sed -E 's/^"(.*)" x=[0-9]+ y=[0-9]+ w=[0-9]+ h=[0-9]+$/\1/' | sort | uniq -d | sed -n 1p)"
+          test -n "$duplicate"
+          if message="$($emulator tap "$duplicate" 2>&1)"; then
               echo "Expected tapping an ambiguous label to fail." >&2; exit 1
           fi
           echo "$message"
           case "$message" in
-              *'widgets on screen are labelled "chevron.left"'*) ;;
+              *"widgets on screen are labelled \"$duplicate\""*) ;;
               *) echo "Expected the ambiguous-label error." >&2; exit 1 ;;
           esac
 

@@ -97,7 +97,7 @@ entries are labelled with their text (menu entries that open a submenu end in
 name, such as `appbar.menu`. Only the topmost window that takes input is
 listed, plus what shows beneath it.
 
-`tap "<label>"` matches the label exactly, as `dump` prints it. A label that
+`tap "<label>"` matches the label exactly, as `dump` prints it between its quotes. A label that
 matches nothing, or more than one widget, fails with an error that says which
 and sends no input; use `tap <x> <y>` when a label is ambiguous. Arguments
 cannot contain newlines (press Enter with `key`), and `--` ends option parsing

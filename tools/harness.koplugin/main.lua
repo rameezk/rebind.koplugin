@@ -95,6 +95,15 @@ local function isWidget(value)
     return type(value) == "table" and type(value.paintTo) == "function"
 end
 
+local function normalizeLabel(text)
+    local stripped = text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143]", "")
+    return (stripped:gsub("%c", " "):gsub("%s+", " "):match("^ ?(.-) ?$"))
+end
+
+local function isPassword(widget)
+    return widget.charlist ~= nil and widget.text_type == "password"
+end
+
 local function stripBidiMarks(text)
     return (text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143]", ""))
 end
@@ -103,7 +112,7 @@ local function labelOf(widget)
     local label = ""
     local is_icon = false
     if type(widget.getText) == "function" and widget.charlist then
-        if widget.text_type == "password" then
+        if isPassword(widget) then
             label = "<hidden>"
         else
             label = widget:getText()
@@ -121,7 +130,7 @@ local function labelOf(widget)
             end
         end
     end
-    return (stripBidiMarks(label):gsub("%s+", " "):match("^ ?(.-) ?$")), is_icon
+    return normalizeLabel(label), is_icon
 end
 
 local function visibleRect(widget)
@@ -169,6 +178,9 @@ local function collect(widget, entries, visited, parent_label, parent_rect, dept
     if label ~= "" and rect and not unpainted and label ~= parent_label then
         table.insert(entries, { label = label, x = rect.x, y = rect.y, w = rect.w, h = rect.h })
         next_parent_label = label
+    end
+    if isPassword(widget) then
+        return
     end
     eachChild(widget, function(child)
         collect(child, entries, visited, next_parent_label, own_rect or parent_rect, depth + 1)
@@ -283,7 +295,7 @@ function commands.dump(_id, _args, done)
         end
         local lines = {}
         for _, rect in ipairs(visibleWidgets()) do
-            table.insert(lines, string.format("%q x=%d y=%d w=%d h=%d", rect.label, rect.x, rect.y, rect.w, rect.h))
+            table.insert(lines, string.format('"%s" x=%d y=%d w=%d h=%d', rect.label, rect.x, rect.y, rect.w, rect.h))
         end
         done(true, table.concat(lines, "\n"))
     end)
@@ -298,19 +310,20 @@ function commands.tap(_id, args, done)
         end
         described = string.format("(%d, %d)", x, y)
     elseif #args == 1 then
+        local label = normalizeLabel(args[1])
         local matches = {}
         for _, rect in ipairs(visibleWidgets()) do
-            if rect.label == args[1] then
+            if rect.label == label then
                 table.insert(matches, rect)
             end
         end
         if #matches == 0 then
-            return done(false, string.format("no widget on screen is labelled %q", args[1]))
+            return done(false, string.format('no widget on screen is labelled "%s"', label))
         elseif #matches > 1 then
-            return done(false, string.format("%d widgets on screen are labelled %q; tap by coordinates instead", #matches, args[1]))
+            return done(false, string.format('%d widgets on screen are labelled "%s"; tap by coordinates instead', #matches, label))
         end
         x, y = center(matches[1])
-        described = string.format("%q at (%d, %d)", args[1], x, y)
+        described = string.format('"%s" at (%d, %d)', label, x, y)
     else
         return done(false, "tap needs two numbers or one label")
     end
