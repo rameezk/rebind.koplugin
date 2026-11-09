@@ -412,6 +412,7 @@ local function library_batch(root, books, opts)
         end,
         interval = 0,
         open_file = opts.open_file,
+        same_file = opts.same_file,
         save_as = opts.save_as or {
             sort = true,
             library = root .. "/lib",
@@ -603,6 +604,21 @@ T["a done row shows its path inside the library, or its filename when left in pl
         batch:rebind_all()
         a.is_true(batch:done_location(batch.entries[1]):find("^Herbert") ~= nil)
         a.eq(batch:done_location(batch.entries[2]), "b.epub")
+    end)
+end
+
+T["the open book is recognised through another spelling of its path"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S") }, {
+            open_file = root .. "//incoming/a.epub",
+            same_file = function(x, y)
+                return x:gsub("//+", "/") == y:gsub("//+", "/")
+            end,
+        })
+        a.eq(batch:sure_count(), 1)
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(Library.read(root .. "/incoming/a.epub"), "original a.epub")
     end)
 end
 

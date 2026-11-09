@@ -1028,6 +1028,10 @@ function Rebind:_startBatch(files, choose_screen)
             preferred_language = self.settings:readSetting("preferred_language"),
             save_as = self:_saveAsDefaults(),
             open_file = self:currentFile(),
+            same_file = function(a, b)
+                local realpath = require("ffi/util").realpath
+                return (realpath(a) or a) == (realpath(b) or b)
+            end,
         }
         local progress
         local function summary()

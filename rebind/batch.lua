@@ -202,6 +202,9 @@ function Batch.new(opts)
         relocate = opts.relocate,
         save_as = opts.save_as or {},
         open_file = opts.open_file,
+        same_file = opts.same_file or function(a, b)
+            return a == b
+        end,
         queue = {},
         queue_total = 0,
         queue_done = 0,
@@ -280,7 +283,7 @@ function Batch:_sure_entry(entry, current, match, isbn)
     entry.book = book
     entry.isbn = isbn
     entry.changes = state:change_count()
-    if self.open_file and entry.file == self.open_file then
+    if self.open_file and self.same_file(entry.file, self.open_file) then
         entry.state, entry.kind = "review", "open"
     end
 end
