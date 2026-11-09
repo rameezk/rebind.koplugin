@@ -200,6 +200,12 @@ function Batch.new(opts)
         preferred_language = opts.preferred_language,
         rewrite = opts.rewrite,
         relocate = opts.relocate,
+        save_as = opts.save_as or {},
+        open_file = opts.open_file,
+        queue = {},
+        queue_total = 0,
+        queue_done = 0,
+        results = { rebound = 0, sorted = 0, failed = 0, not_moved = 0 },
         total = #(opts.files or {}),
         skips = {},
         skip_order = {},
@@ -274,6 +280,9 @@ function Batch:_sure_entry(entry, current, match, isbn)
     entry.book = book
     entry.isbn = isbn
     entry.changes = state:change_count()
+    if self.open_file and entry.file == self.open_file then
+        entry.state, entry.kind = "review", "open"
+    end
 end
 
 function Batch:_classify(entry)
@@ -369,7 +378,13 @@ function Batch:tag(entry)
         local text = entry.book.provider_name .. " · " .. changes
         return entry.isbn and (_("ISBN") .. " · " .. text) or text
     end
-    if entry.kind == "matches" then
+    if entry.kind == "open" then
+        return _("Open in the reader")
+    elseif entry.kind == "write_failed" then
+        return _("Write failed")
+    elseif entry.kind == "not_moved" then
+        return _("Not moved")
+    elseif entry.kind == "matches" then
         return string.format(_("%d matches"), #entry.matches)
     elseif entry.kind == "check" then
         return _("Check match")
@@ -379,6 +394,63 @@ function Batch:tag(entry)
     return _("Lookup failed")
 end
 
+function Batch:save_as_for(entry)
+    local save_as = {}
+    for key, value in pairs(entry.save_as or self.save_as) do
+        save_as[key] = value
+    end
+    save_as.source_path = entry.file
+    save_as.metadata = entry.current
+    return save_as
+end
+
+function Batch:save_as_summary()
+    local save_as = self.save_as
+    local top = _("Save as for this batch") .. " · " .. (save_as.keep_backup and _("backup kept") or _("no backup"))
+    local folder = (save_as.sort and save_as.library) and _("Sort into your library") or _("Leave where it is")
+    local name = save_as.rename and (_("rename to") .. " " .. Organize.pattern_label(save_as.filename_template))
+        or _("keep current name")
+    return top, folder .. " · " .. name
+end
+
+function Batch:save_as_state()
+    local sample = self.entries[1]
+    for _i, entry in ipairs(self.entries) do
+        if entry.current then
+            sample = entry
+            break
+        end
+    end
+    local state = PickerState.new({})
+    self.save_as.source_path = sample and sample.file or ""
+    self.save_as.metadata = sample and sample.current or {}
+    state:set_save_as(self.save_as)
+    return state
+end
+
+function Batch:_picker_state(entry)
+    local state = PickerState.new(Fields.build(entry.current, entry.book), entry.book.provider_name)
+    state:set_save_as(self:save_as_for(entry))
+    return state
+end
+
+function Batch:_settle(entry, outcome, changes)
+    if outcome.rewritten or outcome.moved_dest then
+        self.changed[#self.changed + 1] = entry.file
+    end
+    if outcome.ok then
+        local dest = outcome.moved_dest or entry.file
+        entry.state, entry.kind, entry.error = "done", nil, nil
+        entry.sorted = Organize.dirname(dest) ~= Organize.dirname(entry.file)
+        entry.new_path = dest
+    elseif outcome.stage == "move" then
+        if outcome.rewritten then
+            entry.current = Organize.with_changes(entry.current, changes)
+        end
+        entry.state, entry.kind, entry.error = "review", "not_moved", outcome.error
+    end
+end
+
 function Batch:apply(entry, changes, opts)
     local outcome = Apply.run(entry.file, changes, {
         keep_backup = opts.keep_backup,
@@ -386,16 +458,116 @@ function Batch:apply(entry, changes, opts)
         rewrite = self.rewrite,
         relocate = self.relocate,
     })
-    if outcome.ok then
-        local dest = outcome.moved_dest or entry.file
-        entry.state = "done"
-        entry.sorted = Organize.dirname(dest) ~= Organize.dirname(entry.file)
-        entry.new_path = dest
-    end
-    if outcome.rewritten or outcome.moved_dest then
-        self.changed[#self.changed + 1] = entry.file
-    end
+    self:_settle(entry, outcome, changes)
     return outcome
+end
+
+function Batch:sure_count()
+    local count = 0
+    for _i, entry in ipairs(self.entries) do
+        if entry.state == "sure" then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function Batch:begin_rebind()
+    self.stopped = false
+    self.queue = {}
+    for _i, entry in ipairs(self.entries) do
+        if entry.state == "sure" then
+            self.queue[#self.queue + 1] = entry
+        end
+    end
+    table.sort(self.queue, function(x, y)
+        return Batch.natural_less(x.name, y.name)
+    end)
+    self.queue_total = #self.queue
+    self.queue_done = 0
+    return self.queue_total
+end
+
+function Batch:_rebind_entry(entry)
+    local state = self:_picker_state(entry)
+    local changes = state:changes()
+    local outcome = Apply.run(entry.file, changes, {
+        keep_backup = state.save_as.keep_backup,
+        dest = state:destination(),
+        rewrite = self.rewrite,
+        relocate = self.relocate,
+    })
+    self:_settle(entry, outcome, changes)
+    return outcome
+end
+
+function Batch:rebind_next()
+    if self.stopped or #self.queue == 0 then
+        return false
+    end
+    local entry = table.remove(self.queue, 1)
+    local ok, outcome = xpcall(self._rebind_entry, tostring, self, entry)
+    if not ok then
+        outcome = { ok = false, stage = "write", error = outcome }
+    end
+    if outcome.ok then
+        self.results.rebound = self.results.rebound + 1
+        self.results.sorted = self.results.sorted + (entry.sorted and 1 or 0)
+    elseif outcome.stage == "move" then
+        self.results.not_moved = self.results.not_moved + 1
+    else
+        self.results.failed = self.results.failed + 1
+        entry.state, entry.kind, entry.error = "review", "write_failed", outcome.error
+    end
+    self.queue_done = self.queue_done + 1
+    return true
+end
+
+function Batch:rebind_all()
+    self:begin_rebind()
+    while self:rebind_next() do
+    end
+end
+
+function Batch:summary()
+    local results = self.results
+    local parts = {}
+    if results.rebound > 0 then
+        local books = results.rebound == 1 and _("1 book") or string.format(_("%d books"), results.rebound)
+        if results.sorted == results.rebound then
+            parts[#parts + 1] = string.format(_("✓ %s rebound and sorted into your library."), books)
+        elseif results.sorted > 0 then
+            parts[#parts + 1] = string.format(_("✓ %s rebound, %d sorted into your library."), books, results.sorted)
+        else
+            parts[#parts + 1] = string.format(_("✓ %s rebound."), books)
+        end
+    end
+    if results.failed == 1 then
+        parts[#parts + 1] = _("1 could not be written.")
+    elseif results.failed > 1 then
+        parts[#parts + 1] = string.format(_("%d could not be written."), results.failed)
+    end
+    if results.not_moved == 1 then
+        parts[#parts + 1] = _("1 was rebound but not moved.")
+    elseif results.not_moved > 1 then
+        parts[#parts + 1] = string.format(_("%d were rebound but not moved."), results.not_moved)
+    end
+    if #parts == 0 then
+        return nil
+    end
+    return table.concat(parts, " ")
+end
+
+function Batch:done_location(entry)
+    local library = (entry.save_as or self.save_as).library
+    local path = entry.new_path
+    if entry.sorted and library then
+        local prefix = Batch.trim_folder(library) .. "/"
+        if path:sub(1, #prefix) == prefix then
+            return path:sub(#prefix + 1)
+        end
+    end
+    return Organize.basename(path)
 end
 
 function Batch:take_changed()
