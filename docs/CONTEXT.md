@@ -5,8 +5,12 @@ A KOReader plugin that rewrites an EPUB's embedded metadata on the device, from 
 ## Language
 
 **Rebind**:
-Replacing a book's embedded metadata with the values chosen in the Picker.
+Replacing a book's embedded metadata with chosen values, from the Picker or accepted unattended in a Batch.
 _Avoid_: fix, sync
+
+**Batch**:
+The set of books being rebound together in one run.
+_Avoid_: bulk, queue, bulk mode
 
 **Book**:
 A work as a Provider models it, independent of any one printing. It owns the author, series, genres and description.
@@ -27,6 +31,10 @@ _Avoid_: fallback list, provider order
 **Match**:
 A Book returned by a Provider lookup, before an Edition has been chosen.
 _Avoid_: result
+
+**Sure match**:
+A Match that is safe to write without opening the Picker.
+_Avoid_: confident match, auto match
 
 **Field**:
 One piece of metadata Rebind can write: Title, Author(s), Series, Genre(s), Language, Publisher, Description or First published.
@@ -55,6 +63,10 @@ _Avoid_: custom value
 **Picker**:
 The screen that shows each Field's values side by side and lets the user choose one per Field.
 _Avoid_: diff picker, rebind screen
+
+**Review list**:
+The screen with one row per book in a Batch and its lookup outcome.
+_Avoid_: results screen, dashboard
 
 **Library**:
 The user-chosen root folder that books are Sorted into.
