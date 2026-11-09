@@ -360,11 +360,15 @@ function PickerState:_relocation()
     return nil
 end
 
+function PickerState:change_count()
+    return #self:_changed_fields()
+end
+
 function PickerState:apply_label()
     if self:name_clash() then
         return _("Change the name or folder to apply")
     end
-    local n = #self:_changed_fields()
+    local n = self:change_count()
     if n == 1 then
         return _("Apply 1 change")
     elseif n > 1 then
@@ -377,7 +381,7 @@ function PickerState:apply_enabled()
     if self:name_clash() then
         return false
     end
-    return #self:_changed_fields() > 0 or self:_relocation() ~= nil
+    return self:change_count() > 0 or self:_relocation() ~= nil
 end
 
 function PickerState:save_as_summary()
