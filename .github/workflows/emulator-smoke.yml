@@ -1,0 +1,90 @@
+name: emulator smoke
+
+on:
+  pull_request:
+    paths:
+      - tools/emulator.sh
+      - tools/harness.koplugin/**
+      - flake.nix
+      - flake.lock
+      - .github/workflows/emulator-smoke.yml
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+
+      - name: Start the emulator headless
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: nix develop -c ./tools/emulator.sh start --headless
+
+      - name: Take a screenshot
+        run: |
+          mkdir -p smoke
+          nix develop -c ./tools/emulator.sh screenshot smoke/file-browser.png
+          size="$(file smoke/file-browser.png)"
+          echo "$size"
+          case "$size" in
+              *"PNG image data, 1072 x 1448"*) ;;
+              *) echo "Expected a 1072x1448 PNG." >&2; exit 1 ;;
+          esac
+
+      - name: Upload the screenshot
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-screenshot
+          path: smoke/file-browser.png
+          if-no-files-found: warn
+
+      - name: Stop the emulator
+        if: ${{ !cancelled() }}
+        run: nix develop -c ./tools/emulator.sh stop
+
+      - name: Upload the KOReader log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: koreader-log
+          path: .emulator/koreader.log
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  report:
+    needs: smoke
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Emulator smoke test is failing"
+          body="The daily emulator smoke run failed: $RUN_URL"
+          number="$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" \
+              --json number,title --jq "[.[] | select(.title == \"$title\")][0].number")"
+          if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$REPO" --body "$body"
+          else
+              gh issue create --repo "$REPO" --title "$title" \
+                  --body "$body
+
+          KOReader master may have changed something the harness in tools/harness.koplugin depends on, or the Linux build may be missing from its latest CI run. Open the run for the KOReader log."
+          fi

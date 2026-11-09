@@ -29,6 +29,11 @@
 - When end-to-end testing a product, be picky about the UI you see and be obsessed with pixel perfection.
   If something clearly looks off, even if it is not directly related to what you are doing, try to get it fixed along the way.
   For visible changes, capture before/after screenshots with the `before-after` skill.
-- The emulator only runs on macOS today. When the environment cannot run it (Linux, no display), this takes precedence over the `before-after` skill's "stop and report the blocker" rule:
+
+## The emulator
+
+- The KOReader emulator runs on macOS and on headless Linux. Use it for end-to-end repros and for before/after screenshots of Rebind's menus and dialogs.
+- Start it with `./tools/emulator.sh start --headless`, take screenshots with `./tools/emulator.sh screenshot <path>` and stop it with `./tools/emulator.sh stop`. The contributor guide (`CONTRIBUTING.md`, "Testing UI changes in the emulator") covers the rest.
+- No OS exempts you from trying it. Only when the emulator truly cannot start, this takes precedence over the `before-after` skill's "stop and report the blocker" rule:
   do not stop, do not fake a pair, and do not skip the section silently.
-  Put a `## Before / After` section in the PR body that says screenshots could not be captured in this environment and names the visible surfaces the change affects, then continue and open the PR.
+  Put a `## Before / After` section in the PR body that gives the specific error the emulator failed with and names the visible surfaces the change affects, then continue and open the PR.
