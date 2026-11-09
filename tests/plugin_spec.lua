@@ -24,6 +24,17 @@ T["lookups identify themselves with the installed version when koreader loads th
     a.contains(env.http.user_agent, "Rebind/" .. dofile("_meta.lua").version .. " ")
 end
 
+T["the Tools menu offers rebinding several books between the current book and lookup providers"] = function(a)
+    local plugin = PluginLoader.load("."):new{}
+    local items = {}
+    plugin:addToMainMenu(items)
+    local texts = {}
+    for _i, item in ipairs(items.rebind.sub_item_table) do
+        texts[#texts + 1] = item.text
+    end
+    a.eq(table.concat(texts, " | "), "Rebind current book | Rebind several books… | Lookup providers")
+end
+
 T["_meta.lua declares no plugin name so koreader logs no deprecation warning"] = function(a)
     a.eq(dofile("_meta.lua").name, nil)
 end

@@ -109,6 +109,17 @@ function Lookup.pick_edition(provider, match, current, preferred)
     return provider:pick_edition(match, preferred)
 end
 
+function Lookup.auto_edition(chain, current, book, preferred)
+    if not (chain and book and not book.edition_id and not book.by_isbn and book.has_editions) then
+        return book
+    end
+    local provider = Lookup.provider_for(chain, book)
+    local ok, edition = pcall(function()
+        return provider and Lookup.pick_edition(provider, book, current and current.language, preferred)
+    end)
+    return ok and edition or book
+end
+
 function Lookup.skipped_text(result)
     local lines = {}
     for _i, entry in ipairs(result.skipped or {}) do

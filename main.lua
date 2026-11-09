@@ -16,10 +16,14 @@ local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
+local BatchProgress = require("rebind/ui/batchprogress")
+local ChooseBooks = require("rebind/ui/choosebooks")
 local ChoiceList = require("rebind/ui/choicelist")
 local DiffPicker = require("rebind/ui/diffpicker")
 local Logo = require("rebind/ui/logo")
+local ReviewList = require("rebind/ui/reviewlist")
 local Apply = require("rebind/apply")
+local Batch = require("rebind/batch")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local HardcoverProvider = require("rebind/providers/hardcover")
@@ -319,6 +323,12 @@ function Rebind:addToMainMenu(menu_items)
                 end,
             },
             {
+                text = _("Rebind several books…"),
+                callback = function()
+                    self:onRebindSeveral()
+                end,
+            },
+            {
                 text = _("Lookup providers"),
                 callback = function()
                     self:showLookupProviders()
@@ -359,13 +369,9 @@ function Rebind:_withAutoEdition(current, chain, book, done)
     NetworkMgr:runWhenOnline(function()
         Trapper:wrap(function()
             Trapper:info(_("Looking for an edition…"))
-            local provider = Lookup.provider_for(chain, book)
-            local ok, edition = pcall(function()
-                return provider and Lookup.pick_edition(
-                    provider, book, current and current.language, self.settings:readSetting("preferred_language"))
-            end)
+            local chosen = Lookup.auto_edition(chain, current, book, self.settings:readSetting("preferred_language"))
             Trapper:clear()
-            done(ok and edition or book)
+            done(chosen)
         end)
     end)
 end
@@ -920,7 +926,7 @@ function Rebind:_showSource(picker, current, chain, shown)
     }
 end
 
-function Rebind:_showDiff(file, current, book, chain, results)
+function Rebind:_showDiff(file, current, book, chain, results, on_apply)
     local proposed = book or {}
     local shown = { book = book, proposed = proposed, results = results or {} }
 
@@ -952,10 +958,194 @@ function Rebind:_showDiff(file, current, book, chain, results)
             self:_chooseLibraryRoot(on_ready)
         end,
         on_apply = function(changes, opts)
-            self:_write(file, changes, opts.keep_backup, opts.dest)
+            if on_apply then
+                on_apply(changes, opts)
+            else
+                self:_write(file, changes, opts.keep_backup, opts.dest)
+            end
         end,
     }
     UIManager:show(picker)
+end
+
+function Rebind:batchStartFolder()
+    local file = self:currentFile()
+    if file then
+        return Organize.dirname(file)
+    end
+    local chooser = self.ui and self.ui.file_chooser
+    if chooser and chooser.path then
+        return chooser.path
+    end
+    return self:defaultBrowseDir()
+end
+
+function Rebind:onRebindSeveral()
+    local folder = self:batchStartFolder()
+    if not folder then
+        info(_("Could not find a folder to start from."))
+        return true
+    end
+    ChooseBooks.show{
+        folder = folder,
+        has_providers = function()
+            return #self:enabledProviderIds() > 0
+        end,
+        on_change_folder = function(on_pick)
+            local PathChooser = require("ui/widget/pathchooser")
+            UIManager:show(PathChooser:new{
+                title = _("Choose a folder"),
+                select_file = false,
+                show_files = false,
+                path = folder,
+                onConfirm = on_pick,
+            })
+        end,
+        on_change_providers = function(on_close)
+            self:showLookupProviders(on_close)
+        end,
+        on_lookup = function(files, choose_screen)
+            self:_startBatch(files, choose_screen)
+        end,
+    }
+    return true
+end
+
+function Rebind:_startBatch(files, choose_screen)
+    NetworkMgr:runWhenOnline(function()
+        local batch = Batch.new{
+            files = files,
+            chain = self:providerChain(),
+            preferred_language = self.settings:readSetting("preferred_language"),
+        }
+        local progress
+        local function summary()
+            local counts = batch:counts()
+            return string.format(_("%d sure matches · %d to review so far"), counts.sure, counts.review)
+        end
+        local function heading(done)
+            return T(_("Looking up your books… %1 of %2"), done, #files)
+        end
+        local function finish()
+            self:_showBatchReview(batch)
+            UIManager:close(progress, "ui")
+        end
+        local function step()
+            if batch.stopped or #batch.pending == 0 then
+                finish()
+                return
+            end
+            local delay = batch:wait_time()
+            if delay > 0 then
+                UIManager:scheduleIn(delay, step)
+                return
+            end
+            progress:update{
+                done = batch:done_count() + 1,
+                heading = heading(batch:done_count() + 1),
+                filename = Organize.basename(batch.pending[1]),
+                summary = summary(),
+            }
+            Trapper:wrap(function()
+                batch:lookup_next()
+                progress:update{ done = batch:done_count(), heading = heading(batch:done_count()), summary = summary() }
+                UIManager:scheduleIn(0.05, step)
+            end)
+        end
+        progress = BatchProgress:new{
+            heading = heading(0),
+            stop_text = _("Stop and review what's found"),
+            total = #files,
+            done = 0,
+            summary = summary(),
+            on_stop = function()
+                batch:stop()
+            end,
+        }
+        UIManager:show(progress)
+        UIManager:close(choose_screen, "ui")
+        UIManager:scheduleIn(0.05, step)
+    end)
+end
+
+function Rebind:_announceBatchChanges(batch)
+    local files = batch:take_changed()
+    if #files == 0 then
+        return
+    end
+    for _i, file in ipairs(files) do
+        UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
+    end
+    UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
+end
+
+function Rebind:_showBatchReview(batch)
+    ReviewList.show{
+        batch = batch,
+        on_close = function()
+            self:_announceBatchChanges(batch)
+        end,
+        on_open = function(entry, screen)
+            self:_openBatchRow(batch, screen, entry)
+        end,
+    }
+end
+
+function Rebind:_openBatchRow(batch, screen, entry)
+    if entry.state == "done" then
+        return
+    end
+    if entry.file == self:currentFile() then
+        info(T(_("%1 is open in the reader.\n\nClose the batch and rebind it on its own from the reader."), entry.name))
+        return
+    end
+    local chain = batch.chain
+    local function on_apply(changes, opts)
+        self:_applyBatchRow(batch, screen, entry, changes, opts)
+    end
+    local function show(book)
+        self:_showDiff(entry.file, entry.current, book, chain, entry.matches or {}, on_apply)
+    end
+    if entry.state == "sure" then
+        show(entry.book)
+    elseif entry.kind == "failed" then
+        NetworkMgr:runWhenOnline(function()
+            Trapper:wrap(function()
+                local busy = Logo.show_message(_("Looking up your book…"))
+                batch:retry(entry)
+                Logo.close_message(busy)
+                screen:refresh()
+            end)
+        end)
+    elseif entry.kind == "matches" then
+        self:_showChooser(entry.matches, chain, {
+            on_match = function(book)
+                self:_withAutoEdition(entry.current, chain, book, show)
+            end,
+            on_edition = show,
+            on_none = function()
+                show(nil)
+            end,
+        })
+    elseif entry.kind == "check" then
+        self:_withAutoEdition(entry.current, chain, entry.book, show)
+    else
+        show(nil)
+    end
+end
+
+function Rebind:_applyBatchRow(batch, screen, entry, changes, opts)
+    local progress = InfoMessage:new{ text = _("Updating EPUB…") }
+    UIManager:show(progress)
+    UIManager:scheduleIn(0.1, function()
+        local outcome = batch:apply(entry, changes, opts)
+        UIManager:close(progress)
+        if not outcome.ok then
+            local prefix = outcome.stage == "move" and move_failed_text(outcome.rewritten) or _("Update failed:\n")
+            info(prefix .. outcome.error)
+        end
+        screen:refresh()
+    end)
 end
 
 function Rebind:_rememberSaveAs(save_as)
