@@ -21,7 +21,7 @@ local Screen = Device.screen
 local sc = PagedScreen.sc
 
 local BatchProgress = InputContainer:extend{
-    title = nil,
+    heading = "",
     stop_text = nil,
     on_stop = nil,
     total = 0,
@@ -51,7 +51,7 @@ function BatchProgress:_build()
         Logo.widget(sc(64)),
         VerticalSpan:new{ width = sc(18) },
         TextWidget:new{
-            text = string.format("%s %d of %d", self.title, self.done, self.total),
+            text = self.heading,
             face = Font:getFace("cfont", 24),
             bold = true,
             max_width = inner,
@@ -61,8 +61,7 @@ function BatchProgress:_build()
             width = inner,
             height = sc(14),
             percentage = self.total > 0 and self.done / self.total or 0,
-            ticks = nil,
-            last = nil,
+            fillcolor = Blitbuffer.COLOR_BLACK,
         },
         VerticalSpan:new{ width = sc(14) },
         TextWidget:new{

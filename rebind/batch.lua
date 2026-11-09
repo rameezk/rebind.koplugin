@@ -36,6 +36,8 @@ local function fold_accents(text)
         local index = (code - 0xC0) % 32 + 1
         if code == 0xD7 or code == 0xF7 then
             return " "
+        elseif code == 0xFF then
+            return "y"
         end
         return ACCENTS[index]
     end)
@@ -46,7 +48,7 @@ end
 
 local function clean(text)
     text = fold_accents(tostring(text or "")):lower()
-    text = text:gsub("['’`]", ""):gsub("[^%w\128-\255]+", " ")
+    text = text:gsub("’", ""):gsub("['`]", ""):gsub("[^%w\128-\255]+", " ")
     return (text:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
@@ -137,7 +139,7 @@ function Batch.lfs_fs()
             return ok and names or {}
         end,
         is_dir = function(path)
-            return lfs.attributes(path, "mode") == "directory"
+            return lfs.symlinkattributes(path, "mode") == "directory"
         end,
     }
 end
@@ -169,13 +171,27 @@ function Batch.collect(folder, opts)
     return files
 end
 
+local function default_clock()
+    local ok, socket = pcall(require, "socket")
+    if ok and type(socket) == "table" and type(socket.gettime) == "function" then
+        return socket.gettime
+    end
+    return os.time
+end
+
+local function default_sleep(seconds)
+    require("ffi/util").sleep(seconds)
+end
+
 function Batch.new(opts)
     return setmetatable({
         pending = { unpack(opts.files or {}) },
         entries = {},
         chain = opts.chain or {},
         read_metadata = opts.read_metadata or Epub.read_metadata,
-        clock = opts.clock or os.time,
+        clock = opts.clock or default_clock(),
+        sleep = opts.sleep or default_sleep,
+        changed = {},
         interval = opts.interval or Batch.DEFAULT_INTERVAL,
         preferred_language = opts.preferred_language,
         rewrite = opts.rewrite,
@@ -278,11 +294,15 @@ function Batch:_classify(entry)
 end
 
 function Batch:_run_lookup(entry)
-    self.last_call = self.clock()
+    local delay = self:wait_time()
+    if delay > 0 then
+        self.sleep(delay)
+    end
     local ok, err = pcall(self._classify, self, entry)
     if not ok then
         entry.state, entry.kind, entry.error = "review", "failed", tostring(err)
     end
+    self.last_call = self.clock()
 end
 
 function Batch:lookup_next()
@@ -296,13 +316,8 @@ function Batch:lookup_next()
     return true
 end
 
-function Batch:lookup_all(wait)
-    while not self.stopped and #self.pending > 0 do
-        local delay = self:wait_time()
-        if delay > 0 and wait then
-            wait(delay)
-        end
-        self:lookup_next()
+function Batch:lookup_all()
+    while self:lookup_next() do
     end
 end
 
@@ -363,7 +378,16 @@ function Batch:apply(entry, changes, opts)
         entry.sorted = Organize.dirname(dest) ~= Organize.dirname(entry.file)
         entry.new_path = dest
     end
+    if outcome.rewritten or outcome.moved_dest then
+        self.changed[#self.changed + 1] = entry.file
+    end
     return outcome
+end
+
+function Batch:take_changed()
+    local files = self.changed
+    self.changed = {}
+    return files
 end
 
 return Batch

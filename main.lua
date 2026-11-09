@@ -1023,6 +1023,9 @@ function Rebind:_startBatch(files, choose_screen)
             local counts = batch:counts()
             return string.format(_("%d sure matches · %d to review so far"), counts.sure, counts.review)
         end
+        local function heading(done)
+            return T(_("Looking up your books… %1 of %2"), done, #files)
+        end
         local function finish()
             self:_showBatchReview(batch)
             UIManager:close(progress, "ui")
@@ -1039,17 +1042,18 @@ function Rebind:_startBatch(files, choose_screen)
             end
             progress:update{
                 done = batch:done_count() + 1,
+                heading = heading(batch:done_count() + 1),
                 filename = Organize.basename(batch.pending[1]),
                 summary = summary(),
             }
             Trapper:wrap(function()
                 batch:lookup_next()
-                progress:update{ done = batch:done_count(), summary = summary() }
+                progress:update{ done = batch:done_count(), heading = heading(batch:done_count()), summary = summary() }
                 UIManager:scheduleIn(0.05, step)
             end)
         end
         progress = BatchProgress:new{
-            title = _("Looking up your books…"),
+            heading = heading(0),
             stop_text = _("Stop and review what's found"),
             total = #files,
             done = 0,
@@ -1065,8 +1069,7 @@ function Rebind:_startBatch(files, choose_screen)
 end
 
 function Rebind:_announceBatchChanges(batch)
-    local files = batch.changed_files or {}
-    batch.changed_files = nil
+    local files = batch:take_changed()
     if #files == 0 then
         return
     end
@@ -1090,6 +1093,10 @@ end
 
 function Rebind:_openBatchRow(batch, screen, entry)
     if entry.state == "done" then
+        return
+    end
+    if entry.file == self:currentFile() then
+        info(T(_("%1 is open in the reader.\n\nClose the batch and rebind it on its own from the reader."), entry.name))
         return
     end
     local chain = batch.chain
@@ -1133,10 +1140,6 @@ function Rebind:_applyBatchRow(batch, screen, entry, changes, opts)
     UIManager:scheduleIn(0.1, function()
         local outcome = batch:apply(entry, changes, opts)
         UIManager:close(progress)
-        if outcome.rewritten or outcome.moved_dest then
-            batch.changed_files = batch.changed_files or {}
-            table.insert(batch.changed_files, entry.file)
-        end
         if not outcome.ok then
             local prefix = outcome.stage == "move" and move_failed_text(outcome.rewritten) or _("Update failed:\n")
             info(prefix .. outcome.error)

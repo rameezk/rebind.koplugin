@@ -67,6 +67,7 @@ local function batch_for(metas, finder, opts)
             return metas[path]
         end,
         clock = clock,
+        sleep = opts.sleep,
         interval = opts.interval or 0,
         rewrite = opts.rewrite,
         relocate = opts.relocate,
@@ -204,14 +205,66 @@ T["lookups are never closer together than the throttle allows"] = function(a)
         clock = function()
             return now
         end,
+        sleep = function(seconds)
+            now = now + seconds
+        end,
     })
-    batch:lookup_all(function(seconds)
-        now = now + seconds
-    end)
+    batch:lookup_all()
     a.eq(#calls, 6)
     for i = 2, #calls do
         a.is_true(calls[i] - calls[i - 1] >= 1.5, "calls too close together")
     end
+end
+
+T["the throttle counts from the end of a slow lookup"] = function(a)
+    local now = 0
+    local starts, ends = {}, {}
+    local batch = batch_for(numbered(3), function()
+        starts[#starts + 1] = now
+        now = now + 4
+        ends[#ends + 1] = now
+        return {}, "search"
+    end, {
+        interval = 1.5,
+        clock = function()
+            return now
+        end,
+        sleep = function(seconds)
+            now = now + seconds
+        end,
+    })
+    batch:lookup_all()
+    for i = 2, #starts do
+        a.is_true(starts[i] - ends[i - 1] >= 1.5, "next lookup started too soon after the last ended")
+    end
+end
+
+T["retrying a lookup respects the throttle too"] = function(a)
+    local now = 10
+    local calls = {}
+    local batch = batch_for({ ["/b/a.epub"] = { title = "Dune", authors = {} } }, function()
+        calls[#calls + 1] = now
+        return {}, "search"
+    end, {
+        interval = 2,
+        clock = function()
+            return now
+        end,
+        sleep = function(seconds)
+            now = now + seconds
+        end,
+    })
+    batch:lookup_all()
+    batch:retry(batch.entries[1])
+    a.is_true(calls[2] - calls[1] >= 2, "retry ran inside the throttle window")
+end
+
+T["titles and authors agree across accents, curly quotes and a leading article"] = function(a)
+    a.eq(Batch.normalize_title("The Café’s Secret"), "cafes secret")
+    a.eq(Batch.normalize_title("Flÿ"), "fly")
+    a.eq(Batch.normalize_title("Straße"), "strasse")
+    a.is_true(Batch.agrees({ title = "Les Misérables", authors = { "Hugo, Victor" } },
+        { title = "les miserables", authors = { "Victor Hugo" } }))
 end
 
 T["a failed lookup is looked up again when retried"] = function(a)
@@ -294,6 +347,17 @@ T["a failed write leaves the row where it was"] = function(a)
     local outcome = batch:apply(batch.entries[1], { series = "x" }, { keep_backup = false, dest = "/b/a.epub" })
     a.eq(outcome.ok, false)
     a.eq(batch.entries[1].state, "sure")
+end
+
+T["a batch hands out the files it changed once"] = function(a)
+    local batch = sure_batch({
+        rewrite = function()
+            return true
+        end,
+    })
+    batch:apply(batch.entries[1], { series = "x" }, { keep_backup = false, dest = "/b/a.epub" })
+    a.eq(joined(batch:take_changed()), "/b/a.epub")
+    a.eq(#batch:take_changed(), 0)
 end
 
 return T
