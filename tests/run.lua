@@ -8,6 +8,7 @@ package.path = table.concat({
 local assertions = require("tests/support/assert")
 
 local specs = {
+    "tests/apply_spec",
     "tests/epub_spec",
     "tests/fields_spec",
     "tests/hardcover_spec",
