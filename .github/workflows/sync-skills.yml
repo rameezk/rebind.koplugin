@@ -1,0 +1,20 @@
+name: Sync skills
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit of the skills repo to sync to
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    uses: rameezk/skills/.github/workflows/sync-skills.yml@main
+    with:
+      ref: ${{ inputs.ref || 'main' }}
