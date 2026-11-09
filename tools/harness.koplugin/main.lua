@@ -103,7 +103,11 @@ local function labelOf(widget)
     local label = ""
     local is_icon = false
     if type(widget.getText) == "function" and widget.charlist then
-        label = widget:getText()
+        if widget.text_type == "password" then
+            label = "<hidden>"
+        else
+            label = widget:getText()
+        end
         if label == "" and type(widget.hint) == "string" then
             label = widget.hint
         end
@@ -117,7 +121,7 @@ local function labelOf(widget)
             end
         end
     end
-    return (stripBidiMarks(label):match("^%s*(.-)%s*$")), is_icon
+    return (stripBidiMarks(label):gsub("%s+", " "):match("^ ?(.-) ?$")), is_icon
 end
 
 local function visibleRect(widget)
@@ -333,7 +337,6 @@ function commands.key(_id, args, done)
     UIManager:sendEvent(Event:new("KeyPress", Key:new(args[1], {})))
     afterSettling(done, "pressed " .. args[1])
 end
-
 
 function commands.screenshot(id, _args, done)
     whenSettled(function(settled)
