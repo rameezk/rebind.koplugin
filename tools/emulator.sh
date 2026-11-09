@@ -237,7 +237,7 @@ configure_hardcover() {
     esac
     [ -d "$HC_CACHE" ] || install_hardcover
     if [ "$OS" = "Darwin" ]; then patch_hardcover_fork; fi
-    printf "return {\n  token = '%s'\n}\n" "$token" > "$HC_CACHE/hardcover_config.lua"
+    ( umask 077; printf "return {\n  token = '%s'\n}\n" "$token" > "$HC_CACHE/hardcover_config.lua" )
     chmod 600 "$HC_CACHE/hardcover_config.lua"
     ln -sfn "$HC_CACHE" "$HC_LINK"
 }
@@ -396,6 +396,7 @@ cmd_screenshot() {
         /*) ;;
         *) SHOT_PATH="$CALLER_PWD/$SHOT_PATH" ;;
     esac
+    [ -d "$(dirname "$SHOT_PATH")" ] || fail "The directory for $SHOT_PATH does not exist."
     id="$(new_request_id)"
     request "$id" screenshot || exit 1
     request_result "$id" || exit 1
@@ -453,7 +454,7 @@ launch() {
     if use_devshell_loader; then
         workdir="$PWD/$KO_ROOT"
         env_vars+=(
-            "LD_LIBRARY_PATH=$workdir/libs:${REBIND_EMULATOR_LIBS:-}"
+            "LD_LIBRARY_PATH=$workdir/libs${REBIND_EMULATOR_LIBS:+:$REBIND_EMULATOR_LIBS}"
             "LC_ALL=C.UTF-8"
         )
         command=("$REBIND_EMULATOR_LOADER" ./luajit reader.lua "$BOOKS")

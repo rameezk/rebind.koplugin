@@ -60,6 +60,7 @@ jobs:
         with:
           name: koreader-log
           path: .emulator/koreader.log
+          include-hidden-files: true
           if-no-files-found: ignore
 
   report:
