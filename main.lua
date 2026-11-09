@@ -949,9 +949,13 @@ end
 
 function Rebind:_write(file, changes, keep_backup, dest)
     local is_open_book = self:currentFile() == file
+    local progress
     local opts = { keep_backup = keep_backup, dest = dest }
     if is_open_book then
         opts.relocate = function(from, to)
+            if progress then
+                UIManager:close(progress)
+            end
             self:_closeOpenBook()
             return Organize.relocate(from, to)
         end
@@ -962,7 +966,7 @@ function Rebind:_write(file, changes, keep_backup, dest)
         return
     end
 
-    local progress = InfoMessage:new{ text = _("Updating EPUB…") }
+    progress = InfoMessage:new{ text = _("Updating EPUB…") }
     UIManager:show(progress)
     UIManager:scheduleIn(0.1, function()
         local outcome = Apply.run(file, changes, opts)
