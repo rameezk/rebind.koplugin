@@ -39,7 +39,7 @@ HEADLESS=0
 CONSOLE=0
 SET_TOKEN=0
 UPDATE=0
-SHOT_PATH=""
+ARGS=()
 
 usage() {
     cat <<'USAGE'
@@ -48,6 +48,11 @@ Run KOReader's emulator with Rebind loaded, on macOS or Linux, with or without a
   ./tools/emulator.sh [start]             download the emulator if missing, then launch it in a window
   ./tools/emulator.sh start --headless    launch with no window on a fixed 1072x1448, 300 dpi screen
   ./tools/emulator.sh screenshot <path>   write a PNG of what KOReader shows, once the screen has settled
+  ./tools/emulator.sh dump                list every visible widget with its label and coordinates
+  ./tools/emulator.sh tap <x> <y>         tap at a screen coordinate
+  ./tools/emulator.sh tap "<label>"       tap the one visible widget with that label
+  ./tools/emulator.sh type "<text>"       type text into the focused text field
+  ./tools/emulator.sh key <name>          press a key, such as Enter, Back, Backspace, Left or Right
   ./tools/emulator.sh stop                exit KOReader cleanly
 
 Options for start:
@@ -67,8 +72,19 @@ your own EPUBs there to test against - they never touch your real library. Headl
 keep their KOReader settings in .emulator/headless-home/ and start from a clean one each time.
 
 screenshot is taken from KOReader's own framebuffer, so nothing outside KOReader can
-appear in it. It returns only after the screen has settled. The command and KOReader talk
-through the private spool directory .emulator/spool/.
+appear in it. Every command below returns only after KOReader has handled it and the screen
+has settled. The command and KOReader talk through the private spool directory
+.emulator/spool/.
+
+dump prints one line per visible widget: its label in quotes, then x, y, width and height in
+pixels. Text widgets, buttons and menu entries are labelled with their text, text fields with
+their content (or hint), and icon buttons with their icon name. Only the topmost window that
+takes input is listed, plus the windows beneath it up to the first that covers the screen.
+
+tap "<label>" matches a label exactly. A label that matches no widget, or more than one,
+fails with an error that says which and sends no input; use dump to see what is on screen,
+and tap <x> <y> when a label is ambiguous. Arguments cannot contain newlines; press Enter
+with key. Put -- before an argument that starts with a dash.
 
 Hardcover lookups: provide an API token and the script installs and configures the
 Hardcover plugin for you. The token is read from the HARDCOVER_TOKEN environment
@@ -80,25 +96,29 @@ USAGE
 }
 
 case "${1:-}" in
-    start|stop|screenshot) SUBCOMMAND="$1"; shift ;;
+    start|stop|screenshot|dump|tap|type|key) SUBCOMMAND="$1"; shift ;;
 esac
 
+OPTIONS_DONE=0
 for arg in "$@"; do
-    case "$arg" in
-        --update) UPDATE=1 ;;
-        --console) CONSOLE=1 ;;
-        --set-token) SET_TOKEN=1 ;;
-        --headless) HEADLESS=1 ;;
-        -h|--help) usage; exit 0 ;;
-        -*) echo "Unknown option: $arg" >&2; exit 1 ;;
-        *)
-            if [ "$SUBCOMMAND" = "screenshot" ] && [ -z "$SHOT_PATH" ]; then
-                SHOT_PATH="$arg"
-            else
-                echo "Unknown argument: $arg" >&2; exit 1
-            fi ;;
-    esac
+    if [ "$OPTIONS_DONE" -eq 0 ]; then
+        case "$arg" in
+            --) OPTIONS_DONE=1; continue ;;
+            --update) UPDATE=1; continue ;;
+            --console) CONSOLE=1; continue ;;
+            --set-token) SET_TOKEN=1; continue ;;
+            --headless) HEADLESS=1; continue ;;
+            -h|--help) usage; exit 0 ;;
+            -*) echo "Unknown option: $arg" >&2; exit 1 ;;
+        esac
+    fi
+    ARGS+=("$arg")
 done
+
+case "$SUBCOMMAND" in
+    start|stop|dump)
+        [ "${#ARGS[@]}" -eq 0 ] || { echo "Unknown argument: ${ARGS[0]}" >&2; exit 1; } ;;
+esac
 
 case "$(uname -m)" in
     arm64|aarch64) ARCH="arm64"; SYSTEM_LOADER="/lib/ld-linux-aarch64.so.1" ;;
@@ -337,9 +357,12 @@ request() {
 request_result() {
     local id="$1" status message
     status="$(sed -n 1p "$SPOOL/$id.res")"
-    message="$(sed -n 2p "$SPOOL/$id.res")"
+    message="$(sed -n '2,$p' "$SPOOL/$id.res")"
     rm -f "$SPOOL/$id.res"
-    [ "$status" = "ok" ] && return 0
+    if [ "$status" = "ok" ]; then
+        [ -z "$message" ] || printf '%s\n' "$message"
+        return 0
+    fi
     echo "KOReader: $message" >&2
     return 1
 }
@@ -396,19 +419,58 @@ cmd_stop() {
 }
 
 cmd_screenshot() {
-    local id
-    [ -n "$SHOT_PATH" ] || fail "Usage: ./tools/emulator.sh screenshot <path>"
+    local id shot_path="${ARGS[0]:-}"
+    [ "${#ARGS[@]}" -eq 1 ] || fail "Usage: ./tools/emulator.sh screenshot <path>"
     require_running
-    case "$SHOT_PATH" in
+    case "$shot_path" in
         /*) ;;
-        *) SHOT_PATH="$CALLER_PWD/$SHOT_PATH" ;;
+        *) shot_path="$CALLER_PWD/$shot_path" ;;
     esac
-    [ -d "$(dirname "$SHOT_PATH")" ] || fail "The directory for $SHOT_PATH does not exist."
+    [ -d "$(dirname "$shot_path")" ] || fail "The directory for $shot_path does not exist."
     id="$(new_request_id)"
     request "$id" screenshot || exit 1
     request_result "$id" || exit 1
-    mv -f "$SPOOL/$id.png" "$SHOT_PATH"
-    echo "Saved $SHOT_PATH"
+    mv -f "$SPOOL/$id.png" "$shot_path"
+    echo "Saved $shot_path"
+}
+
+drive() {
+    local id arg
+    require_running
+    for arg in "$@"; do
+        case "$arg" in
+            *$'\n'*) fail "Arguments cannot contain newlines." ;;
+        esac
+    done
+    id="$(new_request_id)"
+    request "$id" "$@" || exit 1
+    request_result "$id" || exit 1
+}
+
+cmd_dump() {
+    drive dump
+}
+
+cmd_tap() {
+    case "${#ARGS[@]}" in
+        1) ;;
+        2)
+            case "${ARGS[0]}${ARGS[1]}" in
+                *[!0-9]*) fail "Usage: ./tools/emulator.sh tap <x> <y>  or  tap \"<label>\"" ;;
+            esac ;;
+        *) fail "Usage: ./tools/emulator.sh tap <x> <y>  or  tap \"<label>\"" ;;
+    esac
+    drive tap "${ARGS[@]}"
+}
+
+cmd_type() {
+    [ "${#ARGS[@]}" -eq 1 ] || fail "Usage: ./tools/emulator.sh type \"<text>\""
+    drive type "${ARGS[0]}"
+}
+
+cmd_key() {
+    [ "${#ARGS[@]}" -eq 1 ] || fail "Usage: ./tools/emulator.sh key <name>"
+    drive key "${ARGS[0]}"
 }
 
 link_plugins() {
@@ -530,4 +592,8 @@ case "$SUBCOMMAND" in
     start) cmd_start ;;
     stop) cmd_stop ;;
     screenshot) cmd_screenshot ;;
+    dump) cmd_dump ;;
+    tap) cmd_tap ;;
+    type) cmd_type ;;
+    key) cmd_key ;;
 esac
