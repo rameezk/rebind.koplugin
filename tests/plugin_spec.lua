@@ -109,6 +109,25 @@ T["initialising twice leaves one rebind row per module"] = function(a)
     end)
 end
 
+T["the rebind button is registered for the reader's own instance too"] = function(a)
+    with_fake_file_dialog_modules(function(registered, widgets)
+        local first = PluginLoader.load("."):new{ ui = { addFileDialogButtons = function() end } }
+        first:init()
+        local reader = PluginLoader.load("."):new{ ui = {} }
+        local rebound = {}
+        function reader:onRebind(file)
+            rebound[#rebound + 1] = file
+        end
+        reader:init()
+
+        a.eq(#registered, 3)
+        for _i, entry in ipairs(registered) do
+            entry.row_func("/books/a.epub", true)[1].callback()
+        end
+        a.eq(#rebound, 3)
+    end)
+end
+
 T["the file browser keeps exactly one rebind row"] = function(a)
     with_fake_file_dialog_modules(function()
         local ids = {}

@@ -140,8 +140,8 @@ function Rebind:init()
 
     if self.ui and self.ui.addFileDialogButtons then
         self.ui:addFileDialogButtons("rebind_update_metadata", self:bookDialogRow())
-        self:registerBookDialogModules()
     end
+    self:registerBookDialogModules()
 
     if self.ui and self.ui.menu then
         self.ui.menu:registerToMainMenu(self)
