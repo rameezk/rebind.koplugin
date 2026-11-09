@@ -76,6 +76,12 @@ function Rebind:onDispatcherRegisterActions()
         title = _("Rebind current book"),
         general = true,
     })
+    Dispatcher:registerAction("rebind_several", {
+        category = "none",
+        event = "RebindSeveral",
+        title = _("Rebind several books…"),
+        general = true,
+    })
 end
 
 function Rebind:promoteMenuOrder()
@@ -104,10 +110,20 @@ local BOOK_DIALOG_MODULES = {
     "apps/filemanager/filemanagerfilesearcher",
 }
 
-function Rebind:bookDialogRow()
+function Rebind:bookDialogRow(with_folders)
     return function(file, is_file)
         if not is_file then
-            return
+            if not with_folders then
+                return
+            end
+            return {
+                {
+                    text = _("Rebind books in this folder"),
+                    callback = function()
+                        self:openChooseBooks{ folder = file, tick_all = true }
+                    end,
+                },
+            }
         end
         return {
             {
@@ -144,7 +160,7 @@ function Rebind:init()
     end
 
     if self.ui and self.ui.addFileDialogButtons then
-        self.ui:addFileDialogButtons("rebind_update_metadata", self:bookDialogRow())
+        self.ui:addFileDialogButtons("rebind_update_metadata", self:bookDialogRow(true))
     end
     self:registerBookDialogModules()
 
@@ -325,7 +341,7 @@ function Rebind:addToMainMenu(menu_items)
             {
                 text = _("Rebind several books…"),
                 callback = function()
-                    self:onRebindSeveral()
+                    self:openChooseBooks{}
                 end,
             },
             {
@@ -980,14 +996,45 @@ function Rebind:batchStartFolder()
     return self:defaultBrowseDir()
 end
 
+function Rebind:selectedBooks()
+    local ui = self.ui
+    if ui and ui.selected_files then
+        return Batch.selection(ui.selected_files)
+    end
+    return { files = {}, folders = 0 }
+end
+
+function Rebind:batchOpening(opts)
+    if opts.folder then
+        return { folder = opts.folder, tick_all = true }
+    end
+    local selected = self:selectedBooks()
+    if #selected.files > 0 then
+        if selected.folders > 1 then
+            return { folder = self:batchStartFolder(), selection = selected }
+        end
+        return { folder = Organize.dirname(selected.files[1]), ticked = selected.files }
+    end
+    return { folder = self:batchStartFolder() }
+end
+
 function Rebind:onRebindSeveral()
-    local folder = self:batchStartFolder()
+    self:openChooseBooks{}
+    return true
+end
+
+function Rebind:openChooseBooks(opts)
+    local opening = self:batchOpening(opts)
+    local folder = opening.folder
     if not folder then
         info(_("Could not find a folder to start from."))
         return true
     end
     ChooseBooks.show{
         folder = folder,
+        selection = opening.selection,
+        ticked = opening.ticked,
+        tick_all = opening.tick_all,
         has_providers = function()
             return #self:enabledProviderIds() > 0
         end,
