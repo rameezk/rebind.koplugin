@@ -160,7 +160,11 @@ local function start()
         return
     end
     started = true
-    whenSettled(function()
+    whenSettled(function(settled)
+        if not settled then
+            logger.err("rebind harness: the file browser never settled")
+            return
+        end
         writeAtomic(spool .. "/ready", "ready\n")
         logger.info("rebind harness: ready")
     end, fileBrowserIsOnTop, READY_TIMEOUT_SECONDS)
