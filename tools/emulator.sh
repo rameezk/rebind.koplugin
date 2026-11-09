@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+CALLER_PWD="$PWD"
 cd "$(dirname "$0")/.."
 
 REPO="koreader/koreader"
@@ -100,8 +101,8 @@ for arg in "$@"; do
 done
 
 case "$(uname -m)" in
-    arm64|aarch64) ARCH="arm64" ;;
-    x86_64)        ARCH="x86_64" ;;
+    arm64|aarch64) ARCH="arm64"; SYSTEM_LOADER="/lib/ld-linux-aarch64.so.1" ;;
+    x86_64)        ARCH="x86_64"; SYSTEM_LOADER="/lib64/ld-linux-x86-64.so.2" ;;
     *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
@@ -231,6 +232,9 @@ resolve_token() {
 
 configure_hardcover() {
     local token="$1"
+    case "$token" in
+        *[!A-Za-z0-9._~+/=-]*) fail "The Hardcover token contains characters a token never has; check HARDCOVER_TOKEN or $TOKEN_FILE." ;;
+    esac
     [ -d "$HC_CACHE" ] || install_hardcover
     if [ "$OS" = "Darwin" ]; then patch_hardcover_fork; fi
     printf "return {\n  token = '%s'\n}\n" "$token" > "$HC_CACHE/hardcover_config.lua"
@@ -312,7 +316,8 @@ is_running() {
     [ -f "$PID_FILE" ] || return 1
     pid="$(cat "$PID_FILE")"
     state="$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')" || return 1
-    [ -n "$state" ] && [ "${state#Z}" = "$state" ]
+    [ -n "$state" ] && [ "${state#Z}" = "$state" ] || return 1
+    ps -o command= -p "$pid" 2>/dev/null | grep -qF -- "$BOOKS"
 }
 
 request() {
@@ -387,6 +392,10 @@ cmd_screenshot() {
     local id
     [ -n "$SHOT_PATH" ] || fail "Usage: ./tools/emulator.sh screenshot <path>"
     require_running
+    case "$SHOT_PATH" in
+        /*) ;;
+        *) SHOT_PATH="$CALLER_PWD/$SHOT_PATH" ;;
+    esac
     id="$(new_request_id)"
     request "$id" screenshot || exit 1
     request_result "$id" || exit 1
@@ -420,6 +429,11 @@ setup_hardcover() {
     fi
 }
 
+use_devshell_loader() {
+    [ "$OS" = "Linux" ] && [ -n "${REBIND_EMULATOR_LOADER:-}" ] || return 1
+    [ "$HEADLESS" -eq 1 ] || [ ! -e "$SYSTEM_LOADER" ]
+}
+
 launch() {
     local workdir="$PWD" log="$PWD/$DEST/koreader.log"
     local -a env_vars=("REBIND_HARNESS_SPOOL=$SPOOL") command=("$PWD/$BIN" "$BOOKS")
@@ -434,14 +448,15 @@ launch() {
             "EMULATE_READER_DPI=$SCREEN_DPI"
             "KO_HOME=$HEADLESS_HOME"
         )
-        if [ "$OS" = "Linux" ] && [ -n "${REBIND_EMULATOR_LOADER:-}" ]; then
-            workdir="$PWD/$KO_ROOT"
-            env_vars+=(
-                "LD_LIBRARY_PATH=$workdir/libs:${REBIND_EMULATOR_LIBS:-}"
-                "LC_ALL=C.UTF-8"
-            )
-            command=("$REBIND_EMULATOR_LOADER" ./luajit reader.lua "$BOOKS")
-        fi
+    fi
+
+    if use_devshell_loader; then
+        workdir="$PWD/$KO_ROOT"
+        env_vars+=(
+            "LD_LIBRARY_PATH=$workdir/libs:${REBIND_EMULATOR_LIBS:-}"
+            "LC_ALL=C.UTF-8"
+        )
+        command=("$REBIND_EMULATOR_LOADER" ./luajit reader.lua "$BOOKS")
     fi
 
     if [ "$CONSOLE" -eq 1 ]; then
