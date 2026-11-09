@@ -96,16 +96,17 @@ local function isWidget(value)
 end
 
 local function normalizeLabel(text)
-    local stripped = text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143\170-\174]", ""):gsub("\194[\128-\159]", "")
+    local stripped = text
+        :gsub("\226\128[\139-\143\168-\174]", "")
+        :gsub("\226\129[\160-\169]", "")
+        :gsub("\194[\128-\159]", "")
+        :gsub("\216\156", "")
+        :gsub("\239\187\191", "")
     return (stripped:gsub("%c", " "):gsub("%s+", " "):match("^ ?(.-) ?$"))
 end
 
 local function isPassword(widget)
     return widget.charlist ~= nil and widget.text_type == "password"
-end
-
-local function stripBidiMarks(text)
-    return (text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143]", ""))
 end
 
 local function labelOf(widget)
