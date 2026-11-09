@@ -67,7 +67,7 @@ up to date.
 
 ## Getting started
 
-Long-press a book in the file browser and tap Rebind. While reading, use
+Long-press a book in the file browser, Collections, History or file search and tap Rebind. While reading, use
 Tools → Rebind → Rebind current book, or bind "Rebind current book" to a gesture.
 
 Rebind also works from these file browser plugins:

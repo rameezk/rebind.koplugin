@@ -39,6 +39,11 @@ local function with_fake_file_dialog_modules(run)
     local registered = {}
     local FileManager = {}
     function FileManager.addFileDialogButtons(widget, id, row_func)
+        for _i, entry in ipairs(registered) do
+            if entry.widget == widget and entry.id == id then
+                return
+            end
+        end
         registered[#registered + 1] = { widget = widget, id = id, row_func = row_func }
     end
     function FileManager.removeFileDialogButtons(widget, id)
@@ -48,7 +53,7 @@ local function with_fake_file_dialog_modules(run)
             end
         end
     end
-    local widgets = {}
+    local widgets = { filemanager = FileManager }
     package.preload[MODULES.filemanager] = function()
         return FileManager
     end
@@ -140,6 +145,16 @@ T["the file browser keeps exactly one rebind row"] = function(a)
         }
         plugin:init()
         a.eq(#ids, 1)
+    end)
+end
+
+T["the stock file browser class is never given a second rebind row"] = function(a)
+    with_fake_file_dialog_modules(function(registered, widgets)
+        local plugin = PluginLoader.load("."):new{ ui = { addFileDialogButtons = function() end } }
+        plugin:init()
+        for _i, entry in ipairs(registered) do
+            a.is_true(entry.widget ~= widgets.filemanager, "file browser class registered")
+        end
     end)
 end
 
