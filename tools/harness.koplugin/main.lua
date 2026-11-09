@@ -96,7 +96,7 @@ local function isWidget(value)
 end
 
 local function normalizeLabel(text)
-    local stripped = text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143]", "")
+    local stripped = text:gsub("\226\129[\166-\169]", ""):gsub("\226\128[\142\143\170-\174]", ""):gsub("\194[\128-\159]", "")
     return (stripped:gsub("%c", " "):gsub("%s+", " "):match("^ ?(.-) ?$"))
 end
 
@@ -340,7 +340,7 @@ function commands.type(_id, args, done)
         return done(false, "no text field is focused")
     end
     input:addChars(args[1])
-    afterSettling(done, "typed " .. string.format("%q", args[1]))
+    afterSettling(done, "typed into the focused text field")
 end
 
 function commands.key(_id, args, done)
@@ -348,7 +348,7 @@ function commands.key(_id, args, done)
         return done(false, "key needs one key name")
     end
     UIManager:sendEvent(Event:new("KeyPress", Key:new(args[1], {})))
-    afterSettling(done, "pressed " .. args[1])
+    afterSettling(done, "pressed " .. normalizeLabel(args[1]))
 end
 
 function commands.screenshot(id, _args, done)

@@ -55,7 +55,7 @@ jobs:
               *) echo "Expected the missing-label error." >&2; exit 1 ;;
           esac
           duplicate="$($emulator dump | sed -E 's/^"(.*)" x=[0-9]+ y=[0-9]+ w=[0-9]+ h=[0-9]+$/\1/' | sort | uniq -d | sed -n 1p)"
-          test -n "$duplicate"
+          test -n "$duplicate" || { echo "No label appears twice on screen." >&2; exit 1; }
           if message="$($emulator tap "$duplicate" 2>&1)"; then
               echo "Expected tapping an ambiguous label to fail." >&2; exit 1
           fi
