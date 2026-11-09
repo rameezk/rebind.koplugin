@@ -94,6 +94,42 @@ function Rebind:promoteMenuOrder()
     end
 end
 
+local BOOK_DIALOG_MODULES = {
+    "apps/filemanager/filemanagerhistory",
+    "apps/filemanager/filemanagercollection",
+    "apps/filemanager/filemanagerfilesearcher",
+}
+
+function Rebind:bookDialogRow()
+    return function(file, is_file)
+        if not is_file then
+            return
+        end
+        return {
+            {
+                text = _("Rebind"),
+                callback = function()
+                    self:onRebind(file)
+                end,
+            },
+        }
+    end
+end
+
+function Rebind:registerBookDialogModules()
+    local ok, FileManager = pcall(require, "apps/filemanager/filemanager")
+    if not (ok and FileManager and FileManager.addFileDialogButtons) then
+        return
+    end
+    for _i, name in ipairs(BOOK_DIALOG_MODULES) do
+        local loaded, module = pcall(require, name)
+        if loaded and module then
+            FileManager.removeFileDialogButtons(module, "rebind_update_metadata")
+            FileManager.addFileDialogButtons(module, "rebind_update_metadata", self:bookDialogRow())
+        end
+    end
+end
+
 function Rebind:init()
     self:onDispatcherRegisterActions()
     self:promoteMenuOrder()
@@ -104,20 +140,9 @@ function Rebind:init()
     end
 
     if self.ui and self.ui.addFileDialogButtons then
-        self.ui:addFileDialogButtons("rebind_update_metadata", function(file, is_file)
-            if not is_file then
-                return
-            end
-            return {
-                {
-                    text = _("Rebind"),
-                    callback = function()
-                        self:onRebind(file)
-                    end,
-                },
-            }
-        end)
+        self.ui:addFileDialogButtons("rebind_update_metadata", self:bookDialogRow())
     end
+    self:registerBookDialogModules()
 
     if self.ui and self.ui.menu then
         self.ui.menu:registerToMainMenu(self)
