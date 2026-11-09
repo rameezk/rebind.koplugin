@@ -31,6 +31,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: nix develop -c ./tools/emulator.sh start --headless
 
+      - name: List Rebind's menu entry and open Rebind by label
+        run: |
+          emulator="nix develop -c ./tools/emulator.sh"
+          $emulator tap 536 40
+          $emulator tap appbar.tools
+          $emulator dump | tee smoke-menu.txt
+          grep -E '^"Rebind ▸" x=[0-9]+ y=[0-9]+ w=[0-9]+ h=[0-9]+$' smoke-menu.txt
+          $emulator tap "Rebind ▸"
+          $emulator dump | tee smoke-rebind.txt
+          grep -F '"Rebind current book"' smoke-rebind.txt
+          grep -F '"Lookup providers"' smoke-rebind.txt
+
+      - name: Reject a missing label without sending input
+        run: |
+          emulator="nix develop -c ./tools/emulator.sh"
+          if message="$($emulator tap "No such label" 2>&1)"; then
+              echo "Expected tapping a missing label to fail." >&2; exit 1
+          fi
+          echo "$message"
+          case "$message" in
+              *'no widget on screen is labelled "No such label"'*) ;;
+              *) echo "Expected the missing-label error." >&2; exit 1 ;;
+          esac
+          if message="$($emulator tap chevron.left 2>&1)"; then
+              echo "Expected tapping an ambiguous label to fail." >&2; exit 1
+          fi
+          echo "$message"
+          case "$message" in
+              *'widgets on screen are labelled "chevron.left"'*) ;;
+              *) echo "Expected the ambiguous-label error." >&2; exit 1 ;;
+          esac
+
       - name: Take a screenshot
         run: |
           mkdir -p smoke

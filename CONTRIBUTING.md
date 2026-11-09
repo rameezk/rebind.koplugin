@@ -76,6 +76,45 @@ The command line talks to the harness through a private spool directory,
 A plain `./tools/emulator.sh` (or `make emulator`) is `start` without
 `--headless` and opens KOReader's normal window, on a Linux desktop too.
 
+### Driving the emulator
+
+A running emulator, headless or windowed, can be driven the way a person would
+drive the device. Every command returns only once KOReader has handled it and
+the screen has settled, so the next command sees the result.
+
+```bash
+./tools/emulator.sh dump                  # every visible widget, with label and coordinates
+./tools/emulator.sh tap 536 40            # tap at x y
+./tools/emulator.sh tap "Rebind ▸"        # tap the one widget with that label
+./tools/emulator.sh type "Jane Austen"    # type into the focused text field
+./tools/emulator.sh key Enter             # press a key: Enter, Back, Backspace, Left, Right...
+```
+
+`dump` prints one line per widget: its label in quotes, then `x`, `y`, `w` and
+`h` in pixels, for example `"Rebind ▸" x=9 y=97 w=229 h=81`. Text and menu
+entries are labelled with their text (menu entries that open a submenu end in
+` ▸`), text fields with their content or hint, and icon buttons with their icon
+name, such as `appbar.menu`. Only the topmost window that takes input is
+listed, plus what shows beneath it.
+
+`tap "<label>"` matches the label exactly, as `dump` prints it. A label that
+matches nothing, or more than one widget, fails with an error that says which
+and sends no input; use `tap <x> <y>` when a label is ambiguous. Arguments
+cannot contain newlines (press Enter with `key`), and `--` ends option parsing
+for an argument that starts with a dash.
+
+A typical session opens the menu, finds Rebind and goes in:
+
+```bash
+./tools/emulator.sh start --headless
+./tools/emulator.sh tap 536 40            # tap the top of the screen: opens the menu
+./tools/emulator.sh tap appbar.tools      # the tab that holds Rebind
+./tools/emulator.sh tap "Rebind ▸"
+./tools/emulator.sh dump                  # lists "Rebind current book" and "Lookup providers"
+./tools/emulator.sh screenshot rebind.png
+./tools/emulator.sh stop
+```
+
 KOReader opens in `.emulator/books/`, seeded on first run with a sample EPUB
 whose author is `Unknown` so there's something to rebind immediately. Drop your
 own EPUBs there to test against - Rebind mutates files in place, so keep it away
@@ -113,9 +152,10 @@ to `.emulator/koreader.log`.
 
 The harness depends on KOReader internals (input events, the widget tree and the
 framebuffer), so it may break when KOReader master changes. The `emulator smoke`
-CI job boots the emulator headless and uploads a screenshot on every pull request
-that touches the emulator script, the harness or the flake, and once a day; a
-failed daily run opens or updates an issue.
+CI job boots the emulator headless, checks that `dump` lists Rebind's menu entry and
+that tapping it by label opens Rebind's screen, and uploads a screenshot, on
+every pull request that touches the emulator script, the harness or the flake,
+and once a day; a failed daily run opens or updates an issue.
 
 ## Available targets
 
