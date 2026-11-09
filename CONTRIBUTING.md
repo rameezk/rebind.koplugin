@@ -27,23 +27,54 @@ Without Nix, install LuaJIT yourself (`luajit`, `lua5.1` or `lua` on your
 
 The pure-logic modules are covered by the test suite, but Rebind's menus and
 dialogs need a live KOReader runtime. Instead of round-tripping to a real
-device, run KOReader's macOS emulator with Rebind loaded. Run it from inside the
-devshell: on macOS it also provides the 7-Zip, unzip and python3 the emulator
-script needs to unpack KOReader and the Hardcover plugin.
+device, run KOReader's emulator with Rebind loaded. It runs on macOS and Linux,
+with a window or without one, and this section is the how-to for humans and
+agents alike. Run it from inside the devshell: it provides what the emulator
+script needs to unpack KOReader and the Hardcover plugin (on macOS 7-Zip, unzip
+and python3, on Linux xz and unzip), and on Linux the glibc loader that lets
+KOReader's bundled binaries run on machines without a standard `/lib64`.
 
 ```bash
 nix develop
-make emulator          # download the emulator (once), then launch it
-make emulator-update   # re-download the latest KOReader macOS build first
+make emulator            # download the emulator (once), then open it in a window
+make emulator-headless   # no window, for headless Linux and agents
+make emulator-stop       # exit KOReader cleanly
+make emulator-update     # re-download the latest KOReader build first
 ```
 
-Without Nix, install `7zz` (or `7z`), `unzip` and `python3` yourself. The script
-exits with an error pointing to `nix develop` when one of them is missing.
+Without Nix, install `7zz` (or `7z`), `unzip` and `python3` (macOS) or `xz` and
+`unzip` (Linux) yourself. The script exits with an error pointing to
+`nix develop` when one of them is missing.
 
-The emulator is KOReader's official macOS build, pulled from the project's CI
-via the `gh` CLI (so `gh auth login` must have been run once) and unpacked into
-`.emulator/` (gitignored). Rebind is **symlinked** into it, so edits to
-`main.lua` and `rebind/*.lua` take effect on the next launch - no rebuild.
+The emulator is KOReader's master build, pulled from the project's CI via the
+`gh` CLI (so `gh auth login` must have been run once) and unpacked into
+`.emulator/` (gitignored): the macOS build on macOS, the `linux-<arch>` tarball
+on Linux. Both come from the same latest successful CI run. Rebind is
+**symlinked** into it, so edits to `main.lua` and `rebind/*.lua` take effect on
+the next start - no rebuild. The dev-only harness in `tools/harness.koplugin`
+is linked in too; it is never packaged with Rebind.
+
+### Headless mode and screenshots
+
+`start --headless` opens no window. KOReader renders through SDL3's `offscreen`
+video driver on a fixed 1072x1448, 300 dpi screen, so screenshots match across
+runs and across macOS and Linux. It needs no display server, and the command
+returns once the harness is ready and the file browser is showing. Each headless
+start uses a clean KOReader settings directory under `.emulator/headless-home/`.
+
+```bash
+./tools/emulator.sh start --headless
+./tools/emulator.sh screenshot shot.png   # 1072x1448 PNG of what KOReader shows
+./tools/emulator.sh stop
+./tools/emulator.sh --help                # every subcommand and option
+```
+
+`screenshot` is taken from KOReader's own framebuffer, so nothing outside
+KOReader can end up in it, and it returns only after the screen has settled.
+The command line talks to the harness through a private spool directory,
+`.emulator/spool/`; that protocol is not a contract, only the subcommands are.
+A plain `./tools/emulator.sh` (or `make emulator`) is `start` without
+`--headless` and opens KOReader's normal window, on a Linux desktop too.
 
 KOReader opens in `.emulator/books/`, seeded on first run with a sample EPUB
 whose author is `Unknown` so there's something to rebind immediately. Drop your
@@ -68,26 +99,33 @@ HARDCOVER_TOKEN=xxxxx make emulator
 > koreader crash reports. `tools/emulator.sh` patches the downloaded copy to query
 > in-process so the emulator works. This only touches `.emulator/` - the plugin on a
 > real device is untouched, and the bug belongs upstream in hardcoverapp.koplugin.
+> The patch applies on macOS only.
 
 The token is read from `$HARDCOVER_TOKEN` or from `.emulator/hardcover_token`
-(`chmod 600`), and the generated `hardcover_config.lua` is written under
-`.emulator/`. **All of this is gitignored** - the token never enters the repo. If
-no token is found, Rebind simply offers manual editing, as it does on-device when
-Hardcover is missing.
+(`chmod 600`) on both macOS and Linux, and the generated `hardcover_config.lua` is
+written under `.emulator/`. **All of this is gitignored** - the token never enters
+the repo. If no token is found, Rebind simply offers manual editing, as it does
+on-device when Hardcover is missing.
 
 For a foreground run that streams KOReader's logs to your terminal (handy when a
-change misbehaves), use `./tools/emulator.sh --console`.
+change misbehaves), use `./tools/emulator.sh start --console`. Background runs log
+to `.emulator/koreader.log`.
 
-This currently targets macOS (Apple Silicon and Intel). On Linux, use the
-distro's KOReader package or an AppImage and drop the plugin into its `plugins/`
-folder.
+The harness depends on KOReader internals (input events, the widget tree and the
+framebuffer), so it may break when KOReader master changes. The `emulator smoke`
+CI job boots the emulator headless and uploads a screenshot on every pull request
+that touches the emulator script, the harness or the flake, and once a day; a
+failed daily run opens or updates an issue.
 
 ## Available targets
 
 ```
-make test      # run the test suite
-make package   # run tests, then build dist/rebind.koplugin.zip
-make clean     # remove build artifacts
+make test               # run the test suite
+make package            # run tests, then build dist/rebind.koplugin.zip
+make clean              # remove build artifacts
+make emulator           # open the KOReader emulator in a window
+make emulator-headless  # start it with no window
+make emulator-stop      # stop it
 ```
 
 ## Project layout

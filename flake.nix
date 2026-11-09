@@ -30,7 +30,18 @@
               _7zz
               unzip
               python3
+            ]
+            ++ lib.optionals stdenv.hostPlatform.isLinux [
+              xz
+              unzip
             ];
+          env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+            REBIND_EMULATOR_LOADER = pkgs.stdenv.cc.bintools.dynamicLinker;
+            REBIND_EMULATOR_LIBS = pkgs.lib.makeLibraryPath [
+              pkgs.glibc
+              pkgs.stdenv.cc.cc.lib
+            ];
+          };
         };
       });
 
