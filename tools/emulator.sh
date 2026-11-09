@@ -51,6 +51,8 @@ Run KOReader's emulator with Rebind loaded, on macOS or Linux, with or without a
   ./tools/emulator.sh dump                list every visible widget with its label and coordinates
   ./tools/emulator.sh tap <x> <y>         tap at a screen coordinate
   ./tools/emulator.sh tap "<label>"       tap the one visible widget with that label
+  ./tools/emulator.sh hold <x> <y>        long-press at a screen coordinate
+  ./tools/emulator.sh hold "<label>"      long-press the one visible widget with that label
   ./tools/emulator.sh type "<text>"       type text into the focused text field
   ./tools/emulator.sh key <name>          press a key, such as Enter, Back, Backspace, Left or Right
   ./tools/emulator.sh stop                exit KOReader cleanly
@@ -81,9 +83,9 @@ pixels. Text widgets, buttons and menu entries are labelled with their text, tex
 their content (or hint), and icon buttons with their icon name. Only the topmost window that
 takes input is listed, plus the windows beneath it up to the first that covers the screen.
 
-tap "<label>" matches a label exactly. A label that matches no widget, or more than one,
+tap and hold "<label>" match a label exactly. A label that matches no widget, or more than one,
 fails with an error that says which and sends no input; use dump to see what is on screen,
-and tap <x> <y> when a label is ambiguous. Arguments cannot contain newlines; press Enter
+and tap <x> <y> or hold <x> <y> when a label is ambiguous. Arguments cannot contain newlines; press Enter
 with key. Put -- before an argument that starts with a dash.
 
 Hardcover lookups: provide an API token and the script installs and configures the
@@ -96,7 +98,7 @@ USAGE
 }
 
 case "${1:-}" in
-    start|stop|screenshot|dump|tap|type|key) SUBCOMMAND="$1"; shift ;;
+    start|stop|screenshot|dump|tap|hold|type|key) SUBCOMMAND="$1"; shift ;;
 esac
 
 OPTIONS_DONE=0
@@ -463,6 +465,18 @@ cmd_tap() {
     drive tap "${ARGS[@]}"
 }
 
+cmd_hold() {
+    case "${#ARGS[@]}" in
+        1) ;;
+        2)
+            case "${ARGS[0]}${ARGS[1]}" in
+                *[!0-9]*) fail "Usage: ./tools/emulator.sh hold <x> <y>  or  hold \"<label>\"" ;;
+            esac ;;
+        *) fail "Usage: ./tools/emulator.sh hold <x> <y>  or  hold \"<label>\"" ;;
+    esac
+    drive hold "${ARGS[@]}"
+}
+
 cmd_type() {
     [ "${#ARGS[@]}" -eq 1 ] || fail "Usage: ./tools/emulator.sh type \"<text>\""
     drive type "${ARGS[0]}"
@@ -594,6 +608,7 @@ case "$SUBCOMMAND" in
     screenshot) cmd_screenshot ;;
     dump) cmd_dump ;;
     tap) cmd_tap ;;
+    hold) cmd_hold ;;
     type) cmd_type ;;
     key) cmd_key ;;
 esac

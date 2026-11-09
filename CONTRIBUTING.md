@@ -86,6 +86,7 @@ the screen has settled, so the next command sees the result.
 ./tools/emulator.sh dump                  # every visible widget, with label and coordinates
 ./tools/emulator.sh tap 536 40            # tap at x y
 ./tools/emulator.sh tap "Rebind ▸"        # tap the one widget with that label
+./tools/emulator.sh hold 536 700          # long-press at x y; hold "<label>" works like tap
 ./tools/emulator.sh type "Jane Austen"    # type into the focused text field
 ./tools/emulator.sh key Enter             # press a key: Enter, Back, Backspace, Left, Right...
 ```
@@ -97,7 +98,7 @@ entries are labelled with their text (menu entries that open a submenu end in
 name, such as `appbar.menu`. Only the topmost window that takes input is
 listed, plus what shows beneath it.
 
-`tap "<label>"` matches the label exactly, as `dump` prints it between its quotes. A label that
+`tap "<label>"` and `hold "<label>"` match the label exactly, as `dump` prints it between its quotes. A label that
 matches nothing, or more than one widget, fails with an error that says which
 and sends no input; use `tap <x> <y>` when a label is ambiguous. Arguments
 cannot contain newlines (press Enter with `key`), and `--` ends option parsing

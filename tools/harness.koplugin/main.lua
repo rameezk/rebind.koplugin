@@ -279,12 +279,21 @@ local function afterSettling(done, message)
     end)
 end
 
-local function tapAt(x, y)
+local function gestureAt(ges, x, y)
     UIManager:sendEvent(Event:new("Gesture", {
-        ges = "tap",
+        ges = ges,
         pos = Geom:new{ x = x, y = y, w = 0, h = 0 },
         time = time.now(),
     }))
+end
+
+local function tapAt(x, y)
+    gestureAt("tap", x, y)
+end
+
+local function holdAt(x, y)
+    gestureAt("hold", x, y)
+    gestureAt("hold_release", x, y)
 end
 
 local commands = {}
@@ -302,14 +311,13 @@ function commands.dump(_id, _args, done)
     end)
 end
 
-function commands.tap(_id, args, done)
-    local x, y, described
+local function resolveTarget(verb, args)
     if #args == 2 then
-        x, y = tonumber(args[1]), tonumber(args[2])
+        local x, y = tonumber(args[1]), tonumber(args[2])
         if not x or not y then
-            return done(false, "tap needs two numbers or one label")
+            return nil, nil, nil, verb .. " needs two numbers or one label"
         end
-        described = string.format("(%d, %d)", x, y)
+        return x, y, string.format("(%d, %d)", x, y)
     elseif #args == 1 then
         local label = normalizeLabel(args[1])
         local matches = {}
@@ -319,17 +327,32 @@ function commands.tap(_id, args, done)
             end
         end
         if #matches == 0 then
-            return done(false, string.format('no widget on screen is labelled "%s"', label))
+            return nil, nil, nil, string.format('no widget on screen is labelled "%s"', label)
         elseif #matches > 1 then
-            return done(false, string.format('%d widgets on screen are labelled "%s"; tap by coordinates instead', #matches, label))
+            return nil, nil, nil, string.format('%d widgets on screen are labelled "%s"; %s by coordinates instead', #matches, label, verb)
         end
-        x, y = center(matches[1])
-        described = string.format('"%s" at (%d, %d)', label, x, y)
-    else
-        return done(false, "tap needs two numbers or one label")
+        local x, y = center(matches[1])
+        return x, y, string.format('"%s" at (%d, %d)', label, x, y)
+    end
+    return nil, nil, nil, verb .. " needs two numbers or one label"
+end
+
+function commands.tap(_id, args, done)
+    local x, y, described, err = resolveTarget("tap", args)
+    if err then
+        return done(false, err)
     end
     tapAt(x, y)
     afterSettling(done, "tapped " .. described)
+end
+
+function commands.hold(_id, args, done)
+    local x, y, described, err = resolveTarget("hold", args)
+    if err then
+        return done(false, err)
+    end
+    holdAt(x, y)
+    afterSettling(done, "held " .. described)
 end
 
 function commands.type(_id, args, done)

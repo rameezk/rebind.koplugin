@@ -33,7 +33,7 @@
 ## The emulator
 
 - The KOReader emulator runs on macOS and on headless Linux. Use it for end-to-end repros and for before/after screenshots of Rebind's menus and dialogs.
-- Start it with `./tools/emulator.sh start --headless`, look at the screen with `dump`, drive it with `tap <x> <y>`, `tap "<label>"`, `type "<text>"` and `key <name>`, take screenshots with `./tools/emulator.sh screenshot <path>` and stop it with `./tools/emulator.sh stop`. The contributor guide (`CONTRIBUTING.md`, "Testing UI changes in the emulator") covers the rest.
+- Start it with `./tools/emulator.sh start --headless`, look at the screen with `dump`, drive it with `tap <x> <y>`, `tap "<label>"`, `hold <x> <y>`, `hold "<label>"`, `type "<text>"` and `key <name>`, take screenshots with `./tools/emulator.sh screenshot <path>` and stop it with `./tools/emulator.sh stop`. The contributor guide (`CONTRIBUTING.md`, "Testing UI changes in the emulator") covers the rest.
 - No OS exempts you from trying it. Only when the emulator truly cannot start, this takes precedence over the `before-after` skill's "stop and report the blocker" rule:
   do not stop, do not fake a pair, and do not skip the section silently.
   Put a `## Before / After` section in the PR body that gives the specific error the emulator failed with and names the visible surfaces the change affects, then continue and open the PR.
