@@ -25,15 +25,14 @@
               zip
               git
               gh
+              unzip
             ]
             ++ lib.optionals stdenv.hostPlatform.isDarwin [
               _7zz
-              unzip
               python3
             ]
             ++ lib.optionals stdenv.hostPlatform.isLinux [
               xz
-              unzip
             ];
           env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
             REBIND_EMULATOR_LOADER = pkgs.stdenv.cc.bintools.dynamicLinker;

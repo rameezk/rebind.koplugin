@@ -463,13 +463,13 @@ launch() {
     if [ "$CONSOLE" -eq 1 ]; then
         echo "Launching KOReader in $BOOKS (Ctrl-C to quit)..."
         cd "$workdir"
-        exec env "${env_vars[@]}" "${command[@]}"
+        exec env -u GH_TOKEN -u GITHUB_TOKEN "${env_vars[@]}" "${command[@]}"
     fi
 
     echo "Launching KOReader in $BOOKS (logs: $DEST/koreader.log)"
     (
         cd "$workdir"
-        env "${env_vars[@]}" "${command[@]}" >"$log" 2>&1 </dev/null &
+        env -u GH_TOKEN -u GITHUB_TOKEN "${env_vars[@]}" "${command[@]}" >"$log" 2>&1 </dev/null &
         echo $! > "$PID_FILE"
     )
 
@@ -490,13 +490,14 @@ launch() {
 cmd_start() {
     stop_running || true
     pkill -f "$PWD/$BIN" 2>/dev/null || true
+    pkill -f "reader.lua $BOOKS" 2>/dev/null || true
     if [ "$UPDATE" -eq 1 ]; then rm -rf "$APP" "$HC_CACHE"; fi
 
     if [ "$SET_TOKEN" -eq 1 ]; then
         printf 'Hardcover API token (input hidden): ' >&2
         read -rs _token; echo >&2
         [ -n "$_token" ] || { echo "No token entered." >&2; exit 1; }
-        printf '%s' "$_token" > "$TOKEN_FILE"
+        ( umask 077; printf '%s' "$_token" > "$TOKEN_FILE" )
         chmod 600 "$TOKEN_FILE"
         unset _token
         echo "Saved token to $TOKEN_FILE (gitignored, chmod 600)."

@@ -36,7 +36,11 @@ local function writeAtomic(path, content)
 end
 
 local function respond(id, ok, message)
-    writeAtomic(spool .. "/" .. id .. ".res", (ok and "ok" or "error") .. "\n" .. (message or "") .. "\n")
+    local content = (ok and "ok" or "error") .. "\n" .. (message or "") .. "\n"
+    local written, err = pcall(writeAtomic, spool .. "/" .. id .. ".res", content)
+    if not written then
+        logger.err("rebind harness: could not answer", id, err)
+    end
 end
 
 local function isQuiet()
