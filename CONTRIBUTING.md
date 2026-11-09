@@ -30,8 +30,8 @@ dialogs need a live KOReader runtime. Instead of round-tripping to a real
 device, run KOReader's emulator with Rebind loaded. It runs on macOS and Linux,
 with a window or without one, and this section is the how-to for humans and
 agents alike. Run it from inside the devshell: it provides what the emulator
-script needs to unpack KOReader and the Hardcover plugin (on macOS 7-Zip, unzip
-and python3, on Linux xz and unzip), and on Linux the glibc loader that lets
+script needs to unpack KOReader and the Hardcover plugin (unzip everywhere, plus
+7-Zip and python3 on macOS and xz on Linux), and on Linux the glibc loader that lets
 KOReader's bundled binaries run on machines without a standard `/lib64`.
 
 ```bash
@@ -42,8 +42,8 @@ make emulator-stop       # exit KOReader cleanly
 make emulator-update     # re-download the latest KOReader build first
 ```
 
-Without Nix, install `7zz` (or `7z`), `unzip` and `python3` (macOS) or `xz` and
-`unzip` (Linux) yourself. The script exits with an error pointing to
+Without Nix, install `unzip` plus `7zz` (or `7z`) and `python3` (macOS) or `xz`
+(Linux) yourself. The script exits with an error pointing to
 `nix develop` when one of them is missing.
 
 The emulator is KOReader's master build, pulled from the project's CI via the

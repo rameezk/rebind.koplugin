@@ -380,8 +380,15 @@ stop_running() {
     return 0
 }
 
+sweep_orphans() {
+    local swept=1
+    pkill -f "$PWD/$BIN" 2>/dev/null && swept=0
+    pkill -f "reader.lua $BOOKS" 2>/dev/null && swept=0
+    return "$swept"
+}
+
 cmd_stop() {
-    if stop_running; then
+    if stop_running || sweep_orphans; then
         echo "KOReader stopped."
     else
         echo "KOReader is not running."
@@ -463,13 +470,13 @@ launch() {
     if [ "$CONSOLE" -eq 1 ]; then
         echo "Launching KOReader in $BOOKS (Ctrl-C to quit)..."
         cd "$workdir"
-        exec env -u GH_TOKEN -u GITHUB_TOKEN "${env_vars[@]}" "${command[@]}"
+        exec env -u GH_TOKEN -u GITHUB_TOKEN -u HARDCOVER_TOKEN "${env_vars[@]}" "${command[@]}"
     fi
 
     echo "Launching KOReader in $BOOKS (logs: $DEST/koreader.log)"
     (
         cd "$workdir"
-        env -u GH_TOKEN -u GITHUB_TOKEN "${env_vars[@]}" "${command[@]}" >"$log" 2>&1 </dev/null &
+        env -u GH_TOKEN -u GITHUB_TOKEN -u HARDCOVER_TOKEN "${env_vars[@]}" "${command[@]}" >"$log" 2>&1 </dev/null &
         echo $! > "$PID_FILE"
     )
 
@@ -489,8 +496,7 @@ launch() {
 
 cmd_start() {
     stop_running || true
-    pkill -f "$PWD/$BIN" 2>/dev/null || true
-    pkill -f "reader.lua $BOOKS" 2>/dev/null || true
+    sweep_orphans || true
     if [ "$UPDATE" -eq 1 ]; then rm -rf "$APP" "$HC_CACHE"; fi
 
     if [ "$SET_TOKEN" -eq 1 ]; then
@@ -514,7 +520,7 @@ cmd_start() {
     link_plugins
     setup_hardcover
 
-    rm -rf "$SPOOL"; mkdir -p "$SPOOL"; chmod 700 "$SPOOL"
+    rm -rf "$SPOOL"; ( umask 077; mkdir -p "$SPOOL" )
     launch
 }
 
