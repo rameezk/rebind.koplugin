@@ -19,6 +19,7 @@ local T = require("ffi/util").template
 local ChoiceList = require("rebind/ui/choicelist")
 local DiffPicker = require("rebind/ui/diffpicker")
 local Logo = require("rebind/ui/logo")
+local Apply = require("rebind/apply")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local HardcoverProvider = require("rebind/providers/hardcover")
@@ -948,35 +949,61 @@ end
 
 function Rebind:_write(file, changes, keep_backup, dest)
     local is_open_book = self:currentFile() == file
+    local opts = { keep_backup = keep_backup, dest = dest }
+    if is_open_book then
+        opts.relocate = function(from, to)
+            self:_closeOpenBook()
+            return Organize.relocate(from, to)
+        end
+    end
+
     if not next(changes) then
-        self:_afterRewrite(file, is_open_book, nil, dest, false)
+        self:_report(file, is_open_book, Apply.run(file, changes, opts))
         return
     end
 
     local progress = InfoMessage:new{ text = _("Updating EPUB…") }
     UIManager:show(progress)
     UIManager:scheduleIn(0.1, function()
-        local ok, result = Epub.rewrite(file, changes, keep_backup)
+        local outcome = Apply.run(file, changes, opts)
         UIManager:close(progress)
-        if not ok then
-            info(_("Update failed:\n") .. tostring(result))
-            return
-        end
-
-        UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
-        UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
-        self:_afterRewrite(file, is_open_book, result, dest, true)
+        self:_report(file, is_open_book, outcome)
     end)
 end
 
-function Rebind:_afterRewrite(file, is_open_book, backup, dest, rewritten)
-    if dest == file then
-        self:_finish(file, is_open_book, backup, nil, rewritten)
-    elseif is_open_book then
-        self:_relocateOpenBook(file, dest, rewritten)
-    else
-        self:_doMove(file, dest, backup, rewritten)
+function Rebind:_report(file, is_open_book, outcome)
+    if outcome.rewritten or outcome.moved_dest then
+        UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
+        UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
     end
+
+    if outcome.stage == "write" then
+        info(_("Update failed:\n") .. outcome.error)
+    elseif outcome.stage == "move" then
+        if is_open_book then
+            self:_reopenBook(file)
+        end
+        info(move_failed_text(outcome.rewritten) .. outcome.error)
+    elseif outcome.moved_dest and is_open_book then
+        self:_reopenBook(outcome.moved_dest)
+    elseif outcome.moved_dest then
+        self:_finish(outcome.moved_dest, false, outcome.backup, outcome.moved_dest, outcome.rewritten)
+    else
+        self:_finish(file, is_open_book, outcome.backup, nil, outcome.rewritten)
+    end
+end
+
+function Rebind:_closeOpenBook()
+    local ui = self.ui
+    ui.tearing_down = true
+    ui:handleEvent(Event:new("CloseReaderMenu"))
+    ui:handleEvent(Event:new("CloseConfigMenu"))
+    ui:onClose(false)
+end
+
+function Rebind:_reopenBook(file)
+    local ReaderUI = require("apps/reader/readerui")
+    ReaderUI:showReader(file)
 end
 
 function Rebind:defaultBrowseDir()
@@ -1002,36 +1029,6 @@ function Rebind:_chooseLibraryRoot(on_ready)
         path = self:libraryRoot() or self:defaultBrowseDir(),
         onConfirm = on_ready,
     })
-end
-
-function Rebind:_doMove(file, dest, backup, rewritten)
-    local moved, moved_result = Organize.relocate(file, dest)
-    if moved then
-        UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
-        UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
-        self:_finish(moved_result, false, backup, moved_result, rewritten)
-    else
-        info(move_failed_text(rewritten) .. tostring(moved_result))
-    end
-end
-
-function Rebind:_relocateOpenBook(file, dest, rewritten)
-    local ReaderUI = require("apps/reader/readerui")
-    local ui = self.ui
-    ui.tearing_down = true
-    ui:handleEvent(Event:new("CloseReaderMenu"))
-    ui:handleEvent(Event:new("CloseConfigMenu"))
-    ui:onClose(false)
-
-    local moved, moved_result = Organize.relocate(file, dest)
-    if moved then
-        UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", file))
-        UIManager:broadcastEvent(Event:new("BookMetadataChanged"))
-        ReaderUI:showReader(moved_result)
-    else
-        ReaderUI:showReader(file)
-        info(move_failed_text(rewritten) .. tostring(moved_result))
-    end
 end
 
 function Rebind:_finish(file, is_open_book, backup, moved_dest, rewritten)
