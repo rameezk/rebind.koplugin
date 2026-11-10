@@ -1104,9 +1104,12 @@ function Rebind:_closeBatch()
 end
 
 function Rebind:_watchBatch(batch)
+    if self.batch_watch then
+        UIManager:unschedule(self.batch_watch)
+    end
     local function watch()
         batch:check_watchdog()
-        if not batch.closed then
+        if batch.held and not batch.closed then
             UIManager:scheduleIn(WATCHDOG_CHECK_SECONDS, watch)
         end
     end
@@ -1132,9 +1135,13 @@ function Rebind:_startBatch(files, choose_screen)
     NetworkMgr:runWhenOnline(function()
         self:_closeBatch()
         local awake = keep_awake_controls()
-        local batch = Batch.new{
+        local batch
+        batch = Batch.new{
             standby = awake.standby,
             suspend_flag = awake.suspend_flag,
+            on_hold = function()
+                self:_watchBatch(batch)
+            end,
             files = files,
             chain = self:providerChain(),
             preferred_language = self.settings:readSetting("preferred_language"),
@@ -1174,7 +1181,11 @@ function Rebind:_startBatch(files, choose_screen)
                 summary = summary(),
             }
             Trapper:wrap(function()
-                batch:lookup_next()
+                local ok, err = pcall(batch.lookup_next, batch)
+                if not ok then
+                    batch:stop()
+                    info(T(_("Looking up stopped: %1"), tostring(err)))
+                end
                 progress:update{ done = batch:done_count(), heading = heading(batch:done_count()), summary = summary() }
                 UIManager:scheduleIn(0.05, step)
             end)
@@ -1190,7 +1201,6 @@ function Rebind:_startBatch(files, choose_screen)
             end,
         }
         self.active_batch = batch
-        self:_watchBatch(batch)
         UIManager:show(progress)
         UIManager:close(choose_screen, "ui")
         UIManager:scheduleIn(0.05, step)

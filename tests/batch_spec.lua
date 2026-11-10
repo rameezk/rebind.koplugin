@@ -73,6 +73,7 @@ local function batch_for(metas, finder, opts)
         relocate = opts.relocate,
         standby = opts.awake and opts.awake.standby,
         suspend_flag = opts.awake and opts.awake.suspend_flag,
+        on_hold = opts.on_hold,
     }
 end
 
@@ -856,6 +857,66 @@ T["a finished book restarts the watchdog"] = function(a)
     now = 200
     batch:check_watchdog()
     a.eq(awake.blocked(), 1)
+end
+
+T["an error in a book's lookup leaves that book to review as failed"] = function(a)
+    local batch = batch_for(numbered(2), nothing_found, {
+        interval = 1,
+        sleep = function()
+            error("sleep broke")
+        end,
+    })
+    batch:lookup_next()
+    pcall(batch.lookup_next, batch)
+    a.eq(batch:tag(batch.entries[2]), "Lookup failed")
+    a.eq(batch:counts().review, 2)
+end
+
+T["retrying a lookup holds the device only while it runs"] = function(a)
+    local awake = fake_awake(true)
+    local seen
+    local batch = batch_for(numbered(1), function()
+        seen = awake.blocked()
+        return {}, "search"
+    end, { awake = awake })
+    batch:lookup_all()
+    a.eq(seen, 1)
+    seen = nil
+    batch:retry(batch.entries[1])
+    a.eq(seen, 1)
+    assert_let_go(a, awake, true)
+    a.eq(awake.prevented, 2)
+end
+
+T["a failing retry lets the device go before the error is raised"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(1), nothing_found, {
+        awake = awake,
+        interval = 1,
+        sleep = function()
+            error("sleep broke")
+        end,
+    })
+    batch:lookup_all()
+    local ok = pcall(batch.retry, batch, batch.entries[1])
+    a.eq(ok, false)
+    assert_let_go(a, awake, true)
+end
+
+T["the batch tells its owner each time the device is taken"] = function(a)
+    local taken = 0
+    local batch = batch_for(numbered(3), nothing_found, {
+        awake = fake_awake(true),
+        on_hold = function()
+            taken = taken + 1
+        end,
+    })
+    batch:lookup_next()
+    batch:lookup_next()
+    a.eq(taken, 1)
+    batch:release()
+    batch:lookup_next()
+    a.eq(taken, 2)
 end
 
 return T

@@ -248,6 +248,7 @@ function Batch.new(opts)
         standby = opts.standby or no_standby(),
         suspend_flag = opts.suspend_flag or no_suspend_flag(),
         watchdog_seconds = opts.watchdog_seconds or Batch.WATCHDOG_SECONDS,
+        on_hold = opts.on_hold,
         held = false,
         closed = false,
         queue = {},
@@ -288,6 +289,9 @@ function Batch:hold()
     self.previous_suspend_flag = self.suspend_flag.get()
     self.suspend_flag.set(true)
     self.progressed_at = self.clock()
+    if self.on_hold then
+        self.on_hold()
+    end
 end
 
 function Batch:close()
@@ -409,6 +413,21 @@ function Batch:_run_lookup(entry)
     self.last_call = self.clock()
 end
 
+function Batch:_guarded_lookup(entry)
+    local was_held = self.held
+    self:hold()
+    local ok, err = xpcall(self._run_lookup, debug.traceback, self, entry)
+    if not ok then
+        entry.state, entry.kind, entry.error = "review", "failed", tostring(err)
+        self:release()
+        error(err, 0)
+    end
+    self.progressed_at = self.clock()
+    if not was_held then
+        self:release()
+    end
+end
+
 function Batch:lookup_next()
     if self.closed or self.stopped or #self.pending == 0 then
         self:release()
@@ -418,12 +437,7 @@ function Batch:lookup_next()
     local file = table.remove(self.pending, 1)
     local entry = { file = file, name = Organize.basename(file) }
     self.entries[#self.entries + 1] = entry
-    local ok, err = xpcall(self._run_lookup, debug.traceback, self, entry)
-    if not ok then
-        self:release()
-        error(err, 0)
-    end
-    self.progressed_at = self.clock()
+    self:_guarded_lookup(entry)
     if #self.pending == 0 then
         self:release()
     end
@@ -436,7 +450,7 @@ function Batch:lookup_all()
 end
 
 function Batch:retry(entry)
-    self:_run_lookup(entry)
+    self:_guarded_lookup(entry)
 end
 
 function Batch:sections()
