@@ -11,6 +11,7 @@ local Batch = {}
 Batch.__index = Batch
 
 Batch.DEFAULT_INTERVAL = 1.5
+Batch.LOST_CONNECTION_AFTER = 2
 
 local ACCENTS = {
     "a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
@@ -264,7 +265,6 @@ function Batch.new(opts)
         relocate = opts.relocate,
         save_as = opts.save_as or {},
         open_file = opts.open_file,
-        is_online = opts.is_online,
         same_file = opts.same_file or function(a, b)
             return a == b
         end,
@@ -277,6 +277,7 @@ function Batch.new(opts)
         skip_order = {},
         stopped = false,
         last_call = nil,
+        failed_in_a_row = 0,
     }, Batch)
 end
 
@@ -355,7 +356,7 @@ function Batch:_mark_open(entry)
 end
 
 function Batch:_classify(entry)
-    entry.state, entry.kind, entry.book, entry.matches, entry.unreachable = "review", nil, nil, nil, nil
+    entry.state, entry.kind, entry.book, entry.matches = "review", nil, nil, nil
     self:_forget_skips(entry)
     local current, err = self.read_metadata(entry.file)
     if not current then
@@ -367,8 +368,7 @@ function Batch:_classify(entry)
     self:_note_skips(entry, found)
     if Lookup.all_failed(found) then
         entry.kind, entry.error = "failed", Lookup.skipped_text(found)
-        entry.unreachable = true
-        return
+        return true
     end
     local matches = found.matches
     entry.matches = matches
@@ -392,11 +392,23 @@ function Batch:_run_lookup(entry)
     if delay > 0 then
         self.sleep(delay)
     end
-    local ok, err = pcall(self._classify, self, entry)
+    local ok, unreachable = pcall(self._classify, self, entry)
     if not ok then
-        entry.state, entry.kind, entry.error = "review", "failed", tostring(err)
+        entry.state, entry.kind, entry.error = "review", "failed", tostring(unreachable)
     end
     self.last_call = self.clock()
+    return unreachable == true
+end
+
+function Batch:_new_entry(file, reason)
+    return {
+        file = file,
+        name = Organize.basename(file),
+        skipped = {},
+        state = reason and "review" or nil,
+        kind = reason and "failed" or nil,
+        error = reason,
+    }
 end
 
 function Batch:lookup_next()
@@ -404,10 +416,14 @@ function Batch:lookup_next()
         return false
     end
     local file = table.remove(self.pending, 1)
-    local entry = { file = file, name = Organize.basename(file) }
+    local entry = self:_new_entry(file)
     self.entries[#self.entries + 1] = entry
-    self:_run_lookup(entry)
-    if entry.unreachable and not (self.is_online and self.is_online()) then
+    if self:_run_lookup(entry) then
+        self.failed_in_a_row = self.failed_in_a_row + 1
+    else
+        self.failed_in_a_row = 0
+    end
+    if self.failed_in_a_row >= Batch.LOST_CONNECTION_AFTER then
         self:_fail_pending(entry.error)
     end
     return true
@@ -415,14 +431,7 @@ end
 
 function Batch:_fail_pending(reason)
     for _i, file in ipairs(self.pending) do
-        self.entries[#self.entries + 1] = {
-            file = file,
-            name = Organize.basename(file),
-            state = "review",
-            kind = "failed",
-            error = reason,
-            skipped = {},
-        }
+        self.entries[#self.entries + 1] = self:_new_entry(file, reason)
     end
     self.pending = {}
 end

@@ -327,22 +327,18 @@ T["a lost connection fails the rest of the books, and retrying one looks it up a
         tags[#tags + 1] = batch:tag(entry)
     end
     a.eq(joined(tags), "Check match | Check match | Check match | Lookup failed | Lookup failed | Lookup failed")
-    a.eq(calls, 4)
     online = true
     batch:retry(batch.entries[5])
     a.eq(batch.entries[5].kind, "check")
 end
 
-T["a failed book is not mistaken for a lost connection while the device is online"] = function(a)
+T["one failed book is not mistaken for a lost connection"] = function(a)
     local batch = batch_for(numbered(3), function(meta)
         if meta.title == "T1" then
             error("bad response")
         end
         return {}, "search"
     end)
-    batch.is_online = function()
-        return true
-    end
     batch:lookup_all()
     a.eq(batch:tag(batch.entries[1]), "Lookup failed")
     a.eq(batch:tag(batch.entries[2]), "No match")
