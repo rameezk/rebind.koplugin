@@ -76,6 +76,15 @@ jobs:
               *) echo "Expected a 1072x1448 PNG." >&2; exit 1 ;;
           esac
 
+      - name: Toggle a lookup provider and dump the screen
+        run: |
+          emulator="nix develop -c ./tools/emulator.sh"
+          $emulator tap "Lookup providers"
+          $emulator tap "Open Library"
+          $emulator dump | tee smoke-providers.txt
+          grep -F '"Lookup providers"' smoke-providers.txt
+          grep -F '"Open Library"' smoke-providers.txt
+
       - name: Upload the screenshot
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

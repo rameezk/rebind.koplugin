@@ -58,8 +58,25 @@ local function respond(id, ok, message)
     end
 end
 
+local function hasPendingRepaint()
+    local stack = UIManager._window_stack
+    local first = 1
+    for i = #stack, 1, -1 do
+        if stack[i].widget.covers_fullscreen then
+            first = i
+            break
+        end
+    end
+    for i = first, #stack do
+        if UIManager._dirty[stack[i].widget] then
+            return true
+        end
+    end
+    return false
+end
+
 local function isQuiet()
-    return next(UIManager._dirty) == nil
+    return not hasPendingRepaint()
         and #UIManager._refresh_stack == 0
         and #UIManager._refresh_func_stack == 0
 end
