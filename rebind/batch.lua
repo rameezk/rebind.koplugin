@@ -384,7 +384,6 @@ function Batch:_classify(entry)
     else
         entry.kind = "matches"
     end
-    self:_mark_open(entry)
 end
 
 function Batch:_run_lookup(entry)
@@ -397,6 +396,7 @@ function Batch:_run_lookup(entry)
         entry.state, entry.kind, entry.error = "review", "failed", tostring(unreachable)
     end
     self.last_call = self.clock()
+    self:_mark_open(entry)
     return unreachable == true
 end
 
@@ -431,7 +431,9 @@ end
 
 function Batch:_fail_pending(reason)
     for _i, file in ipairs(self.pending) do
-        self.entries[#self.entries + 1] = self:_new_entry(file, reason)
+        local entry = self:_new_entry(file, reason)
+        self:_mark_open(entry)
+        self.entries[#self.entries + 1] = entry
     end
     self.pending = {}
 end

@@ -639,6 +639,15 @@ T["the open book stays in to review as open even without a sure match"] = functi
     a.eq(batch.entries[1].state, "review")
 end
 
+T["the open book is tagged open even when its lookup failed"] = function(a)
+    local batch = batch_for(numbered(1), function()
+        error("offline")
+    end)
+    batch.open_file = "/b/01.epub"
+    batch:lookup_all()
+    a.eq(batch:tag(batch.entries[1]), "Open in the reader")
+end
+
 T["closing asks only about books that are neither done nor open"] = function(a)
     local batch = batch_for(numbered(3), function()
         return {}, "search"
