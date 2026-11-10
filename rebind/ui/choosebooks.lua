@@ -64,16 +64,34 @@ end
 function ChooseBooks.show(opts)
     local state = {
         folder = opts.folder,
+        selection = opts.selection,
         include_subfolders = false,
         ticked = {},
         files = {},
     }
 
+    local function tick(files)
+        state.ticked = {}
+        for _i, file in ipairs(files) do
+            state.ticked[file] = true
+        end
+    end
+
     local function reload()
+        if state.selection then
+            state.files = state.selection.files
+            tick(state.files)
+            return
+        end
         state.files = Batch.collect(state.folder, { include_subfolders = state.include_subfolders })
         state.ticked = {}
     end
     reload()
+    if opts.tick_all then
+        tick(state.files)
+    elseif opts.ticked then
+        tick(opts.ticked)
+    end
 
     local function ticked_count()
         local n = 0
@@ -87,6 +105,9 @@ function ChooseBooks.show(opts)
 
     local screen
     local function display_name(file)
+        if state.selection then
+            return file:match("([^/]+)$")
+        end
         if state.include_subfolders then
             return file:sub(#Batch.trim_folder(state.folder) + 2)
         end
@@ -104,7 +125,7 @@ function ChooseBooks.show(opts)
                 align = "left",
                 TextWidget:new{ text = _("Folder"), face = Font:getFace("cfont", 20) },
                 TextWidget:new{
-                    text = state.folder,
+                    text = state.selection and Batch.selection_label(state.selection) or state.folder,
                     face = Font:getFace("cfont", 16),
                     fgcolor = Blitbuffer.COLOR_DARK_GRAY,
                     max_width = inner - sc(200),
@@ -112,6 +133,7 @@ function ChooseBooks.show(opts)
             },
             PagedScreen.outline_button(_("Change ▸"), function()
                 opts.on_change_folder(function(path)
+                    state.selection = nil
                     state.folder = path
                     reload()
                     screen.page = 1
@@ -120,16 +142,18 @@ function ChooseBooks.show(opts)
             end, self)
         ), Blitbuffer.COLOR_LIGHT_GRAY)
 
-        top[#top + 1] = band(width, split_row(
-            inner,
-            TextWidget:new{ text = _("Include subfolders"), face = Font:getFace("cfont", 20) },
-            PagedScreen.outline_button(state.include_subfolders and _("On") or _("Off"), function()
-                state.include_subfolders = not state.include_subfolders
-                reload()
-                screen.page = 1
-                screen:refresh()
-            end, self)
-        ))
+        if not state.selection then
+            top[#top + 1] = band(width, split_row(
+                inner,
+                TextWidget:new{ text = _("Include subfolders"), face = Font:getFace("cfont", 20) },
+                PagedScreen.outline_button(state.include_subfolders and _("On") or _("Off"), function()
+                    state.include_subfolders = not state.include_subfolders
+                    reload()
+                    screen.page = 1
+                    screen:refresh()
+                end, self)
+            ))
+        end
 
         if not opts.has_providers() then
             top[#top + 1] = band(width, split_row(
@@ -182,15 +206,28 @@ function ChooseBooks.show(opts)
 
         local items = {}
         for _i, file in ipairs(state.files) do
+            local label = TextWidget:new{
+                text = display_name(file),
+                face = Font:getFace("cfont", 21),
+                max_width = inner - sc(40),
+            }
+            if state.selection then
+                label = VerticalGroup:new{
+                    align = "left",
+                    label,
+                    TextWidget:new{
+                        text = file:match("^(.*)/[^/]+$") or "",
+                        face = Font:getFace("cfont", 16),
+                        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+                        max_width = inner - sc(40),
+                    },
+                }
+            end
             local row = HorizontalGroup:new{
                 align = "center",
                 Checkbox:new{ checked = state.ticked[file] == true },
                 HorizontalSpan:new{ width = sc(12) },
-                TextWidget:new{
-                    text = display_name(file),
-                    face = Font:getFace("cfont", 21),
-                    max_width = inner - sc(40),
-                },
+                label,
             }
             local cell = FrameContainer:new{
                 bordersize = 0,

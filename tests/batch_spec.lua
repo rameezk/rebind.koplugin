@@ -93,6 +93,27 @@ T["subfolders are included at any depth, ordered by path"] = function(a)
     )
 end
 
+T["a selection keeps only epubs, sorted by path, and counts the folders"] = function(a)
+    local selection = Batch.selection({
+        ["/lib/sci/Dune.epub"] = true,
+        ["/lib/a/notes.pdf"] = true,
+        ["/lib/a/Book 10.epub"] = true,
+        ["/lib/a/book 2.epub"] = true,
+    })
+    a.eq(joined(selection.files), "/lib/a/book 2.epub | /lib/a/Book 10.epub | /lib/sci/Dune.epub")
+    a.eq(selection.folders, 2)
+end
+
+T["a selection of no epubs is empty"] = function(a)
+    local selection = Batch.selection({ ["/lib/a/notes.pdf"] = true })
+    a.eq(#selection.files, 0)
+    a.eq(selection.folders, 0)
+end
+
+T["a selection is described by its book and folder counts"] = function(a)
+    a.eq(Batch.selection_label({ files = { "a", "b" }, folders = 2 }), "Selected books · 2 books from 2 folders")
+end
+
 T["a folder given with a trailing slash lists single-slash paths"] = function(a)
     local fs = fake_fs({ ["/lib"] = { ["a.epub"] = true }, [""] = { ["b.epub"] = true } })
     a.eq(joined(Batch.collect("/lib/", { fs = fs })), "/lib/a.epub")

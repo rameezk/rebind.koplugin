@@ -175,6 +175,26 @@ function Batch.collect(folder, opts)
     return files
 end
 
+function Batch.selection(selected)
+    local files, folders, seen = {}, 0, {}
+    for path in pairs(selected or {}) do
+        if Epub.is_epub(path) then
+            files[#files + 1] = path
+            local folder = Organize.dirname(path)
+            if not seen[folder] then
+                seen[folder] = true
+                folders = folders + 1
+            end
+        end
+    end
+    table.sort(files, Batch.natural_less)
+    return { files = files, folders = folders }
+end
+
+function Batch.selection_label(selection)
+    return string.format(_("Selected books · %d books from %d folders"), #selection.files, selection.folders)
+end
+
 local function default_clock()
     local ok, socket = pcall(require, "socket")
     if ok and type(socket) == "table" and type(socket.gettime) == "function" then

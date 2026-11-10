@@ -169,4 +169,119 @@ T["the stock file browser class is never given a second rebind row"] = function(
     end)
 end
 
+
+T["a dispatcher action opens rebinding several books"] = function(a)
+    local actions = {}
+    package.preload["dispatcher"] = function()
+        return {
+            registerAction = function(_self, name, spec)
+                actions[name] = spec
+            end,
+        }
+    end
+    local plugin = PluginLoader.load("."):new{}
+    plugin:onDispatcherRegisterActions()
+    package.preload["dispatcher"] = nil
+    package.loaded["dispatcher"] = nil
+
+    a.eq(actions.rebind_several.title, "Rebind several books…")
+    a.eq(actions.rebind_several.event, "RebindSeveral")
+    a.eq(actions.rebind_several.general, true)
+    a.eq(type(plugin.onRebindSeveral), "function")
+end
+
+T["long-pressing a folder in the file browser offers rebinding its books"] = function(a)
+    with_fake_file_dialog_modules(function()
+        local rows = {}
+        local plugin = PluginLoader.load("."):new{
+            ui = {
+                addFileDialogButtons = function(_self, id, row_func)
+                    rows[id] = row_func
+                end,
+            },
+        }
+        local opened = {}
+        function plugin:openChooseBooks(opts)
+            opened[#opened + 1] = opts
+        end
+        plugin:init()
+
+        local row = rows.rebind_update_metadata("/books/Sci-fi", false)
+        a.eq(row[1].text, "Rebind books in this folder")
+        row[1].callback()
+        a.eq(opened[1].folder, "/books/Sci-fi")
+        a.eq(opened[1].tick_all, true)
+        a.eq(rows.rebind_update_metadata("/books/a.epub", true)[1].text, "Rebind")
+    end)
+end
+
+T["the other file dialogs never offer a folder row"] = function(a)
+    with_fake_file_dialog_modules(function(registered)
+        local plugin = PluginLoader.load("."):new{ ui = { addFileDialogButtons = function() end } }
+        plugin:init()
+        for _i, entry in ipairs(registered) do
+            a.eq(entry.row_func("/books/folder", false), nil)
+        end
+    end)
+end
+
+local function opening_for(ui, opts)
+    local plugin = PluginLoader.load("."):new{ ui = ui }
+    function plugin:defaultBrowseDir()
+        return "/home"
+    end
+    return plugin:batchOpening(opts or {})
+end
+
+T["a folder long-press opens that folder with every epub ticked"] = function(a)
+    local opening = opening_for({ selected_files = { ["/x/a.epub"] = true } }, { folder = "/books/Sci-fi" })
+    a.eq(opening.folder, "/books/Sci-fi")
+    a.eq(opening.tick_all, true)
+    a.eq(opening.selection, nil)
+end
+
+T["a selection across folders opens as selected books with only the epubs"] = function(a)
+    local opening = opening_for({
+        file_chooser = { path = "/books" },
+        selected_files = {
+            ["/books/a/One.epub"] = true,
+            ["/books/b/Two.epub"] = true,
+            ["/books/b/Three.pdf"] = true,
+        },
+    })
+    a.eq(table.concat(opening.selection.files, " | "), "/books/a/One.epub | /books/b/Two.epub")
+    a.eq(opening.selection.folders, 2)
+end
+
+T["a selection inside one folder opens that folder with the selected epubs ticked"] = function(a)
+    local opening = opening_for({
+        selected_files = { ["/books/a/One.epub"] = true, ["/books/a/Two.pdf"] = true },
+    })
+    a.eq(opening.folder, "/books/a")
+    a.eq(opening.selection, nil)
+    a.eq(table.concat(opening.ticked, " | "), "/books/a/One.epub")
+end
+
+T["select mode with nothing selected opens the current folder with nothing ticked"] = function(a)
+    local opening = opening_for({
+        file_chooser = { path = "/books" },
+        selected_files = {},
+    })
+    a.eq(opening.folder, "/books")
+    a.eq(opening.selection, nil)
+    a.eq(opening.ticked, nil)
+    a.eq(opening.tick_all, nil)
+end
+
+T["starting from the reader opens the open book's folder with nothing ticked"] = function(a)
+    local opening = opening_for({ document = { file = "/books/sci/Dune.epub" } })
+    a.eq(opening.folder, "/books/sci")
+    a.eq(opening.ticked, nil)
+end
+
+T["starting from the file browser opens its current folder"] = function(a)
+    local opening = opening_for({ file_chooser = { path = "/books/new" } })
+    a.eq(opening.folder, "/books/new")
+end
+
 return T
