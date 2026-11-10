@@ -71,7 +71,40 @@ local function batch_for(metas, finder, opts)
         interval = opts.interval or 0,
         rewrite = opts.rewrite,
         relocate = opts.relocate,
+        standby = opts.awake and opts.awake.standby,
+        suspend_flag = opts.awake and opts.awake.suspend_flag,
+        on_hold = opts.on_hold,
     }
+end
+
+local function fake_awake(flag)
+    local awake = { prevented = 0, allowed = 0, flag = flag }
+    awake.standby = {
+        prevent = function()
+            awake.prevented = awake.prevented + 1
+        end,
+        allow = function()
+            awake.allowed = awake.allowed + 1
+        end,
+    }
+    awake.suspend_flag = {
+        get = function()
+            return awake.flag
+        end,
+        set = function(value)
+            awake.flag = value
+        end,
+    }
+    function awake.blocked()
+        return awake.prevented - awake.allowed
+    end
+    return awake
+end
+
+local function assert_let_go(a, awake, flag)
+    a.is_true(awake.prevented > 0)
+    a.eq(awake.blocked(), 0)
+    a.eq(awake.flag, flag)
 end
 
 T["only epubs are listed, in natural case-insensitive order"] = function(a)
@@ -470,6 +503,8 @@ local function library_batch(root, books, opts)
         interval = 0,
         open_file = opts.open_file,
         same_file = opts.same_file,
+        standby = opts.awake and opts.awake.standby,
+        suspend_flag = opts.awake and opts.awake.suspend_flag,
         save_as = opts.save_as or {
             sort = true,
             library = root .. "/lib",
@@ -724,6 +759,247 @@ T["the open book is recognised through another spelling of its path"] = function
         a.eq(#calls, 1)
         a.eq(Library.read(root .. "/incoming/a.epub"), "original a.epub")
     end)
+end
+
+local function nothing_found()
+    return {}, "search"
+end
+
+T["the device is kept awake while looking up and let go when the lookups finish"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(3), nothing_found, { awake = awake })
+    a.eq(awake.blocked(), 0)
+    batch:lookup_next()
+    a.eq(awake.blocked(), 1)
+    a.eq(awake.flag, true)
+    batch:lookup_next()
+    a.eq(awake.blocked(), 1)
+    batch:lookup_next()
+    a.eq(awake.blocked(), 0)
+    a.eq(batch:lookup_next(), false)
+    assert_let_go(a, awake, true)
+end
+
+T["a suspend flag nobody had set is put back to unset"] = function(a)
+    local awake = fake_awake(nil)
+    local batch = batch_for(numbered(2), nothing_found, { awake = awake })
+    batch:lookup_next()
+    a.eq(awake.flag, true)
+    batch:lookup_all()
+    assert_let_go(a, awake, nil)
+end
+
+T["stopping the lookup lets the device go"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(5), nothing_found, { awake = awake })
+    batch:lookup_next()
+    batch:lookup_next()
+    batch:stop()
+    assert_let_go(a, awake, true)
+end
+
+T["an error in a book's lookup lets the device go before it is raised"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(3), nothing_found, {
+        awake = awake,
+        interval = 1,
+        sleep = function()
+            error("sleep broke")
+        end,
+    })
+    batch:lookup_next()
+    a.eq(awake.blocked(), 1)
+    local ok = pcall(batch.lookup_next, batch)
+    a.eq(ok, false)
+    assert_let_go(a, awake, true)
+end
+
+local function three_sure(root, opts)
+    return library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S"), dune("c.epub", "S") }, opts)
+end
+
+T["the device is kept awake while writing and let go when the last book is written"] = function(a)
+    Library.with_library(function(root)
+        local awake = fake_awake(true)
+        local batch = three_sure(root, { awake = awake })
+        a.eq(awake.blocked(), 0)
+        batch:begin_rebind()
+        a.eq(awake.blocked(), 0)
+        batch:rebind_next()
+        a.eq(awake.blocked(), 1)
+        a.eq(awake.flag, true)
+        batch:rebind_next()
+        batch:rebind_next()
+        a.eq(awake.blocked(), 0)
+        a.eq(batch:rebind_next(), false)
+        assert_let_go(a, awake, true)
+    end)
+end
+
+T["stopping after this book lets the device go"] = function(a)
+    Library.with_library(function(root)
+        local awake = fake_awake(true)
+        local batch = three_sure(root, { awake = awake })
+        batch:begin_rebind()
+        batch:rebind_next()
+        batch:stop()
+        assert_let_go(a, awake, true)
+        a.eq(batch:rebind_next(), false)
+        assert_let_go(a, awake, true)
+    end)
+end
+
+T["an error while writing a book lets the device go and the batch carries on"] = function(a)
+    Library.with_library(function(root)
+        local awake = fake_awake(true)
+        local batch = three_sure(root, {
+            awake = awake,
+            rewrite = function(path, _changes, _keep, n)
+                if n == 2 then
+                    error("zip exploded")
+                end
+                Library.write(path, "rewritten")
+                return true
+            end,
+        })
+        batch:rebind_all()
+        a.eq(batch.results.failed, 1)
+        assert_let_go(a, awake, true)
+    end)
+end
+
+T["closing the batch lets the device go and ends the work"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(4), nothing_found, { awake = awake })
+    batch:lookup_next()
+    a.eq(awake.blocked(), 1)
+    batch:close()
+    assert_let_go(a, awake, true)
+    a.eq(batch:lookup_next(), false)
+    a.eq(awake.blocked(), 0)
+end
+
+T["releasing twice allows standby only once"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(4), nothing_found, { awake = awake })
+    batch:lookup_next()
+    batch:stop()
+    batch:release()
+    batch:close()
+    a.eq(awake.prevented, 1)
+    a.eq(awake.allowed, 1)
+    a.eq(awake.flag, true)
+end
+
+T["a suspend lets the device go and the next lookup holds it again"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(4), nothing_found, { awake = awake })
+    batch:lookup_next()
+    batch:release()
+    assert_let_go(a, awake, true)
+    batch:lookup_next()
+    a.eq(awake.blocked(), 1)
+    batch:lookup_all()
+    assert_let_go(a, awake, true)
+    a.eq(awake.prevented, 2)
+end
+
+T["a batch with no book finished for two minutes lets the device go"] = function(a)
+    local awake = fake_awake(true)
+    local now = 0
+    local batch = batch_for(numbered(4), nothing_found, {
+        awake = awake,
+        clock = function()
+            return now
+        end,
+    })
+    batch:lookup_next()
+    now = 119
+    batch:check_watchdog()
+    a.eq(awake.blocked(), 1)
+    now = 120
+    batch:check_watchdog()
+    assert_let_go(a, awake, true)
+    batch:stop()
+    batch:check_watchdog()
+    a.eq(awake.allowed, 1)
+end
+
+T["a finished book restarts the watchdog"] = function(a)
+    local awake = fake_awake(true)
+    local now = 0
+    local batch = batch_for(numbered(4), nothing_found, {
+        awake = awake,
+        clock = function()
+            return now
+        end,
+    })
+    batch:lookup_next()
+    now = 100
+    batch:lookup_next()
+    now = 200
+    batch:check_watchdog()
+    a.eq(awake.blocked(), 1)
+end
+
+T["an error in a book's lookup leaves that book to review as failed"] = function(a)
+    local batch = batch_for(numbered(2), nothing_found, {
+        interval = 1,
+        sleep = function()
+            error("sleep broke")
+        end,
+    })
+    batch:lookup_next()
+    pcall(batch.lookup_next, batch)
+    a.eq(batch:tag(batch.entries[2]), "Lookup failed")
+    a.eq(batch:counts().review, 2)
+end
+
+T["retrying a lookup holds the device only while it runs"] = function(a)
+    local awake = fake_awake(true)
+    local seen
+    local batch = batch_for(numbered(1), function()
+        seen = awake.blocked()
+        return {}, "search"
+    end, { awake = awake })
+    batch:lookup_all()
+    a.eq(seen, 1)
+    seen = nil
+    batch:retry(batch.entries[1])
+    a.eq(seen, 1)
+    assert_let_go(a, awake, true)
+    a.eq(awake.prevented, 2)
+end
+
+T["a failing retry lets the device go before the error is raised"] = function(a)
+    local awake = fake_awake(true)
+    local batch = batch_for(numbered(1), nothing_found, {
+        awake = awake,
+        interval = 1,
+        sleep = function()
+            error("sleep broke")
+        end,
+    })
+    batch:lookup_all()
+    local ok = pcall(batch.retry, batch, batch.entries[1])
+    a.eq(ok, false)
+    assert_let_go(a, awake, true)
+end
+
+T["the batch tells its owner each time the device is taken"] = function(a)
+    local taken = 0
+    local batch = batch_for(numbered(3), nothing_found, {
+        awake = fake_awake(true),
+        on_hold = function()
+            taken = taken + 1
+        end,
+    })
+    batch:lookup_next()
+    batch:lookup_next()
+    a.eq(taken, 1)
+    batch:release()
+    batch:lookup_next()
+    a.eq(taken, 2)
 end
 
 return T

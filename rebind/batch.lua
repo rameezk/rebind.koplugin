@@ -12,6 +12,26 @@ Batch.__index = Batch
 
 Batch.DEFAULT_INTERVAL = 1.5
 Batch.LOST_CONNECTION_AFTER = 2
+Batch.WATCHDOG_SECONDS = 120
+
+local function no_standby()
+    return {
+        prevent = function() end,
+        allow = function() end,
+    }
+end
+
+local function no_suspend_flag()
+    local value
+    return {
+        get = function()
+            return value
+        end,
+        set = function(new)
+            value = new
+        end,
+    }
+end
 
 local ACCENTS = {
     "a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
@@ -268,6 +288,12 @@ function Batch.new(opts)
         same_file = opts.same_file or function(a, b)
             return a == b
         end,
+        standby = opts.standby or no_standby(),
+        suspend_flag = opts.suspend_flag or no_suspend_flag(),
+        watchdog_seconds = opts.watchdog_seconds or Batch.WATCHDOG_SECONDS,
+        on_hold = opts.on_hold,
+        held = false,
+        closed = false,
         queue = {},
         queue_total = 0,
         queue_done = 0,
@@ -295,6 +321,42 @@ end
 
 function Batch:stop()
     self.stopped = true
+    self:release()
+end
+
+function Batch:hold()
+    if self.held or self.closed then
+        return
+    end
+    self.held = true
+    self.standby.prevent()
+    self.previous_suspend_flag = self.suspend_flag.get()
+    self.suspend_flag.set(true)
+    self.progressed_at = self.clock()
+    if self.on_hold then
+        self.on_hold()
+    end
+end
+
+function Batch:close()
+    self.closed = true
+    self.stopped = true
+    self:release()
+end
+
+function Batch:check_watchdog()
+    if self.held and self.clock() - self.progressed_at >= self.watchdog_seconds then
+        self:release()
+    end
+end
+
+function Batch:release()
+    if not self.held then
+        return
+    end
+    self.held = false
+    self.standby.allow()
+    self.suspend_flag.set(self.previous_suspend_flag)
 end
 
 function Batch:wait_time()
@@ -411,20 +473,41 @@ function Batch:_new_entry(file, reason)
     }
 end
 
+function Batch:_guarded_lookup(entry)
+    local was_held = self.held
+    self:hold()
+    local ok, err = xpcall(self._run_lookup, debug.traceback, self, entry)
+    if not ok then
+        entry.state, entry.kind, entry.error = "review", "failed", tostring(err)
+        self:release()
+        error(err, 0)
+    end
+    self.progressed_at = self.clock()
+    if not was_held then
+        self:release()
+    end
+    return err
+end
+
 function Batch:lookup_next()
-    if self.stopped or #self.pending == 0 then
+    if self.closed or self.stopped or #self.pending == 0 then
+        self:release()
         return false
     end
+    self:hold()
     local file = table.remove(self.pending, 1)
     local entry = self:_new_entry(file)
     self.entries[#self.entries + 1] = entry
-    if self:_run_lookup(entry) then
+    if self:_guarded_lookup(entry) then
         self.failed_in_a_row = self.failed_in_a_row + 1
     else
         self.failed_in_a_row = 0
     end
     if self.failed_in_a_row >= Batch.LOST_CONNECTION_AFTER then
         self:_fail_pending(entry.error)
+    end
+    if #self.pending == 0 then
+        self:release()
     end
     return true
 end
@@ -444,7 +527,7 @@ function Batch:lookup_all()
 end
 
 function Batch:retry(entry)
-    self:_run_lookup(entry)
+    self:_guarded_lookup(entry)
 end
 
 function Batch:sections()
@@ -592,7 +675,7 @@ function Batch:sure_count()
 end
 
 function Batch:begin_rebind()
-    self.stopped = false
+    self.stopped = self.closed
     self.queue = {}
     for _i, entry in ipairs(self.entries) do
         if entry.state == "sure" then
@@ -621,9 +704,11 @@ function Batch:_rebind_entry(entry)
 end
 
 function Batch:rebind_next()
-    if self.stopped or #self.queue == 0 then
+    if self.closed or self.stopped or #self.queue == 0 then
+        self:release()
         return false
     end
+    self:hold()
     local entry = table.remove(self.queue, 1)
     local ok, outcome = xpcall(self._rebind_entry, tostring, self, entry)
     if not ok then
@@ -639,6 +724,10 @@ function Batch:rebind_next()
         entry.state, entry.kind, entry.error = "review", "write_failed", outcome.error
     end
     self.queue_done = self.queue_done + 1
+    self.progressed_at = self.clock()
+    if #self.queue == 0 then
+        self:release()
+    end
     return true
 end
 
