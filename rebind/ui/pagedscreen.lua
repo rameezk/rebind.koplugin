@@ -14,6 +14,7 @@ local Size = require("ui/size")
 local TextWidget = require("ui/widget/textwidget")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
 local CenterContainer = require("ui/widget/container/centercontainer")
 
 local CloseIcon = require("rebind/ui/closeicon")
@@ -220,17 +221,12 @@ function PagedScreen:_build()
     self.page = math.max(1, math.min(self.page, #pages))
 
     local body = VerticalGroup:new{ align = "left" }
+    local used = 0
     for _i, item in ipairs(pages[self.page]) do
         table.insert(body, item.widget)
+        used = used + item.widget:getSize().h
     end
-    local body_h = room
-    local body_box = FrameContainer:new{
-        bordersize = 0,
-        padding = 0,
-        width = self.width,
-        height = body_h,
-        body,
-    }
+    table.insert(body, VerticalSpan:new{ width = math.max(0, room - used) })
 
     self[1] = FrameContainer:new{
         background = Blitbuffer.COLOR_WHITE,
@@ -243,7 +239,7 @@ function PagedScreen:_build()
             header,
             self:_rule(),
             top,
-            body_box,
+            body,
             self:_rule(Blitbuffer.COLOR_LIGHT_GRAY),
             self:_pager(#pages),
             FrameContainer:new{
