@@ -85,6 +85,12 @@ metadata by hand.
 When the provider has no description or genres in the language you pick, Rebind
 offers to translate them.
 
+### Rebinding several books
+
+Use Tools → Rebind → Rebind several books…, or long-press a folder and tap Rebind
+books in this folder. Rebind looks them all up, rebinds the sure matches in one
+tap, and leaves the rest for you to review.
+
 ## Safety
 
 Rebind rewrites the book, so it is careful about it:
@@ -94,6 +100,7 @@ Rebind rewrites the book, so it is careful about it:
 - A backup of the original is kept as `.rebind.bak` unless you turn it off in Save as.
 - Reading progress, bookmarks and highlights are kept and follow the book when it
   is renamed or moved.
+- A batch never touches the book open in the reader.
 - Translating a field uses KOReader's built-in translator. It needs a network
   connection and sends the text to Google.
 
