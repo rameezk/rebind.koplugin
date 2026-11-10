@@ -22,6 +22,7 @@ local ChoiceList = require("rebind/ui/choicelist")
 local DiffPicker = require("rebind/ui/diffpicker")
 local Logo = require("rebind/ui/logo")
 local ReviewList = require("rebind/ui/reviewlist")
+local SaveAs = require("rebind/ui/saveas")
 local Apply = require("rebind/apply")
 local Batch = require("rebind/batch")
 local Epub = require("rebind/epub")
@@ -942,9 +943,28 @@ function Rebind:_showSource(picker, current, chain, shown)
     }
 end
 
-function Rebind:_showDiff(file, current, book, chain, results, on_apply)
+function Rebind:_saveAsDefaults()
+    return {
+        library = self:libraryRoot(),
+        sort = self.settings:isTrue("move_after_rebind") and self:libraryRoot() ~= nil,
+        rename = self:renameFile(),
+        keep_backup = self:keepBackup(),
+        filename_template = self:filenameTemplate(),
+        folder_template = self:folderTemplate(),
+        custom_filename_template = self:customFilenameTemplate(),
+        custom_folder_template = self:customFolderTemplate(),
+    }
+end
+
+function Rebind:_showDiff(file, current, book, chain, results, on_apply, row)
     local proposed = book or {}
     local shown = { book = book, proposed = proposed, results = results or {} }
+    if not (row and row.save_as) then
+        local save_as = self:_saveAsDefaults()
+        save_as.source_path = file
+        save_as.metadata = current
+        row = { save_as = save_as }
+    end
 
     local picker = DiffPicker:new{
         fields = Fields.build(current, proposed),
@@ -955,19 +975,8 @@ function Rebind:_showDiff(file, current, book, chain, results, on_apply)
         end or nil,
         translate_targets = self:_translateTargets(current, shown),
         on_translate = self:_translateHandler(),
-        save_as = {
-            source_path = file,
-            metadata = current,
-            library = self:libraryRoot(),
-            sort = self.settings:isTrue("move_after_rebind") and self:libraryRoot() ~= nil,
-            rename = self:renameFile(),
-            keep_backup = self:keepBackup(),
-            filename_template = self:filenameTemplate(),
-            folder_template = self:folderTemplate(),
-            custom_filename_template = self:customFilenameTemplate(),
-            custom_folder_template = self:customFolderTemplate(),
-        },
-        on_save_as_change = function(save_as)
+        save_as = row.save_as,
+        on_save_as_change = row.on_change or function(save_as)
             self:_rememberSaveAs(save_as)
         end,
         on_choose_library = function(on_ready)
@@ -1064,6 +1073,12 @@ function Rebind:_startBatch(files, choose_screen)
             files = files,
             chain = self:providerChain(),
             preferred_language = self.settings:readSetting("preferred_language"),
+            save_as = self:_saveAsDefaults(),
+            open_file = self:currentFile(),
+            same_file = function(a, b)
+                local realpath = require("ffi/util").realpath
+                return (realpath(a) or a) == (realpath(b) or b)
+            end,
         }
         local progress
         local function summary()
@@ -1135,7 +1150,62 @@ function Rebind:_showBatchReview(batch)
         on_open = function(entry, screen)
             self:_openBatchRow(batch, screen, entry)
         end,
+        on_save_as = function(screen)
+            SaveAs.show{
+                state = batch:save_as_state(),
+                on_change = function(save_as)
+                    self:_rememberSaveAs(save_as)
+                end,
+                on_choose_library = function(on_ready)
+                    self:_chooseLibraryRoot(on_ready)
+                end,
+                on_close = function()
+                    screen:refresh()
+                end,
+            }
+        end,
+        on_rebind = function(screen)
+            self:_rebindSureMatches(batch, screen)
+        end,
     }
+end
+
+function Rebind:_rebindSureMatches(batch, screen)
+    local total = batch:begin_rebind()
+    if total == 0 then
+        return
+    end
+    local progress
+    local function heading(done)
+        return T(_("Rebinding your books… %1 of %2"), done, total)
+    end
+    local function step()
+        if batch.stopped or #batch.queue == 0 then
+            UIManager:close(progress, "ui")
+            screen:refresh()
+            return
+        end
+        progress:update{
+            done = batch.queue_done,
+            heading = heading(batch.queue_done + 1),
+            filename = batch.queue[1].name,
+        }
+        batch:rebind_next()
+        progress:update{ done = batch.queue_done, heading = heading(math.min(batch.queue_done + 1, total)) }
+        UIManager:scheduleIn(0.05, step)
+    end
+    progress = BatchProgress:new{
+        heading = heading(1),
+        stop_text = _("Stop after this book"),
+        total = total,
+        done = 0,
+        filename = batch.queue[1].name,
+        on_stop = function()
+            batch:stop()
+        end,
+    }
+    UIManager:show(progress)
+    UIManager:scheduleIn(0.05, step)
 end
 
 function Rebind:_openBatchRow(batch, screen, entry)
@@ -1151,10 +1221,23 @@ function Rebind:_openBatchRow(batch, screen, entry)
         self:_applyBatchRow(batch, screen, entry, changes, opts)
     end
     local function show(book)
-        self:_showDiff(entry.file, entry.current, book, chain, entry.matches or {}, on_apply)
+        self:_showDiff(entry.file, entry.current, book, chain, entry.matches or {}, on_apply, {
+            save_as = batch:save_as_for(entry),
+            on_change = function(save_as)
+                entry.save_as = save_as
+            end,
+        })
     end
     if entry.state == "sure" then
         show(entry.book)
+    elseif entry.kind == "write_failed" or entry.kind == "not_moved" then
+        local prefix = entry.kind == "not_moved" and move_failed_text(true) or _("Update failed:\n")
+        UIManager:show(InfoMessage:new{
+            text = prefix .. tostring(entry.error),
+            dismiss_callback = function()
+                show(entry.book)
+            end,
+        })
     elseif entry.kind == "failed" then
         NetworkMgr:runWhenOnline(function()
             Trapper:wrap(function()

@@ -71,10 +71,12 @@ function BatchProgress:_build()
             max_width = inner,
         },
         VerticalSpan:new{ width = sc(12) },
-        TextWidget:new{ text = self.summary, face = Font:getFace("cfont", 19), max_width = inner },
-        VerticalSpan:new{ width = sc(14) },
-        stop,
     }
+    if self.summary ~= "" then
+        table.insert(group, TextWidget:new{ text = self.summary, face = Font:getFace("cfont", 19), max_width = inner })
+        table.insert(group, VerticalSpan:new{ width = sc(14) })
+    end
+    table.insert(group, stop)
     self[1] = FrameContainer:new{
         background = Blitbuffer.COLOR_WHITE,
         bordersize = 0,

@@ -405,4 +405,242 @@ T["retrying a skipped book does not count its skip twice"] = function(a)
     a.eq(joined(batch:skip_notices()), "Inventaire was skipped for 1 book: timed out.")
 end
 
+
+local Library = require("tests/support/library")
+local Organize = require("rebind/organize")
+
+local function library_batch(root, books, opts)
+    opts = opts or {}
+    local metas, matches, files = {}, {}, {}
+    for _i, book in ipairs(books) do
+        local path = root .. "/incoming/" .. book.name
+        Library.write(path, "original " .. book.name)
+        metas[path] = book.meta
+        matches[book.meta.title] = book.match
+        files[#files + 1] = path
+    end
+    local calls = {}
+    local batch = Batch.new{
+        files = files,
+        chain = { provider("p", "Prov", function(meta)
+            return { matches[meta.title] }, "search"
+        end) },
+        read_metadata = function(path)
+            return metas[path]
+        end,
+        clock = function()
+            return 0
+        end,
+        interval = 0,
+        open_file = opts.open_file,
+        same_file = opts.same_file,
+        save_as = opts.save_as or {
+            sort = true,
+            library = root .. "/lib",
+            rename = true,
+            keep_backup = false,
+            filename_template = Organize.DEFAULT_FILENAME_TEMPLATE,
+            folder_template = Organize.DEFAULT_FOLDER_TEMPLATE,
+        },
+        rewrite = function(path, changes, keep)
+            calls[#calls + 1] = { file = path, changes = changes, keep = keep }
+            if opts.rewrite then
+                return opts.rewrite(path, changes, keep, #calls)
+            end
+            Library.write(path, "rewritten")
+            return true
+        end,
+    }
+    batch:lookup_all()
+    return batch, calls
+end
+
+local function dune(name, series)
+    return {
+        name = name,
+        meta = { title = "Dune " .. name, authors = { "Frank Herbert" }, publisher = "Ace" },
+        match = match("Dune " .. name, { "Frank Herbert" }, { series = series, publisher = "" }),
+    }
+end
+
+T["a sure match writes what its picker would apply untouched"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", "Dune Chronicles") })
+        a.eq(batch:sure_count(), 1)
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(calls[1].changes.series, "Dune Chronicles")
+        a.eq(calls[1].changes.title, nil)
+        a.eq(calls[1].changes.publisher, nil)
+        a.eq(batch.entries[1].state, "done")
+    end)
+end
+
+T["a sure match with no changes is moved but not rewritten"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", nil) })
+        a.eq(batch.entries[1].changes, 0)
+        batch:rebind_all()
+        a.eq(#calls, 0)
+        local entry = batch.entries[1]
+        a.eq(entry.state, "done")
+        a.eq(Library.read(root .. "/incoming/a.epub"), nil)
+        a.eq(Library.read(entry.new_path), "original a.epub")
+        a.eq(Organize.dirname(entry.new_path):sub(1, #root + 4), root .. "/lib")
+    end)
+end
+
+T["a failed write does not stop the batch"] = function(a)
+    Library.with_library(function(root)
+        local batch = library_batch(root, {
+            dune("a.epub", "S"), dune("b.epub", "S"), dune("c.epub", "S"),
+        }, {
+            rewrite = function(path, _changes, _keep, n)
+                if n == 2 then
+                    return false, "bad zip"
+                end
+                Library.write(path, "rewritten")
+                return true
+            end,
+        })
+        batch:rebind_all()
+        local states = {}
+        for _i, entry in ipairs(batch.entries) do
+            states[#states + 1] = batch:tag(entry)
+        end
+        a.eq(joined(states), "✓ Sorted | Write failed | ✓ Sorted")
+        a.eq(batch.entries[2].state, "review")
+        a.eq(batch.entries[2].error, "bad zip")
+        a.eq(Library.read(root .. "/incoming/b.epub"), "original b.epub")
+        a.eq(batch:summary(), "✓ 2 books rebound and sorted into your library. 1 could not be written.")
+    end)
+end
+
+T["a failed move is reported as not moved with the metadata already written"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", "S") })
+        local entry = batch.entries[1]
+        local dest = Organize.destination(entry.file, Organize.with_changes(entry.current, { series = "S" }), {
+            sort = true, library = root .. "/lib", rename = true,
+            filename_template = Organize.DEFAULT_FILENAME_TEMPLATE,
+            folder_template = Organize.DEFAULT_FOLDER_TEMPLATE,
+        })
+        Library.sh(string.format("mkdir -p '%s'", Organize.dirname(dest)))
+        Library.write(dest, "occupied")
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(Library.read(entry.file), "rewritten")
+        a.eq(Library.read(dest), "occupied")
+        a.eq(entry.state, "review")
+        a.eq(batch:tag(entry), "Not moved")
+        a.is_true(entry.error:find("already exists", 1, true) ~= nil)
+        a.eq(batch:summary(), "1 was rebound but not moved.")
+    end)
+end
+
+T["stopping after this book leaves the rest as sure matches"] = function(a)
+    Library.with_library(function(root)
+        local batch
+        batch = library_batch(root, {
+            dune("1.epub", "S"), dune("2.epub", "S"), dune("3.epub", "S"), dune("4.epub", "S"), dune("5.epub", "S"),
+        }, {
+            rewrite = function(path, _changes, _keep, n)
+                if n == 2 then
+                    batch:stop()
+                end
+                Library.write(path, "rewritten")
+                return true
+            end,
+        })
+        batch:rebind_all()
+        local counts = batch:counts()
+        a.eq(counts.done, 2)
+        a.eq(counts.sure, 3)
+        a.eq(batch:sure_count(), 3)
+    end)
+end
+
+T["a change to one book's save as applies to that book only"] = function(a)
+    Library.with_library(function(root)
+        local batch = library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S"), dune("c.epub", "S") })
+        local first = batch.entries[1]
+        local save_as = batch:save_as_for(first)
+        save_as.sort = false
+        save_as.rename = false
+        first.save_as = save_as
+        batch:rebind_all()
+        a.eq(first.state, "done")
+        a.eq(first.new_path, root .. "/incoming/a.epub")
+        a.eq(batch:tag(first), "✓ Rebound")
+        a.eq(batch:tag(batch.entries[2]), "✓ Sorted")
+        a.eq(batch:tag(batch.entries[3]), "✓ Sorted")
+        a.eq(batch.save_as.sort, true)
+    end)
+end
+
+T["the open book is not written and is not counted"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S") }, {
+            open_file = root .. "/incoming/a.epub",
+        })
+        a.eq(batch:sure_count(), 1)
+        a.eq(batch:tag(batch.entries[1]), "Open in the reader")
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(Library.read(root .. "/incoming/a.epub"), "original a.epub")
+        a.eq(batch.entries[1].state, "review")
+    end)
+end
+
+T["with nothing to rebind the summary is empty"] = function(a)
+    Library.with_library(function(root)
+        local batch = library_batch(root, { dune("a.epub", "S") })
+        a.eq(batch:summary(), nil)
+    end)
+end
+
+
+T["the batch save as is summarised as backup state, folder and filename"] = function(a)
+    local batch = Batch.new{ save_as = {
+        keep_backup = true,
+        sort = true,
+        library = "/lib",
+        rename = true,
+        filename_template = Organize.DEFAULT_FILENAME_TEMPLATE,
+        folder_template = Organize.DEFAULT_FOLDER_TEMPLATE,
+    } }
+    local top, bottom = batch:save_as_summary()
+    a.eq(top, "Save as for this batch · backup kept")
+    a.eq(bottom, "Sort into your library · rename to Author - Title")
+    batch.save_as.keep_backup, batch.save_as.sort, batch.save_as.rename = false, false, false
+    top, bottom = batch:save_as_summary()
+    a.eq(top, "Save as for this batch · no backup")
+    a.eq(bottom, "Leave where it is · keep current name")
+end
+
+T["a done row shows its path inside the library, or its filename when left in place"] = function(a)
+    Library.with_library(function(root)
+        local batch = library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S") })
+        batch.entries[2].save_as = { sort = false, rename = false, keep_backup = false }
+        batch:rebind_all()
+        a.is_true(batch:done_location(batch.entries[1]):find("^Herbert") ~= nil)
+        a.eq(batch:done_location(batch.entries[2]), "b.epub")
+    end)
+end
+
+T["the open book is recognised through another spelling of its path"] = function(a)
+    Library.with_library(function(root)
+        local batch, calls = library_batch(root, { dune("a.epub", "S"), dune("b.epub", "S") }, {
+            open_file = root .. "//incoming/a.epub",
+            same_file = function(x, y)
+                return x:gsub("//+", "/") == y:gsub("//+", "/")
+            end,
+        })
+        a.eq(batch:sure_count(), 1)
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(Library.read(root .. "/incoming/a.epub"), "original a.epub")
+    end)
+end
+
 return T
