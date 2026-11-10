@@ -60,6 +60,10 @@ local function keep_awake_controls()
     }
 end
 
+local function first_line(err)
+    return (tostring(err):match("^[^\n]*"))
+end
+
 local function info(text, timeout, icon)
     UIManager:show(InfoMessage:new{ text = text, timeout = timeout, icon = icon })
 end
@@ -1161,7 +1165,9 @@ function Rebind:_startBatch(files, choose_screen)
             return T(_("Looking up your books… %1 of %2"), done, #files)
         end
         local function finish()
-            self:_showBatchReview(batch)
+            if not batch.closed then
+                self:_showBatchReview(batch)
+            end
             UIManager:close(progress, "ui")
         end
         local function step()
@@ -1184,7 +1190,7 @@ function Rebind:_startBatch(files, choose_screen)
                 local ok, err = pcall(batch.lookup_next, batch)
                 if not ok then
                     batch:stop()
-                    info(T(_("Looking up stopped: %1"), tostring(err)))
+                    info(T(_("Looking up stopped: %1"), first_line(err)))
                 end
                 progress:update{ done = batch:done_count(), heading = heading(batch:done_count()), summary = summary() }
                 UIManager:scheduleIn(0.05, step)
@@ -1320,9 +1326,12 @@ function Rebind:_openBatchRow(batch, screen, entry)
         NetworkMgr:runWhenOnline(function()
             Trapper:wrap(function()
                 local busy = Logo.show_message(_("Looking up your book…"))
-                batch:retry(entry)
+                local ok, err = pcall(batch.retry, batch, entry)
                 Logo.close_message(busy)
                 screen:refresh()
+                if not ok then
+                    info(first_line(err))
+                end
             end)
         end)
     elseif entry.kind == "matches" then
