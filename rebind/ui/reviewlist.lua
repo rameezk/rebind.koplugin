@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local ConfirmBox = require("ui/widget/confirmbox")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
@@ -252,10 +253,23 @@ function ReviewList.show(opts)
     screen = PagedScreen:new{
         build = build,
         on_close = function(widget)
-            UIManager:close(widget, "ui")
-            if opts.on_close then
-                opts.on_close()
+            local function close()
+                UIManager:close(widget, "ui")
+                if opts.on_close then
+                    opts.on_close()
+                end
             end
+            local prompt = batch:close_prompt()
+            if not prompt then
+                close()
+                return
+            end
+            UIManager:show(ConfirmBox:new{
+                text = _("Close the batch?") .. "\n\n" .. prompt,
+                cancel_text = _("Keep reviewing"),
+                ok_text = _("Close"),
+                ok_callback = close,
+            })
         end,
     }
     UIManager:show(screen)

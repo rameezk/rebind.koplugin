@@ -1,4 +1,5 @@
 local Blitbuffer = require("ffi/blitbuffer")
+local ConfirmBox = require("ui/widget/confirmbox")
 local Font = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
@@ -267,7 +268,18 @@ function ChooseBooks.show(opts)
                         chosen[#chosen + 1] = file
                     end
                 end
-                opts.on_lookup(chosen, screen)
+                if not Batch.needs_confirmation(#chosen) then
+                    opts.on_lookup(chosen, screen)
+                    return
+                end
+                UIManager:show(ConfirmBox:new{
+                    text = Batch.large_title(#chosen) .. "\n\n" .. Batch.large_text(#chosen, opts.interval),
+                    cancel_text = _("Cancel"),
+                    ok_text = _("Look up"),
+                    ok_callback = function()
+                        opts.on_lookup(chosen, screen)
+                    end,
+                })
             end,
             self
         )
