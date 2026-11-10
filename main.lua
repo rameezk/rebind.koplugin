@@ -36,6 +36,30 @@ local ProviderSettings = require("rebind/provider_settings")
 local Providers = require("rebind/providers")
 local Translate = require("rebind/translate")
 
+local WATCHDOG_CHECK_SECONDS = 15
+
+local function keep_awake_controls()
+    local PluginShare = require("pluginshare")
+    return {
+        standby = {
+            prevent = function()
+                UIManager:preventStandby()
+            end,
+            allow = function()
+                UIManager:allowStandby()
+            end,
+        },
+        suspend_flag = {
+            get = function()
+                return PluginShare.pause_auto_suspend
+            end,
+            set = function(value)
+                PluginShare.pause_auto_suspend = value
+            end,
+        },
+    }
+end
+
 local function info(text, timeout, icon)
     UIManager:show(InfoMessage:new{ text = text, timeout = timeout, icon = icon })
 end
@@ -1067,9 +1091,50 @@ function Rebind:openChooseBooks(opts)
     return true
 end
 
+function Rebind:_closeBatch()
+    local batch = self.active_batch
+    self.active_batch = nil
+    if self.batch_watch then
+        UIManager:unschedule(self.batch_watch)
+        self.batch_watch = nil
+    end
+    if batch then
+        batch:close()
+    end
+end
+
+function Rebind:_watchBatch(batch)
+    local function watch()
+        batch:check_watchdog()
+        if not batch.closed then
+            UIManager:scheduleIn(WATCHDOG_CHECK_SECONDS, watch)
+        end
+    end
+    self.batch_watch = watch
+    UIManager:scheduleIn(WATCHDOG_CHECK_SECONDS, watch)
+end
+
+function Rebind:onSuspend()
+    if self.active_batch then
+        self.active_batch:release()
+    end
+end
+
+function Rebind:onExit()
+    self:_closeBatch()
+end
+
+function Rebind:onCloseWidget()
+    self:_closeBatch()
+end
+
 function Rebind:_startBatch(files, choose_screen)
     NetworkMgr:runWhenOnline(function()
+        self:_closeBatch()
+        local awake = keep_awake_controls()
         local batch = Batch.new{
+            standby = awake.standby,
+            suspend_flag = awake.suspend_flag,
             files = files,
             chain = self:providerChain(),
             preferred_language = self.settings:readSetting("preferred_language"),
@@ -1124,6 +1189,8 @@ function Rebind:_startBatch(files, choose_screen)
                 batch:stop()
             end,
         }
+        self.active_batch = batch
+        self:_watchBatch(batch)
         UIManager:show(progress)
         UIManager:close(choose_screen, "ui")
         UIManager:scheduleIn(0.05, step)
@@ -1145,6 +1212,7 @@ function Rebind:_showBatchReview(batch)
     ReviewList.show{
         batch = batch,
         on_close = function()
+            self:_closeBatch()
             self:_announceBatchChanges(batch)
         end,
         on_open = function(entry, screen)
