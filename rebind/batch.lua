@@ -195,6 +195,48 @@ function Batch.selection_label(selection)
     return string.format(_("Selected books · %d books from %d folders"), #selection.files, selection.folders)
 end
 
+Batch.LARGE_SELECTION = 300
+
+function Batch.needs_confirmation(count)
+    return count > Batch.LARGE_SELECTION
+end
+
+local function with_commas(count)
+    local text = tostring(count)
+    while true do
+        local replaced, n = text:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        text = replaced
+        if n == 0 then
+            return text
+        end
+    end
+end
+
+function Batch.large_title(count)
+    return string.format(_("Look up %s books?"), with_commas(count))
+end
+
+local function duration_text(seconds)
+    local minutes = math.floor(seconds / 60 + 0.5)
+    if minutes <= 1 then
+        return _("about a minute")
+    elseif minutes < 60 then
+        return string.format(_("about %d minutes"), minutes)
+    end
+    local hours = math.floor(minutes / 60 + 0.5)
+    if hours == 1 then
+        return _("about an hour")
+    end
+    return string.format(_("about %d hours"), hours)
+end
+
+function Batch.large_text(count, interval)
+    return string.format(
+        _("This takes %s, and the device is kept awake. You can stop and review what's found at any time."),
+        duration_text(count * (interval or Batch.DEFAULT_INTERVAL))
+    )
+end
+
 local function default_clock()
     local ok, socket = pcall(require, "socket")
     if ok and type(socket) == "table" and type(socket.gettime) == "function" then
@@ -222,6 +264,7 @@ function Batch.new(opts)
         relocate = opts.relocate,
         save_as = opts.save_as or {},
         open_file = opts.open_file,
+        is_online = opts.is_online,
         same_file = opts.same_file or function(a, b)
             return a == b
         end,
@@ -303,13 +346,16 @@ function Batch:_sure_entry(entry, current, match, isbn)
     entry.book = book
     entry.isbn = isbn
     entry.changes = state:change_count()
+end
+
+function Batch:_mark_open(entry)
     if self.open_file and self.same_file(entry.file, self.open_file) then
         entry.state, entry.kind = "review", "open"
     end
 end
 
 function Batch:_classify(entry)
-    entry.state, entry.kind, entry.book, entry.matches = "review", nil, nil, nil
+    entry.state, entry.kind, entry.book, entry.matches, entry.unreachable = "review", nil, nil, nil, nil
     self:_forget_skips(entry)
     local current, err = self.read_metadata(entry.file)
     if not current then
@@ -321,6 +367,7 @@ function Batch:_classify(entry)
     self:_note_skips(entry, found)
     if Lookup.all_failed(found) then
         entry.kind, entry.error = "failed", Lookup.skipped_text(found)
+        entry.unreachable = true
         return
     end
     local matches = found.matches
@@ -337,6 +384,7 @@ function Batch:_classify(entry)
     else
         entry.kind = "matches"
     end
+    self:_mark_open(entry)
 end
 
 function Batch:_run_lookup(entry)
@@ -359,7 +407,24 @@ function Batch:lookup_next()
     local entry = { file = file, name = Organize.basename(file) }
     self.entries[#self.entries + 1] = entry
     self:_run_lookup(entry)
+    if entry.unreachable and not (self.is_online and self.is_online()) then
+        self:_fail_pending(entry.error)
+    end
     return true
+end
+
+function Batch:_fail_pending(reason)
+    for _i, file in ipairs(self.pending) do
+        self.entries[#self.entries + 1] = {
+            file = file,
+            name = Organize.basename(file),
+            state = "review",
+            kind = "failed",
+            error = reason,
+            skipped = {},
+        }
+    end
+    self.pending = {}
 end
 
 function Batch:lookup_all()
@@ -483,6 +548,26 @@ function Batch:apply(entry, changes, opts)
     })
     self:_settle(entry, outcome, changes)
     return outcome
+end
+
+function Batch:unfinished_count()
+    local count = 0
+    for _i, entry in ipairs(self.entries) do
+        if entry.state ~= "done" and entry.kind ~= "open" then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function Batch:close_prompt()
+    local count = self:unfinished_count()
+    if count == 0 then
+        return nil
+    elseif count == 1 then
+        return _("1 book hasn't been rebound. Its lookup will be lost.")
+    end
+    return string.format(_("%d books haven't been rebound. Their lookups will be lost."), count)
 end
 
 function Batch:sure_count()

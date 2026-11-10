@@ -1060,6 +1060,7 @@ function Rebind:openChooseBooks(opts)
         on_change_providers = function(on_close)
             self:showLookupProviders(on_close)
         end,
+        interval = Batch.DEFAULT_INTERVAL,
         on_lookup = function(files, choose_screen)
             self:_startBatch(files, choose_screen)
         end,
@@ -1075,6 +1076,9 @@ function Rebind:_startBatch(files, choose_screen)
             preferred_language = self.settings:readSetting("preferred_language"),
             save_as = self:_saveAsDefaults(),
             open_file = self:currentFile(),
+            is_online = function()
+                return NetworkMgr:isOnline()
+            end,
             same_file = function(a, b)
                 local realpath = require("ffi/util").realpath
                 return (realpath(a) or a) == (realpath(b) or b)
@@ -1212,7 +1216,7 @@ function Rebind:_openBatchRow(batch, screen, entry)
     if entry.state == "done" then
         return
     end
-    if entry.file == self:currentFile() then
+    if entry.kind == "open" then
         info(T(_("%1 is open in the reader.\n\nClose the batch and rebind it on its own from the reader."), entry.name))
         return
     end

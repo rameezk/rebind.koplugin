@@ -309,6 +309,46 @@ T["a failed lookup is looked up again when retried"] = function(a)
     a.eq(batch.entries[1].state, "sure")
 end
 
+T["a lost connection fails the rest of the books, and retrying one looks it up again"] = function(a)
+    local calls, online = 0, false
+    local batch = batch_for(numbered(6), function(meta)
+        calls = calls + 1
+        if calls > 3 and not online then
+            error("network unreachable")
+        end
+        return { match("Other", { "B" }) }, "search"
+    end)
+    batch:lookup_all()
+    a.eq(#batch.entries, 6)
+    a.eq(#batch.pending, 0)
+    a.eq(batch:done_count(), 6)
+    local tags = {}
+    for _i, entry in ipairs(batch.entries) do
+        tags[#tags + 1] = batch:tag(entry)
+    end
+    a.eq(joined(tags), "Check match | Check match | Check match | Lookup failed | Lookup failed | Lookup failed")
+    a.eq(calls, 4)
+    online = true
+    batch:retry(batch.entries[5])
+    a.eq(batch.entries[5].kind, "check")
+end
+
+T["a failed book is not mistaken for a lost connection while the device is online"] = function(a)
+    local batch = batch_for(numbered(3), function(meta)
+        if meta.title == "T1" then
+            error("bad response")
+        end
+        return {}, "search"
+    end)
+    batch.is_online = function()
+        return true
+    end
+    batch:lookup_all()
+    a.eq(batch:tag(batch.entries[1]), "Lookup failed")
+    a.eq(batch:tag(batch.entries[2]), "No match")
+    a.eq(batch:tag(batch.entries[3]), "No match")
+end
+
 T["provider skips are collected into one notice per provider"] = function(a)
     local slow = {
         id = "inv",
@@ -590,6 +630,44 @@ T["the open book is not written and is not counted"] = function(a)
         a.eq(Library.read(root .. "/incoming/a.epub"), "original a.epub")
         a.eq(batch.entries[1].state, "review")
     end)
+end
+
+T["the open book stays in to review as open even without a sure match"] = function(a)
+    local batch = batch_for(numbered(2), function()
+        return {}, "search"
+    end)
+    batch.open_file = "/b/01.epub"
+    batch:lookup_all()
+    a.eq(batch:tag(batch.entries[1]), "Open in the reader")
+    a.eq(batch:tag(batch.entries[2]), "No match")
+    a.eq(batch.entries[1].state, "review")
+end
+
+T["closing asks only about books that are neither done nor open"] = function(a)
+    local batch = batch_for(numbered(3), function()
+        return {}, "search"
+    end)
+    batch.open_file = "/b/01.epub"
+    batch:lookup_all()
+    a.eq(batch:unfinished_count(), 2)
+    a.eq(batch:close_prompt(), "2 books haven't been rebound. Their lookups will be lost.")
+    batch.entries[2].state = "done"
+    a.eq(batch:close_prompt(), "1 book hasn't been rebound. Its lookup will be lost.")
+    batch.entries[3].state = "done"
+    a.eq(batch:close_prompt(), nil)
+end
+
+T["a large selection asks first, with a time estimated from the throttle"] = function(a)
+    a.eq(Batch.needs_confirmation(300), false)
+    a.eq(Batch.needs_confirmation(301), true)
+    a.eq(Batch.large_title(3000), "Look up 3,000 books?")
+    a.eq(
+        Batch.large_text(3000, 1.5),
+        "This takes about an hour, and the device is kept awake. You can stop and review what's found at any time."
+    )
+    a.is_true(Batch.large_text(301, 1.5):find("about 8 minutes", 1, true) ~= nil)
+    a.is_true(Batch.large_text(10000, 1.5):find("about 4 hours", 1, true) ~= nil)
+    a.is_true(Batch.large_text(301, 0.2):find("about a minute", 1, true) ~= nil)
 end
 
 T["with nothing to rebind the summary is empty"] = function(a)
