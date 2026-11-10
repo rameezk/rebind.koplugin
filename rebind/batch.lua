@@ -11,6 +11,7 @@ local Batch = {}
 Batch.__index = Batch
 
 Batch.DEFAULT_INTERVAL = 1.5
+Batch.LOST_CONNECTION_AFTER = 2
 Batch.WATCHDOG_SECONDS = 120
 
 local function no_standby()
@@ -215,6 +216,48 @@ function Batch.selection_label(selection)
     return string.format(_("Selected books · %d books from %d folders"), #selection.files, selection.folders)
 end
 
+Batch.LARGE_SELECTION = 300
+
+function Batch.needs_confirmation(count)
+    return count > Batch.LARGE_SELECTION
+end
+
+local function with_commas(count)
+    local text = tostring(count)
+    while true do
+        local replaced, n = text:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        text = replaced
+        if n == 0 then
+            return text
+        end
+    end
+end
+
+function Batch.large_title(count)
+    return string.format(_("Look up %s books?"), with_commas(count))
+end
+
+local function duration_text(seconds)
+    local minutes = math.floor(seconds / 60 + 0.5)
+    if minutes <= 1 then
+        return _("about a minute")
+    elseif minutes < 60 then
+        return string.format(_("about %d minutes"), minutes)
+    end
+    local hours = math.floor(minutes / 60 + 0.5)
+    if hours == 1 then
+        return _("about an hour")
+    end
+    return string.format(_("about %d hours"), hours)
+end
+
+function Batch.large_text(count, interval)
+    return string.format(
+        _("This takes %s, and the device is kept awake. You can stop and review what's found at any time."),
+        duration_text(count * (interval or Batch.DEFAULT_INTERVAL))
+    )
+end
+
 local function default_clock()
     local ok, socket = pcall(require, "socket")
     if ok and type(socket) == "table" and type(socket.gettime) == "function" then
@@ -260,6 +303,7 @@ function Batch.new(opts)
         skip_order = {},
         stopped = false,
         last_call = nil,
+        failed_in_a_row = 0,
     }, Batch)
 end
 
@@ -365,6 +409,9 @@ function Batch:_sure_entry(entry, current, match, isbn)
     entry.book = book
     entry.isbn = isbn
     entry.changes = state:change_count()
+end
+
+function Batch:_mark_open(entry)
     if self.open_file and self.same_file(entry.file, self.open_file) then
         entry.state, entry.kind = "review", "open"
     end
@@ -383,7 +430,7 @@ function Batch:_classify(entry)
     self:_note_skips(entry, found)
     if Lookup.all_failed(found) then
         entry.kind, entry.error = "failed", Lookup.skipped_text(found)
-        return
+        return true
     end
     local matches = found.matches
     entry.matches = matches
@@ -406,11 +453,24 @@ function Batch:_run_lookup(entry)
     if delay > 0 then
         self.sleep(delay)
     end
-    local ok, err = pcall(self._classify, self, entry)
+    local ok, unreachable = pcall(self._classify, self, entry)
     if not ok then
-        entry.state, entry.kind, entry.error = "review", "failed", tostring(err)
+        entry.state, entry.kind, entry.error = "review", "failed", tostring(unreachable)
     end
     self.last_call = self.clock()
+    self:_mark_open(entry)
+    return unreachable == true
+end
+
+function Batch:_new_entry(file, reason)
+    return {
+        file = file,
+        name = Organize.basename(file),
+        skipped = {},
+        state = reason and "review" or nil,
+        kind = reason and "failed" or nil,
+        error = reason,
+    }
 end
 
 function Batch:_guarded_lookup(entry)
@@ -426,6 +486,7 @@ function Batch:_guarded_lookup(entry)
     if not was_held then
         self:release()
     end
+    return err
 end
 
 function Batch:lookup_next()
@@ -435,13 +496,29 @@ function Batch:lookup_next()
     end
     self:hold()
     local file = table.remove(self.pending, 1)
-    local entry = { file = file, name = Organize.basename(file) }
+    local entry = self:_new_entry(file)
     self.entries[#self.entries + 1] = entry
-    self:_guarded_lookup(entry)
+    if self:_guarded_lookup(entry) then
+        self.failed_in_a_row = self.failed_in_a_row + 1
+    else
+        self.failed_in_a_row = 0
+    end
+    if self.failed_in_a_row >= Batch.LOST_CONNECTION_AFTER then
+        self:_fail_pending(entry.error)
+    end
     if #self.pending == 0 then
         self:release()
     end
     return true
+end
+
+function Batch:_fail_pending(reason)
+    for _i, file in ipairs(self.pending) do
+        local entry = self:_new_entry(file, reason)
+        self:_mark_open(entry)
+        self.entries[#self.entries + 1] = entry
+    end
+    self.pending = {}
 end
 
 function Batch:lookup_all()
@@ -565,6 +642,26 @@ function Batch:apply(entry, changes, opts)
     })
     self:_settle(entry, outcome, changes)
     return outcome
+end
+
+function Batch:unfinished_count()
+    local count = 0
+    for _i, entry in ipairs(self.entries) do
+        if entry.state ~= "done" and entry.kind ~= "open" then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function Batch:close_prompt()
+    local count = self:unfinished_count()
+    if count == 0 then
+        return nil
+    elseif count == 1 then
+        return _("1 book hasn't been rebound. Its lookup will be lost.")
+    end
+    return string.format(_("%d books haven't been rebound. Their lookups will be lost."), count)
 end
 
 function Batch:sure_count()
