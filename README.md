@@ -22,15 +22,20 @@ goes: Calibre, other readers and other devices.
 It can also rename the file and sort it into your library, using templates you
 choose or write yourself.
 
+<div align="center">
 <table>
   <tr>
     <td align="center"><img src="screenshots/picker.png" width="160" alt="The Picker, listing the fields that differ from Hardcover"><br><sub>Pick a value per field</sub></td>
     <td align="center"><img src="screenshots/editor.png" width="160" alt="Editing a field, with Start from chips"><br><sub>Edit any field</sub></td>
     <td align="center"><img src="screenshots/source.png" width="160" alt="The Source screen: book, edition and language"><br><sub>Change the edition or language</sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="screenshots/save-as.png" width="160" alt="The Save as screen: folder, filename and backup"><br><sub>Rename and sort</sub></td>
     <td align="center"><img src="screenshots/template-editor.png" width="160" alt="Writing a custom folder template with token chips and a live example"><br><sub>Write your own template</sub></td>
+    <td align="center"><img src="screenshots/review-list.png" width="160" alt="The review list, with books to review and sure matches ready to rebind in one tap"><br><sub>Rebind several books at once</sub></td>
   </tr>
 </table>
+</div>
 
 ## Install
 
@@ -85,6 +90,12 @@ metadata by hand.
 When the provider has no description or genres in the language you pick, Rebind
 offers to translate them.
 
+### Rebinding several books
+
+Use Tools → Rebind → Rebind several books…, or long-press a folder and tap Rebind
+books in this folder. Rebind looks them all up, rebinds the sure matches in one
+tap, and leaves the rest for you to review.
+
 ## Safety
 
 Rebind rewrites the book, so it is careful about it:
@@ -94,6 +105,7 @@ Rebind rewrites the book, so it is careful about it:
 - A backup of the original is kept as `.rebind.bak` unless you turn it off in Save as.
 - Reading progress, bookmarks and highlights are kept and follow the book when it
   is renamed or moved.
+- A batch never touches the book open in the reader.
 - Translating a field uses KOReader's built-in translator. It needs a network
   connection and sends the text to Google.
 
