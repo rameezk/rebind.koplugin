@@ -18,3 +18,6 @@ jobs:
     uses: rameezk/skills/.github/workflows/sync-skills.yml@main
     with:
       ref: ${{ inputs.ref || 'main' }}
+    secrets:
+      SKILLS_SYNC_CLIENT_ID: ${{ secrets.SKILLS_SYNC_CLIENT_ID }}
+      SKILLS_SYNC_PRIVATE_KEY: ${{ secrets.SKILLS_SYNC_PRIVATE_KEY }}
