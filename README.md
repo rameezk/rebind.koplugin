@@ -29,6 +29,7 @@ choose or write yourself.
     <td align="center"><img src="screenshots/source.png" width="160" alt="The Source screen: book, edition and language"><br><sub>Change the edition or language</sub></td>
     <td align="center"><img src="screenshots/save-as.png" width="160" alt="The Save as screen: folder, filename and backup"><br><sub>Rename and sort</sub></td>
     <td align="center"><img src="screenshots/template-editor.png" width="160" alt="Writing a custom folder template with token chips and a live example"><br><sub>Write your own template</sub></td>
+    <td align="center"><img src="screenshots/review-list.png" width="160" alt="The review list, with books to review and sure matches ready to rebind in one tap"><br><sub>Rebind several books at once</sub></td>
   </tr>
 </table>
 
