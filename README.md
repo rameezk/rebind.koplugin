@@ -22,6 +22,7 @@ goes: Calibre, other readers and other devices.
 It can also rename the file and sort it into your library, using templates you
 choose or write yourself.
 
+<div align="center">
 <table>
   <tr>
     <td align="center"><img src="screenshots/picker.png" width="160" alt="The Picker, listing the fields that differ from Hardcover"><br><sub>Pick a value per field</sub></td>
@@ -34,6 +35,7 @@ choose or write yourself.
     <td align="center"><img src="screenshots/review-list.png" width="160" alt="The review list, with books to review and sure matches ready to rebind in one tap"><br><sub>Rebind several books at once</sub></td>
   </tr>
 </table>
+</div>
 
 ## Install
 
