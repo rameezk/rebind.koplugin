@@ -482,6 +482,7 @@ T["the cover offers the book as no cover and the provider cover with its size"] 
     a.eq(options[1].tag, "book")
     a.eq(options[1].text, "no cover")
     a.eq(options[1].selected, false)
+    a.eq(options[1].image, nil)
     a.eq(options[2].id, "new")
     a.eq(options[2].tag, "Hardcover")
     a.eq(options[2].text, "400×600")

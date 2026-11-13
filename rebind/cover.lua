@@ -4,6 +4,7 @@ Cover.MIN_HEIGHT = 300
 Cover.MIN_RATIO = 0.5
 Cover.MAX_RATIO = 0.85
 Cover.MIN_BYTES = 2048
+Cover.MAX_PIXELS = 24000000
 
 local function be16(bytes, at)
     local a, b = bytes:byte(at, at + 1)
@@ -100,6 +101,9 @@ function Cover.check(bytes)
     if not info or info.height < Cover.MIN_HEIGHT then
         return nil
     end
+    if info.width * info.height > Cover.MAX_PIXELS then
+        return nil
+    end
     local ratio = info.width / info.height
     if ratio < Cover.MIN_RATIO or ratio > Cover.MAX_RATIO then
         return nil
@@ -110,7 +114,7 @@ function Cover.check(bytes)
 end
 
 function Cover.fetch(http, candidate)
-    if type(candidate) ~= "table" or type(candidate.url) ~= "string" or candidate.url == "" then
+    if type(candidate) ~= "table" or type(candidate.url) ~= "string" or not candidate.url:find("^https://") then
         return nil
     end
     local ok, body = pcall(http.get_binary, http, candidate.url)

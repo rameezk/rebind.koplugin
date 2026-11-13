@@ -740,13 +740,11 @@ function Rebind:_withCover(current, book, done)
         done(book)
         return
     end
-    NetworkMgr:runWhenOnline(function()
-        Trapper:wrap(function()
-            Trapper:info(_("Loading the cover…"))
-            local attached = Cover.attach(Http.new{ version = self.version }, book)
-            Trapper:clear()
-            done(attached)
-        end)
+    Trapper:wrap(function()
+        Trapper:info(_("Loading the cover…"))
+        local attached = Cover.attach(Http.new{ version = self.version }, book)
+        Trapper:clear()
+        done(attached)
     end)
 end
 
@@ -1004,6 +1002,10 @@ function Rebind:_saveAsDefaults()
 end
 
 function Rebind:_showDiff(file, current, book, chain, results, on_apply, row)
+    if row then
+        self:_openDiff(file, current, book, chain, results, on_apply, row)
+        return
+    end
     self:_withCover(current, book, function(attached)
         self:_openDiff(file, current, attached, chain, results, on_apply, row)
     end)

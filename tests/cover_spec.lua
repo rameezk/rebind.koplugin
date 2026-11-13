@@ -53,6 +53,22 @@ T["bytes that do not decode count as no cover"] = function(a)
     a.eq(Cover.check(nil), nil)
 end
 
+T["a cover with an enormous declared size counts as no cover"] = function(a)
+    a.eq(Cover.check(Images.jpeg(10000, 16000)), nil)
+    a.is_true(Cover.check(Images.jpeg(2000, 3000)))
+end
+
+T["fetch refuses a cover url that is not https"] = function(a)
+    local http, transport = nil, nil
+    http, transport = (function()
+        local t = FakeTransport.new({ { when = "img.test", body = Images.jpeg(400, 600) } })
+        return Http.new{ transport = t:fn(), sleep = function() end }, t
+    end)()
+    a.eq(Cover.fetch(http, { url = "http://img.test/a.jpg" }), nil)
+    a.eq(#transport.calls, 0)
+    a.is_true(Cover.fetch(http, { url = "https://img.test/a.jpg" }))
+end
+
 local function client(routes)
     local transport = FakeTransport.new(routes)
     return Http.new{ transport = transport:fn(), sleep = function() end, version = "2.1.0" }, transport
