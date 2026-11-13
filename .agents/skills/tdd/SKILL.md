@@ -29,6 +29,16 @@ Repeat this, one small behaviour at a time:
 
 Keep each cycle small: one seam, one behaviour, one minimal implementation, seconds-to-minutes per loop. Run the suite at every step and see the result before claiming red or green.
 
+## Tests that can only run in CI
+
+Some seams' tests cannot run on the machine you are on - they need hardware or a platform it lacks, such as a VM test on a host without KVM - and the repo's instructions leave them to CI. Their red and green come from CI, never from a local attempt, a narrower substitute, or a skipped red:
+
+1. **Red** - commit the test change alone and push it on a draft pull request. Watch CI until that test fails, and fails for the right reason.
+2. **Green** - commit the simplest implementation, push it, and watch CI until the test passes.
+3. **Refactor** - as usual, with each push watched until CI is green again.
+
+The CI run is the run: it is what lets you claim red or green for such a test. When the test fails in CI and its log does not say why, make the test report more - fuller assertion messages, the output it saw - and push again, rather than trying to run it locally.
+
 ## Refactor and consolidate the slice
 
 Refactor is the beat runs most often drop. On every green, with the suite passing, clean up **the slice you just wrote** - the code you touched this cycle and the test(s) you just added. Keep it local; a change that reaches across modules or reshapes the whole feature is not this beat's job (see Scope below).
@@ -54,7 +64,7 @@ Always start a bug fix with a failing test that reproduces the bug **end-to-end,
 
 - NEVER write production code without a failing test that demands it. If you catch yourself writing uncovered code, stop and write the test first.
 - Do not delete or weaken an assertion to force green. Fix the code, or fix a test that was genuinely wrong - and say which.
-- Run the tests at every step. Never claim red or green without having run the suite and seen the result.
+- Run the tests at every step. Never claim red or green without having run the suite and seen the result. For a test that can only run in CI, that run is CI's.
 - If an existing, unrelated test starts failing during a change, stop and report. Do not silently edit unrelated tests to make the suite pass.
 - Run single test files as you go for speed; run the full suite once the feature is complete, and report that final run.
 
