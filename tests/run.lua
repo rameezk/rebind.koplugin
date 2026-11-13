@@ -10,6 +10,7 @@ local assertions = require("tests/support/assert")
 local specs = {
     "tests/apply_spec",
     "tests/batch_spec",
+    "tests/cover_spec",
     "tests/epub_spec",
     "tests/fields_spec",
     "tests/hardcover_spec",

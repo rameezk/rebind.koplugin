@@ -174,6 +174,7 @@ make emulator-stop      # stop it
 | Path | Tested by | Notes |
 |------|-----------|-------|
 | `rebind/epub.lua` | `tests/epub_spec.lua` | OPF editing, metadata/ISBN extraction |
+| `rebind/cover.lua` | `tests/cover_spec.lua` | Cover quality filter and download |
 | `rebind/hardcover.lua` | `tests/hardcover_spec.lua` | Hardcover lookup and extraction |
 | `rebind/organize.lua` | `tests/organize_spec.lua` | Destination path logic |
 | `rebind/translate.lua` | `tests/translate_spec.lua` | Language targets, batching, text chunking |

@@ -25,6 +25,7 @@ local ReviewList = require("rebind/ui/reviewlist")
 local SaveAs = require("rebind/ui/saveas")
 local Apply = require("rebind/apply")
 local Batch = require("rebind/batch")
+local Cover = require("rebind/cover")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local HardcoverProvider = require("rebind/providers/hardcover")
@@ -734,14 +735,32 @@ function Rebind:_translateText(text, target)
     return table.concat(parts)
 end
 
+function Rebind:_withCover(current, book, done)
+    if not (book and book.cover and current.has_cover == false) then
+        done(book)
+        return
+    end
+    NetworkMgr:runWhenOnline(function()
+        Trapper:wrap(function()
+            Trapper:info(_("Loading the cover…"))
+            local attached = Cover.attach(Http.new{ version = self.version }, book)
+            Trapper:clear()
+            done(attached)
+        end)
+    end)
+end
+
 function Rebind:_useSource(picker, current, shown, source)
-    local proposed = source or {}
-    shown.proposed = proposed
-    picker:setFields(
-        Fields.build(current, proposed),
-        proposed.edition_id and Labels.header_label(proposed) or nil,
-        proposed.provider_name
-    )
+    shown.proposed = source or {}
+    self:_withCover(current, source, function(attached)
+        local proposed = attached or {}
+        shown.proposed = proposed
+        picker:setFields(
+            Fields.build(current, proposed),
+            proposed.edition_id and Labels.header_label(proposed) or nil,
+            proposed.provider_name
+        )
+    end)
 end
 
 function Rebind:_runLookup(shown, search, on_results)
@@ -985,6 +1004,12 @@ function Rebind:_saveAsDefaults()
 end
 
 function Rebind:_showDiff(file, current, book, chain, results, on_apply, row)
+    self:_withCover(current, book, function(attached)
+        self:_openDiff(file, current, attached, chain, results, on_apply, row)
+    end)
+end
+
+function Rebind:_openDiff(file, current, book, chain, results, on_apply, row)
     local proposed = book or {}
     local shown = { book = book, proposed = proposed, results = results or {} }
     if not (row and row.save_as) then

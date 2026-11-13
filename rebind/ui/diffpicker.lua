@@ -27,6 +27,7 @@ local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
 local CloseIcon = require("rebind/ui/closeicon")
+local CoverTiles = require("rebind/ui/covertiles")
 local PickerState = require("rebind/picker_state")
 local SaveAs = require("rebind/ui/saveas")
 local TapRow = require("rebind/ui/taprow")
@@ -86,7 +87,35 @@ function DiffPicker:_selected_value(field)
     return self.state:selected_value(field)
 end
 
+function DiffPicker:_cover_block(field, width)
+    local inner = width - 2 * Size.padding.default
+    local group = VerticalGroup:new{ align = "left" }
+    table.insert(group, TextWidget:new{
+        text = field.label,
+        face = Font:getFace("tfont", 18),
+        max_width = inner,
+    })
+    table.insert(group, VerticalSpan:new{ width = sc(6) })
+    table.insert(group, CoverTiles.new{
+        width = inner,
+        options = self.state:values(field.key),
+        on_select = function(option)
+            self.state:select(field.key, option.id)
+            self:_refresh()
+        end,
+    })
+    table.insert(group, VerticalSpan:new{ width = sc(6) })
+    return FrameContainer:new{
+        bordersize = 0,
+        padding = Size.padding.default,
+        group,
+    }
+end
+
 function DiffPicker:_field_block(field, width)
+    if field.kind == "image" then
+        return self:_cover_block(field, width)
+    end
     local group = VerticalGroup:new{ align = "left" }
 
     local edit_w = sc(96)
