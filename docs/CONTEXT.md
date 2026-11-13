@@ -37,7 +37,7 @@ A Match that is safe to write without opening the Picker.
 _Avoid_: confident match, auto match
 
 **Field**:
-One piece of metadata Rebind can write: Title, Author(s), Series, Genre(s), Language, Publisher, Description or First published.
+One piece of metadata Rebind can write: Cover, Title, Author(s), Series, Genre(s), Language, Publisher, Description or First published.
 _Avoid_: tag, property
 
 **First published**:
@@ -78,6 +78,10 @@ _Avoid_: file, move
 
 **Backup**:
 The `.rebind.bak` copy of the original EPUB taken before it is replaced.
+
+**Original cover**:
+The cover a book had before Rebind first changed it, kept inside the EPUB so it can be restored. For a book that had no cover, it is the absence of one.
+_Avoid_: old cover, previous cover
 
 **Filename template**:
 The user-chosen pattern a book's file is renamed to, built from Tokens.
