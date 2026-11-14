@@ -547,8 +547,8 @@ T["a cover that cannot be read still counts as the book's cover and stays select
     a.eq(state:values("cover")[1].text, "cover")
 end
 
-T["the cover field is hidden when the book already has the cover set from the same source"] = function(a)
-    local _, fields = with_cover_state({ cover_source = "https://assets.test/dune.jpg", original_cover = "none" })
+T["the cover field is hidden when the book already has the cover set from the same source and nothing to restore"] = function(a)
+    local _, fields = with_cover_state({ cover_source = "https://assets.test/dune.jpg" })
     a.eq(field_for(fields, "cover"), nil)
 end
 
@@ -596,8 +596,92 @@ end
 T["the cover field stays when the same source cover has a kept original or another source"] = function(a)
     local _, kept = with_cover_state({ cover_source = "https://assets.test/dune.jpg", original_cover = "cover" })
     a.eq(field_for(kept, "cover").key, "cover")
-    local _, other = with_cover_state({ cover_source = "https://assets.test/other.jpg", original_cover = "none" })
+    local _, other = with_cover_state({ cover_source = "https://assets.test/other.jpg" })
     a.eq(field_for(other, "cover").key, "cover")
+end
+
+local function replaced_state(current_overrides, proposed_overrides)
+    local current = {
+        title = "Same Title",
+        has_cover = true,
+        cover_image = Cover.describe(Images.jpeg(400, 600, 4000)),
+        cover_source = "https://assets.test/old.jpg",
+        original_cover = "cover",
+        original_cover_image = Cover.describe(Images.jpeg(300, 450, 3000)),
+    }
+    for k, v in pairs(current_overrides or {}) do
+        current[k] = v
+    end
+    local fields = Fields.build(current, proposed(proposed_overrides or { cover_image = cover_image() }))
+    return PickerState.new(fields, "Hardcover"), fields
+end
+
+T["a replaced cover offers the book, the original and the provider cover in that order"] = function(a)
+    local state = replaced_state()
+    a.eq(tags_of(state, "cover"), "book,original,Hardcover")
+    local options = state:values("cover")
+    a.eq(options[2].id, "original")
+    a.eq(options[2].text, "300×450")
+    a.eq(options[2].image.width, 300)
+    a.eq(options[2].selected, false)
+    a.eq(state:selection("cover"), "current")
+end
+
+T["the original is offered when the provider has no cover"] = function(a)
+    local state, fields = replaced_state(nil, {})
+    a.eq(fields[1].key, "cover")
+    a.eq(state:differing_fields()[1].key, "cover")
+    a.eq(tags_of(state, "cover"), "book,original")
+    a.eq(state:selection("cover"), "current")
+    a.eq(state:changes().cover, nil)
+    a.eq(state:changes().restore_cover, nil)
+end
+
+T["selecting the original counts as a change and restores it on apply"] = function(a)
+    local state = replaced_state()
+    local before = state:change_count()
+    state:select("cover", "original")
+    a.eq(state:change_count(), before + 1)
+    a.eq(state:changes().restore_cover, true)
+    a.eq(state:changes().cover, nil)
+    a.eq(state:apply_label(), "Apply " .. state:change_count() .. " changes")
+    a.eq(state:status_line(), "Hardcover values: 6 · Original cover: 1")
+    a.is_true(state:needs_discard_prompt())
+end
+
+T["the original of a book that had no cover reads no cover and has no image"] = function(a)
+    local state = replaced_state({ original_cover = "none", original_cover_image = false })
+    local original = state:values("cover")[2]
+    a.eq(original.tag, "original")
+    a.eq(original.text, "no cover")
+    a.eq(original.image, nil)
+    state:select("cover", "original")
+    a.eq(state:changes().restore_cover, true)
+end
+
+T["an original that cannot be read is still offered as a cover"] = function(a)
+    local state = replaced_state({ original_cover_image = false })
+    a.eq(state:values("cover")[2].text, "cover")
+end
+
+T["the bulk button moves a restored cover back to the book values"] = function(a)
+    local state = replaced_state()
+    state:select("cover", "original")
+    state:bulk()
+    a.eq(state:selection("cover"), "current")
+end
+
+T["a book without a kept original never offers one"] = function(a)
+    local state = with_cover_state()
+    a.eq(tags_of(state, "cover"), "book,Hardcover")
+    a.eq(state:changes().restore_cover, nil)
+end
+
+T["the same source cover still shows the cover field with the original, even when that is no cover"] = function(a)
+    local state = replaced_state({ cover_source = "https://assets.test/dune.jpg", cover_image = cover_image() })
+    a.eq(tags_of(state, "cover"), "book,original")
+    state = replaced_state({ cover_source = "https://assets.test/dune.jpg", cover_image = cover_image(), original_cover = "none", original_cover_image = false })
+    a.eq(tags_of(state, "cover"), "book,original")
 end
 
 return T

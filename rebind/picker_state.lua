@@ -58,7 +58,7 @@ function PickerState:has_bulk()
 end
 
 function PickerState:_listed(field)
-    return self:manual() or self:_differs(field) or self.extra[field.key] ~= nil
+    return self:manual() or self:_differs(field) or self.extra[field.key] ~= nil or field.original_value ~= nil
 end
 
 function PickerState:differing_fields()
@@ -148,6 +148,7 @@ end
 local SOURCE_ORDER = {
     { choice = "new", label = function(self) return self:provider_label() end },
     { choice = "current", label = function() return _("Book values") end },
+    { choice = "original", label = function() return _("Original cover") end },
     { choice = "custom", label = function() return _("Custom values") end },
     { choice = "translated", label = function() return _("Translated values") end },
     { choice = "removed", label = function() return _("Removed") end },
@@ -225,6 +226,9 @@ function PickerState:values(key)
         }
     end
     add("current", "book", field.current_value)
+    if field.original_value ~= nil then
+        add("original", "original", field.original_value)
+    end
     if self:_differs(field) then
         add("new", self.provider_name, field.new_value)
     end
@@ -295,6 +299,8 @@ function PickerState:selected_value(field)
         return self.extra[field.key].raw
     elseif sel == "new" then
         return field.new_value
+    elseif sel == "original" then
+        return field.original_value
     end
     return field.current_value
 end
