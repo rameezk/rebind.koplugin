@@ -900,6 +900,19 @@ T["restoring refuses an original that is the file Rebind is dropping"] = functio
     a.is_true(err)
 end
 
+T["rewrite restores a cover page to an original whose name needs escaping"] = function(a)
+    local opf = OPF3_COVER_PAGE:gsub("images/cover.jpg", "images/my%%20o%%27c%%22.jpg")
+    local first = Epub._edit_opf(opf, { cover = NEW_COVER }, "OEBPS/content.opf")
+    seed_cover_book(first, '<html><img src="../rebind-cover.jpg"/></html>')
+    _G.__TEST_FS["OEBPS/images/my o'c\".jpg"] = OLD_IMAGE
+    table.insert(_G.__TEST_ORDER, "OEBPS/rebind-cover.jpg")
+    _G.__TEST_FS["OEBPS/rebind-cover.jpg"] = NEW_COVER.bytes
+    local ok, files = rewrite_book({ restore_cover = true })
+    unseed()
+    a.is_true(ok)
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../images/my%20o%27c%22.jpg"')
+end
+
 T["a manifest item that only borrows Rebind's cover id is never dropped from the archive"] = function(a)
     local opf = opf_with_manifest(
         '<item id="rebind-cover" href="chapter3.xhtml" media-type="image/jpeg" properties="cover-image"/>'

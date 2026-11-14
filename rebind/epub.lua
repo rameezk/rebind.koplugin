@@ -728,12 +728,18 @@ local function repoint_tag(tag, page_dir, from, new_ref)
     return tag
 end
 
+local function escape_href(path)
+    return (path:gsub("[^%w%-%._~/]", function(char)
+        return string.format("%%%02X", char:byte())
+    end))
+end
+
 local function repoint_page(content, page_path, from, to)
     if not from or #content > MAX_PAGE_BYTES then
         return content
     end
     local page_dir = dirname_of(page_path)
-    local new_ref = relative(page_dir, to)
+    local new_ref = escape_href(relative(page_dir, to))
     local out, pos, close = {}, 1, nil
     while true do
         local open = content:find("<", pos, true)
