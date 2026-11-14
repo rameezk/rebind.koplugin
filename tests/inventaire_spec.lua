@@ -343,8 +343,8 @@ T["an edition's image comes before the book's and the book's fills in when it ha
     a.eq(by_id["wd:Q56611488"].cover.url, image_url("8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd"))
 end
 
-T["an image that is not an inventaire path or an https url is not proposed"] = function(a)
-    for _i, url in ipairs({ '"http://x.test/a.jpg"', '"//x.test/a.jpg"', '"../a.jpg"', '"img/a.jpg"', "5", '""' }) do
+T["an image that is not an inventaire path is not proposed"] = function(a)
+    for _i, url in ipairs({ '"https://x.test/a.jpg"', '"https://inventaire.io/img/entities/abc"', '"http://x.test/a.jpg"', '"//x.test/a.jpg"', '"../a.jpg"', '"img/a.jpg"', "5", '""' }) do
         local routes = curee_routes()
         table.insert(routes, 1, {
             when = "attributes=claims|labels|image&uris=wd:Q962265",

@@ -89,14 +89,8 @@ end
 local function cover_of(entity)
     local image = type(entity) == "table" and entity.image
     local url = type(image) == "table" and image.url
-    if type(url) ~= "string" then
-        return nil
-    end
-    if url:find("^/img/entities/[%w]+$") then
+    if type(url) == "string" and url:find("^/img/entities/%w+$") then
         return { url = SITE .. url }
-    end
-    if url:find("^https://[%w%-%.]+/") then
-        return { url = url }
     end
     return nil
 end
