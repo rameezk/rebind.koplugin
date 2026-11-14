@@ -25,9 +25,18 @@ local function sc(v)
     return Screen:scaleBySize(v)
 end
 
+local function fitted_size(image, width, height)
+    local scale = math.min(width / image.width, height / image.height)
+    return math.max(1, math.floor(image.width * scale)), math.max(1, math.floor(image.height * scale))
+end
+
 local function thumbnail(option, width, height)
     local image = option.image
-    local bb = image and image.bytes and RenderImage:renderImageData(image.bytes, #image.bytes, false, width, height)
+    local fit_w, fit_h
+    if image and image.width and image.height then
+        fit_w, fit_h = fitted_size(image, width, height)
+    end
+    local bb = image and image.bytes and RenderImage:renderImageData(image.bytes, #image.bytes, false, fit_w, fit_h)
     if bb then
         return CenterContainer:new{
             dimen = Geom:new{ w = width, h = height },
