@@ -7,7 +7,8 @@ Provider.id = "inventaire"
 Provider.name = "Inventaire"
 Provider.picks_by_language = true
 
-local API = "https://inventaire.io/api/"
+local SITE = "https://inventaire.io"
+local API = SITE .. "/api/"
 local SEARCH_URL = API .. "search"
 local BY_URIS_URL = API .. "entities/by-uris"
 local REVERSE_CLAIMS_URL = API .. "entities/reverse-claims"
@@ -85,6 +86,15 @@ local function language_code(language)
     return code
 end
 
+local function cover_of(entity)
+    local image = type(entity) == "table" and entity.image
+    local url = type(image) == "table" and image.url
+    if type(url) == "string" and url:find("^/img/entities/%w+$") then
+        return { url = SITE .. url }
+    end
+    return nil
+end
+
 local function uris_of(entity, property, limit)
     local uris = {}
     for _i, uri in ipairs(claim(entity, property)) do
@@ -153,7 +163,7 @@ function Provider:_entities(uris, attributes)
 end
 
 function Provider:_books(uris, language)
-    local works = self:_entities(uris, "claims|labels")
+    local works = self:_entities(uris, "claims|labels|image")
     local refs = {}
     for _i, uri in ipairs(uris) do
         for _j, property in ipairs({ AUTHOR, GENRE, SERIES }) do
@@ -179,6 +189,7 @@ function Provider:_books(uris, language)
                 series = series,
                 series_index = series and tonumber(claim(work, SERIES_ORDINAL)[1]) or nil,
                 genres = labels_for(uris_of(work, GENRE, REF_LIMITS[GENRE]), labels, language),
+                cover = cover_of(work),
                 first_published = year,
                 release_year = year,
                 ref = { work_uri = uri },
@@ -226,6 +237,7 @@ function Provider:_edition_matches(editions, book, language)
         match.publisher = publishers[i] and label_of(labels[publishers[i]], language) or nil
         match.language = code or nil
         match.release_year = published or book.release_year
+        match.cover = cover_of(edition) or book.cover
         match.ref = { work_uri = book.ref.work_uri, edition_uri = edition.uri }
         matches[#matches + 1] = match
     end
@@ -236,7 +248,7 @@ function Provider:_find_by_isbn(meta, language)
     for _i, isbn in ipairs({ meta.isbn_13 or false, meta.isbn_10 or false }) do
         local digits = isbn and tostring(isbn):gsub("[%s%-]", ""):upper()
         if digits and valid_uri("isbn:" .. digits) then
-            local data = self:_get(BY_URIS_URL, { uris = "isbn:" .. digits, attributes = "claims" })
+            local data = self:_get(BY_URIS_URL, { uris = "isbn:" .. digits, attributes = "claims|image" })
             local uri, edition = next(type(data.entities) == "table" and data.entities or {})
             local work_uri = entity_uri(uri) and type(edition) == "table" and uris_of(edition, EDITION_OF, 1)[1]
             local book = work_uri and self:_books({ work_uri }, language)[1]
@@ -317,7 +329,7 @@ function Provider:_scan(match, language)
             uris[#uris + 1] = uri
         end
     end
-    local entities = self:_entities(uris, "claims")
+    local entities = self:_entities(uris, "claims|image")
     local editions = {}
     for _i, uri in ipairs(uris) do
         if entities[uri] then

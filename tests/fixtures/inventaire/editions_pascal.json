@@ -73,6 +73,9 @@
         "wdt:P2969": [
           "956702"
         ]
+      },
+      "image": {
+        "url": "/img/entities/e66168253365ece84af8e3dd6484d40ecbc21e87"
       }
     },
     "inv:1a7f52e957a6a9a8a554dcad8534f766": {
@@ -103,6 +106,9 @@
         "wdt:P629": [
           "wd:Q663632"
         ]
+      },
+      "image": {
+        "url": "/img/entities/0b7cbb8defcb4fe2fcdeeb58406264844907cf5e"
       }
     },
     "inv:23c589d1f28ca8666ae5f4cd970c5dd0": {
@@ -148,6 +154,9 @@
         "wdt:P2969": [
           "2696816"
         ]
+      },
+      "image": {
+        "url": "/img/entities/707be1848bdde966dba5c07c4c80a64cac235cc4"
       }
     },
     "inv:6105aa0bcdd32945f7b4f261bd8ad8be": {
@@ -178,6 +187,9 @@
         "wdt:P629": [
           "wd:Q663632"
         ]
+      },
+      "image": {
+        "url": "/img/entities/b90876d39deb8663a6c4660ebe51f9098b035b6c"
       }
     },
     "inv:6e59f968a1cd00dbedeb1964de62e05f": {
@@ -208,6 +220,9 @@
         "wdt:P577": [
           "1980"
         ]
+      },
+      "image": {
+        "url": "/img/entities/1173e32988258dd0053fa2abb672ed8038ee4982"
       }
     },
     "inv:8b01899c973a0ff4d172f42390a11f41": {
@@ -247,6 +262,9 @@
         "wdt:P648": [
           "OL32063620M"
         ]
+      },
+      "image": {
+        "url": "/img/entities/29ebd8c3b939fd8bba0bc5f40d128842fc725194"
       }
     }
   },

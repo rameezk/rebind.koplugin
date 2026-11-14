@@ -8,13 +8,14 @@ Provider.name = "Open Library"
 Provider.picks_by_language = true
 
 local SEARCH_URL = "https://openlibrary.org/search.json"
+local COVER_URL = "https://covers.openlibrary.org/b/id/%d-L.jpg?default=false"
 local SEARCH_LIMIT = 5
 
 local FIELDS = table.concat({
     "key", "title", "author_name", "first_publish_year", "subject", "place", "person", "time",
-    "series_name", "series_position",
+    "series_name", "series_position", "cover_i",
     "editions", "editions.key", "editions.title", "editions.language", "editions.publisher",
-    "editions.publish_date", "editions.ebook_access",
+    "editions.publish_date", "editions.ebook_access", "editions.cover_i",
 }, ",")
 
 local MARC_TO_ISO = {
@@ -59,6 +60,14 @@ local function year_of(value)
         return nil
     end
     return value:match("%f[%d]%d%d%d%d%f[%D]")
+end
+
+local function cover_of(record)
+    local id = type(record) == "table" and tonumber(record.cover_i) or nil
+    if not id or id <= 0 or id >= 1e12 or id ~= math.floor(id) then
+        return nil
+    end
+    return { url = string.format(COVER_URL, id) }
 end
 
 local function key_id(key)
@@ -139,6 +148,7 @@ function Provider:_neutral(doc, edition)
         series = first_string(doc.series_name),
         series_index = series_index,
         genres = Provider.genres(doc),
+        cover = cover_of(doc),
         first_published = year_of(doc.first_publish_year),
         release_year = year_of(doc.first_publish_year),
         ref = { work_key = work_key, edition = edition },
@@ -151,6 +161,7 @@ function Provider:_neutral(doc, edition)
         match.edition_format = EBOOK_ACCESS[edition.ebook_access] and "E-Book" or nil
         match.release_year = year_of(first_string(edition.publish_date)) or match.release_year
         match.language = language_of(edition)
+        match.cover = cover_of(edition) or match.cover
     end
     return match
 end

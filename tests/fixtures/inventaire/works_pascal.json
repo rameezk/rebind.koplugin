@@ -73,6 +73,9 @@
         "uk": "Доктор Паскаль",
         "cs": "Doktor Pascal",
         "ur": "لے ڈاکٹر پاسکل"
+      },
+      "image": {
+        "url": "/img/entities/e66168253365ece84af8e3dd6484d40ecbc21e87"
       }
     },
     "inv:ffdf39bf868b538fa59f1f53cae44d26": {
@@ -101,6 +104,9 @@
       },
       "labels": {
         "fr": "La Brigade chimérique III : L'Homme cassé - Bon anniversaire docteur Séverac"
+      },
+      "image": {
+        "url": "/img/entities/ac6ff5d6954343ba98db0129963f48865c021831"
       }
     },
     "inv:36829e21389c27c629a3181e31dba318": {
@@ -116,6 +122,9 @@
       },
       "labels": {
         "fr": "Et si c'était niais ?"
+      },
+      "image": {
+        "url": "/img/entities/45a28d125ac82732a3ff805c83966616ea5bedb5"
       }
     },
     "inv:9f88ec825979fd6543e08ae0fed32f5d": {
@@ -134,6 +143,9 @@
       },
       "labels": {
         "fr": "Mélatonine"
+      },
+      "image": {
+        "url": "/img/entities/a27f456829119f41298da159b3f2a2fe0003bf46"
       }
     },
     "inv:f0bea439fbe350c0e00178a12c795424": {
@@ -149,6 +161,9 @@
       },
       "labels": {
         "fr": "L'élégance du maigrichon"
+      },
+      "image": {
+        "url": "/img/entities/4125579b0a3906d85538a741822ae24b9a765db8"
       }
     }
   },

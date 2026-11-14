@@ -1,4 +1,6 @@
+local Cover = require("rebind/cover")
 local Http = require("rebind/http")
+local Images = require("tests/support/images")
 local Lookup = require("rebind/lookup")
 local OpenLibrary = require("rebind/providers/openlibrary")
 local FakeTransport = require("tests/support/fake_transport")
@@ -228,6 +230,75 @@ T["a failing request while picking an edition raises so the caller can fall back
     local match = first_match(provider, { title = "Harry Potter and the Philosopher's Stone" })
     local ok = pcall(provider.pick_edition, provider, match, "en")
     a.eq(ok, false)
+end
+
+local function cover_url(id)
+    return "https://covers.openlibrary.org/b/id/" .. id .. "-L.jpg?default=false"
+end
+
+T["the search asks for the cover ids in the same request"] = function(a)
+    local provider, transport = setup({ { when = "title=Dune", file = "search_dune.json" } })
+    first_match(provider, { title = "Dune" })
+    a.eq(#transport.calls, 1)
+    a.contains(transport.calls[1].decoded, "cover_i")
+    a.contains(transport.calls[1].decoded, "editions.cover_i")
+end
+
+T["a search match proposes the book's cover"] = function(a)
+    local provider = setup({ { when = "title=Dune", file = "search_dune.json" } })
+    a.eq(first_match(provider, { title = "Dune" }).cover.url, cover_url(11481354))
+end
+
+T["an edition cover is proposed before the book's"] = function(a)
+    local provider = setup({ { when = "isbn:" .. ISBN, file = "isbn_dune.json" } })
+    a.eq(first_match(provider, { isbn_13 = ISBN }).cover.url, cover_url(14856017))
+end
+
+T["an edition without a cover proposes the book's"] = function(a)
+    local provider = setup({
+        { when = "title=Harry", file = "search_harry_potter.json" },
+        { when = "key:\"/works/OL82563W\"", file = "editions_mixed.json" },
+    })
+    local match = first_match(provider, { title = "Harry Potter and the Philosopher's Stone" })
+    local by_id = {}
+    for _i, edition in ipairs(provider:editions(match, nil)) do
+        by_id[edition.edition_id] = edition
+    end
+    a.eq(by_id.OL59004869M.cover.url, cover_url(15159585))
+    a.eq(by_id.OL8005728M.cover.url, cover_url(15155833))
+end
+
+T["a match with no cover id proposes no cover"] = function(a)
+    local body = '{"numFound":1,"docs":[{"key":"/works/OL1W","title":"A Book"}]}'
+    local provider = setup({ { when = "title=", body = body } })
+    a.eq(first_match(provider, { title = "A Book" }).cover, nil)
+end
+
+T["a cover id that is not a plain number is not proposed"] = function(a)
+    for _i, id in ipairs({ '"../x"', "1e30", "-5", "1.5" }) do
+        local body = '{"numFound":1,"docs":[{"key":"/works/OL1W","title":"A Book","cover_i":' .. id .. '}]}'
+        local provider = setup({ { when = "title=", body = body } })
+        a.eq(first_match(provider, { title = "A Book" }).cover, nil)
+    end
+end
+
+T["the proposed cover downloads and passes the filter"] = function(a)
+    local provider, transport = setup({
+        { when = "title=Dune", file = "search_dune.json" },
+        { when = "covers.openlibrary.org/b/id/11481354-L.jpg", body = Images.jpeg(400, 600) },
+    })
+    local cover = Cover.fetch(provider.http, first_match(provider, { title = "Dune" }).cover)
+    a.eq(cover.width, 400)
+    a.eq(cover.url, cover_url(11481354))
+    a.contains(transport.calls[2].decoded, "default=false")
+end
+
+T["no image for the cover id means no cover, not a placeholder"] = function(a)
+    local provider = setup({
+        { when = "title=Dune", file = "search_dune.json" },
+        { when = "covers.openlibrary.org", status = 404 },
+    })
+    a.eq(Cover.fetch(provider.http, first_match(provider, { title = "Dune" }).cover), nil)
 end
 
 return T

@@ -1,4 +1,6 @@
+local Cover = require("rebind/cover")
 local Http = require("rebind/http")
+local Images = require("tests/support/images")
 local Lookup = require("rebind/lookup")
 local Inventaire = require("rebind/providers/inventaire")
 local FakeTransport = require("tests/support/fake_transport")
@@ -7,8 +9,8 @@ local T = {}
 
 local CUREE_ISBN = "9782218958847"
 
-local WORKS_CUREE = "attributes=claims|labels&uris=wd:Q962265|wd:Q3208037"
-local WORKS_PASCAL = "attributes=claims|labels&uris=wd:Q663632|"
+local WORKS_CUREE = "attributes=claims|labels|image&uris=wd:Q962265|wd:Q3208037"
+local WORKS_PASCAL = "attributes=claims|labels|image&uris=wd:Q663632|"
 
 local function setup(routes)
     local transport = FakeTransport.new(routes, "inventaire")
@@ -61,8 +63,8 @@ end
 
 local function isbn_routes()
     return {
-        { when = "uris=isbn:" .. CUREE_ISBN, file = "isbn_curee.json" },
-        { when = "attributes=claims|labels&uris=wd:Q962265", file = "work_curee.json" },
+        { when = "attributes=claims|image&uris=isbn:" .. CUREE_ISBN, file = "isbn_curee.json" },
+        { when = "attributes=claims|labels|image&uris=wd:Q962265", file = "work_curee.json" },
         { when = "attributes=labels&uris=", file = "labels_curee_isbn.json" },
         { when = "attributes=claims&uris=wd:Q150", file = "languages_curee.json" },
     }
@@ -102,7 +104,7 @@ end
 local function edition_routes()
     local routes = {
         { when = "reverse-claims", file = "editions_uris_curee.json" },
-        { when = "attributes=claims&uris=wd:Q56611488", file = "editions_curee.json" },
+        { when = "attributes=claims|image&uris=wd:Q56611488", file = "editions_curee.json" },
         { when = "attributes=claims&uris=wd:Q1860", file = "languages_curee.json" },
         { when = "attributes=labels&uris=wd:Q3128309", file = "publishers_curee_fr.json" },
         { when = "attributes=labels&uris=wd:Q1629027", file = "publishers_curee_fr.json" },
@@ -149,7 +151,7 @@ local function pascal_routes()
         { when = WORKS_PASCAL, file = "works_pascal.json" },
         { when = "attributes=labels&uris=", file = "labels_pascal.json" },
         { when = "reverse-claims", file = "editions_uris_pascal.json" },
-        { when = "attributes=claims&uris=wd:Q42396857", file = "editions_pascal.json" },
+        { when = "attributes=claims|image&uris=wd:Q42396857", file = "editions_pascal.json" },
         { when = "attributes=claims&uris=wd:Q150", file = "languages_pascal.json" },
     }
 end
@@ -286,7 +288,7 @@ end
 
 T["an entity that is not an object is ignored instead of failing the lookup"] = function(a)
     local routes = edition_routes()
-    table.insert(routes, 1, { when = "attributes=claims&uris=wd:Q56611488", body = '{"entities":{"wd:Q56611488":"x"}}' })
+    table.insert(routes, 1, { when = "attributes=claims|image&uris=wd:Q56611488", body = '{"entities":{"wd:Q56611488":"x"}}' })
     local provider = setup(routes)
     local ok, edition = pcall(provider.pick_edition, provider, curee_book(provider), "fr")
     a.eq(ok, true)
@@ -300,7 +302,7 @@ T["only as many search results as were asked for are looked up"] = function(a)
     end
     local provider, transport = setup({
         { when = "api/search", body = '{"results":[' .. table.concat(results, ",") .. ']}' },
-        { when = "attributes=claims|labels", file = "works_curee.json" },
+        { when = "attributes=claims|labels|image", file = "works_curee.json" },
     })
     lookup(provider, { title = "Book" })
     local asked = transport.calls[2].decoded:match("uris=(.*)$")
@@ -314,6 +316,50 @@ T["a uri longer than any real entity uri is never put into a request"] = functio
     })
     a.eq(#lookup(provider, { title = "Book" }).matches, 0)
     a.eq(#transport.calls, 1)
+end
+
+local function image_url(hash)
+    return "https://inventaire.io/img/entities/" .. hash
+end
+
+T["a book proposes its image as a full url"] = function(a)
+    local provider = setup(curee_routes())
+    a.eq(curee_book(provider).cover.url, image_url("8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd"))
+end
+
+T["an isbn match proposes its edition's image"] = function(a)
+    local provider = setup(isbn_routes())
+    local match = lookup(provider, { isbn_13 = CUREE_ISBN, title = "La Curée" }).matches[1]
+    a.eq(match.cover.url, image_url("9cae9b708982d7743dc52ccc28ea4b4e558cf3c5"))
+end
+
+T["an edition's image comes before the book's and the book's fills in when it has none"] = function(a)
+    local provider = setup(edition_routes())
+    local by_id = {}
+    for _i, edition in ipairs(provider:editions(curee_book(provider), nil)) do
+        by_id[edition.edition_id] = edition
+    end
+    a.eq(by_id["inv:fee7944f22dfef2a2cf0e48e43bce761"].cover.url, image_url("9cae9b708982d7743dc52ccc28ea4b4e558cf3c5"))
+    a.eq(by_id["wd:Q56611488"].cover.url, image_url("8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd"))
+end
+
+T["an image that is not an inventaire path is not proposed"] = function(a)
+    for _i, url in ipairs({ '"https://x.test/a.jpg"', '"https://inventaire.io/img/entities/abc"', '"http://x.test/a.jpg"', '"//x.test/a.jpg"', '"../a.jpg"', '"img/a.jpg"', "5", '""' }) do
+        local routes = curee_routes()
+        table.insert(routes, 1, {
+            when = "attributes=claims|labels|image&uris=wd:Q962265",
+            body = '{"entities":{"wd:Q962265":{"claims":{},"labels":{"fr":"La Curée"},"image":{"url":' .. url .. '}}}}',
+        })
+        a.eq(curee_book(setup(routes)).cover, nil)
+    end
+end
+
+T["the proposed image downloads and passes the filter"] = function(a)
+    local routes = curee_routes()
+    routes[#routes + 1] = { when = "inventaire.io/img/entities/8ee29d2db", body = Images.jpeg(400, 600) }
+    local provider = setup(routes)
+    local cover = Cover.fetch(provider.http, curee_book(provider).cover)
+    a.eq(cover.height, 600)
 end
 
 return T
