@@ -1176,6 +1176,7 @@ function Rebind:_startBatch(files, choose_screen)
             end,
             files = files,
             chain = self:providerChain(),
+            http = Http.new{ version = self.version },
             preferred_language = self.settings:readSetting("preferred_language"),
             save_as = self:_saveAsDefaults(),
             open_file = self:currentFile(),
