@@ -1,4 +1,5 @@
 local Archiver = require("ffi/archiver")
+local Cover = require("rebind/cover")
 local SLAXML = require("rebind/vendor/slaxdom")
 
 local DC_NS = "http://purl.org/dc/elements/1.1/"
@@ -426,15 +427,172 @@ local function dirname_of(path)
     return path:match("^(.*)/[^/]*$")
 end
 
-local function add_cover(pkg, metadata, cover, opf_path)
-    if current_cover_item(pkg, metadata) then
-        return nil, "The book already has a cover; replacing it is not supported yet."
+local function unescape(href)
+    return (href:gsub("%%(%x%x)", function(hex)
+        return string.char(tonumber(hex, 16))
+    end))
+end
+
+local function segments(path)
+    local out = {}
+    for part in path:gmatch("[^/]+") do
+        if part == ".." then
+            if #out == 0 then
+                return out, true
+            end
+            out[#out] = nil
+        elseif part ~= "." then
+            out[#out + 1] = part
+        end
     end
+    return out, false
+end
+
+local function resolve(dir, href)
+    local target = unescape((href:gsub("#.*$", "")))
+    if target:find("%z") then
+        return nil
+    end
+    if dir and dir ~= "" then
+        target = dir .. "/" .. target
+    end
+    local parts, escaped = segments(target)
+    if escaped then
+        return nil
+    end
+    return table.concat(parts, "/")
+end
+
+local function relative(from_dir, to)
+    local from, dest = segments(from_dir or ""), segments(to)
+    local shared = 0
+    while shared < #from and shared < #dest - 1 and from[shared + 1] == dest[shared + 1] do
+        shared = shared + 1
+    end
+    local out = {}
+    for _ = shared + 1, #from do
+        out[#out + 1] = ".."
+    end
+    for i = shared + 1, #dest do
+        out[#out + 1] = dest[i]
+    end
+    return table.concat(out, "/")
+end
+
+local function remove_attr(el, name)
+    el.attr[name] = nil
+    for i = #el.attr, 1, -1 do
+        if el.attr[i].name == name and not el.attr[i].nsPrefix then
+            table.remove(el.attr, i)
+        end
+    end
+end
+
+local function drop_property(el, property)
+    local kept = {}
+    for word in tostring(attr_get(el, "properties") or ""):gmatch("%S+") do
+        if word ~= property then
+            kept[#kept + 1] = word
+        end
+    end
+    if #kept == 0 then
+        remove_attr(el, "properties")
+    else
+        attr_set(el, "properties", table.concat(kept, " "))
+    end
+end
+
+local function cover_page_paths(pkg, manifest, dir)
+    local paths = {}
+    local by_id = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        local id = attr_get(item, "id")
+        if id and not by_id[id] then
+            by_id[id] = item
+        end
+    end
+    local function add(href)
+        local path = href and resolve(dir, href)
+        if path then
+            paths[#paths + 1] = path
+        end
+    end
+    local guide = find_child(pkg, "guide")
+    if guide then
+        for _, ref in ipairs(child_elements(guide)) do
+            if attr_get(ref, "type") == "cover" then
+                add(attr_get(ref, "href"))
+            end
+        end
+    end
+    local spine = find_child(pkg, "spine")
+    for index, itemref in ipairs(spine and child_elements(spine) or {}) do
+        local idref = attr_get(itemref, "idref")
+        local item = idref and by_id[idref]
+        local href = item and attr_get(item, "href")
+        if href and (index == 1 or idref:lower():find("cover", 1, true) or href:lower():find("cover", 1, true)) then
+            add(href)
+        end
+    end
+    return paths
+end
+
+local function own_cover_href(href)
+    return href == "rebind-cover.jpg" or href == "rebind-cover.png"
+end
+
+local function set_cover(pkg, metadata, cover, opf_path)
     local manifest = find_child(pkg, "manifest")
     if not manifest then
         return nil, "No <manifest> element in OPF."
     end
+    local opf_dir, escaped = segments(dirname_of(opf_path or "") or "")
+    if escaped or (opf_path or ""):sub(1, 1) == "/" then
+        return nil, "The OPF file is not stored inside the EPUB."
+    end
+    local dir = #opf_dir > 0 and table.concat(opf_dir, "/") or nil
+    local plan = { drop = {}, pages = {} }
+    local recorded = meta_content(metadata, ORIGINAL_META)
+    local previous = current_cover_item(pkg, metadata)
+
     local href = COVER_ID .. "." .. cover.extension
+    plan.to = dir and (dir .. "/" .. href) or href
+
+    local own = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        local item_href = attr_get(item, "href") or ""
+        if attr_get(item, "id") == COVER_ID then
+            if not own_cover_href(item_href) then
+                return nil, "The book's manifest already uses the id Rebind gives its cover."
+            end
+            own[#own + 1] = item
+        elseif resolve(dir, item_href) == plan.to then
+            return nil, "The book already has a file named " .. plan.to .. "."
+        end
+    end
+    for _, item in ipairs(own) do
+        remove_element(manifest, item)
+        plan.drop[resolve(dir, attr_get(item, "href"))] = true
+    end
+    plan.drop[plan.to] = true
+
+    local original = recorded or "none"
+    if previous then
+        plan.from = resolve(dir, attr_get(previous, "href") or "")
+        if attr_get(previous, "id") ~= COVER_ID then
+            drop_property(previous, "cover-image")
+            if not attr_get(previous, "id") then
+                attr_set(previous, "id", "rebind-original-cover")
+            end
+            original = recorded or attr_get(previous, "id")
+        end
+        if plan.from then
+            for _, page in ipairs(cover_page_paths(pkg, manifest, dir)) do
+                plan.pages[page] = true
+            end
+        end
+    end
+
     local attrs = {
         { "id", COVER_ID },
         { "href", href },
@@ -451,10 +609,65 @@ local function add_cover(pkg, metadata, cover, opf_path)
     end)
     append_child(metadata, new_element("meta", nil, { { "name", "cover" }, { "content", COVER_ID } }))
     append_child(metadata, new_element("meta", nil, { { "name", SOURCE_META }, { "content", cover.url or "" } }))
-    append_child(metadata, new_element("meta", nil, { { "name", ORIGINAL_META }, { "content", "none" } }))
+    append_child(metadata, new_element("meta", nil, { { "name", ORIGINAL_META }, { "content", original } }))
 
-    local dir = dirname_of(opf_path or "")
-    return dir and (dir .. "/" .. href) or href
+    return plan.to, plan
+end
+
+local MAX_PAGE_BYTES = 1048576
+local MAX_TAG_BYTES = 4096
+
+local function repoint_tag(tag, page_dir, from, new_ref)
+    local name = tag:match("^<(%a+)")
+    name = name and name:lower()
+    if name ~= "img" and name ~= "image" then
+        return tag
+    end
+    for _, quote in ipairs({ '"', "'" }) do
+        local pattern = "(%s)([%w:]+)(%s*=%s*)(" .. quote .. ")([^" .. quote .. "]*)" .. quote
+        tag = tag:gsub(pattern, function(space, attr, eq, open, value)
+            local lower = attr:lower()
+            if lower == "src" or lower == "href" or lower == "xlink:href" then
+                local target = resolve(page_dir, value)
+                if target and target == from then
+                    return space .. attr .. eq .. open .. new_ref .. open
+                end
+            end
+            return nil
+        end)
+    end
+    return tag
+end
+
+local function repoint_page(content, page_path, from, to)
+    if not from or #content > MAX_PAGE_BYTES then
+        return content
+    end
+    local page_dir = dirname_of(page_path)
+    local new_ref = relative(page_dir, to)
+    local out, pos, close = {}, 1, nil
+    while true do
+        local open = content:find("<", pos, true)
+        if not open then
+            break
+        end
+        if not close or close < open then
+            close = content:find(">", open, true)
+        end
+        if not close then
+            break
+        end
+        out[#out + 1] = content:sub(pos, open - 1)
+        if close - open > MAX_TAG_BYTES then
+            out[#out + 1] = "<"
+            pos = open + 1
+        else
+            out[#out + 1] = repoint_tag(content:sub(open, close), page_dir, from, new_ref)
+            pos = close + 1
+        end
+    end
+    out[#out + 1] = content:sub(pos)
+    return table.concat(out)
 end
 
 local function opf_path_from_container(container)
@@ -499,7 +712,7 @@ local function extract_named(path, names)
     return out
 end
 
-function Epub.read_metadata(path)
+function Epub.read_metadata(path, opts)
     local got, err = extract_named(path, { ["META-INF/container.xml"] = true })
     if not got then
         return nil, err
@@ -542,6 +755,15 @@ function Epub.read_metadata(path)
     end
     local isbn_13, isbn_10 = extract_isbns(metadata)
 
+    local cover_item = current_cover_item(doc.root, metadata)
+    local cover_image
+    if cover_item and opts and opts.cover_image then
+        local cover_path = resolve(dirname_of(opf_path), attr_get(cover_item, "href") or "")
+        if cover_path then
+            cover_image = Cover.describe((extract_named(path, { [cover_path] = true }) or {})[cover_path])
+        end
+    end
+
     return {
         first_published = read_first_published(metadata),
         title = title,
@@ -554,7 +776,8 @@ function Epub.read_metadata(path)
         publisher = publisher,
         isbn_13 = isbn_13,
         isbn_10 = isbn_10,
-        has_cover = current_cover_item(doc.root, metadata) ~= nil,
+        has_cover = cover_item ~= nil,
+        cover_image = cover_image,
         cover_source = meta_content(metadata, SOURCE_META),
         original_cover = meta_content(metadata, ORIGINAL_META),
     }
@@ -600,11 +823,11 @@ local function edit_opf(opf_xml, changes, opf_path)
         end
     end
 
-    local cover_entry
+    local cover_entry, plan
     if changes.cover then
-        cover_entry, err = add_cover(doc.root, metadata, changes.cover, opf_path)
+        cover_entry, plan = set_cover(doc.root, metadata, changes.cover, opf_path)
         if not cover_entry then
-            return nil, err
+            return nil, plan
         end
     end
 
@@ -614,7 +837,7 @@ local function edit_opf(opf_xml, changes, opf_path)
     if not ok or not out then
         return nil, "Could not serialize the edited OPF."
     end
-    return out, cover_entry
+    return out, cover_entry, plan
 end
 
 local function copy_file(src, dst)
@@ -678,6 +901,17 @@ function Epub.rewrite(path, changes, keep_backup)
         return false, "Could not locate the OPF file."
     end
 
+    local got_opf = extract_named(path, { [opf_path] = true })
+    local opf_xml = got_opf and got_opf[opf_path]
+    if not opf_xml then
+        return false, "OPF entry was not found while repacking."
+    end
+    local edited, cover_entry, plan = edit_opf(opf_xml, changes, opf_path)
+    if not edited then
+        return false, cover_entry
+    end
+    plan = plan or { drop = {}, pages = {} }
+
     local reader = open_reader(path)
     if not reader then
         return false, "Could not open EPUB."
@@ -696,39 +930,26 @@ function Epub.rewrite(path, changes, keep_backup)
     writer:setZipCompression("deflate")
 
     local wrote_opf = false
-    local cover_entry
-    local edit_err
     for entry in reader:iterate() do
-        if entry.path ~= "mimetype" and not edit_err then
+        if entry.path ~= "mimetype" and not plan.drop[entry.path] then
             local content = reader:extractToMemory(entry.path)
             if content then
                 if entry.path == opf_path then
-                    local edited, e = edit_opf(content, changes, opf_path)
-                    if edited then
-                        content = edited
-                        cover_entry = e
-                        wrote_opf = true
-                    else
-                        edit_err = e
-                        content = nil
-                    end
+                    content = edited
+                    wrote_opf = true
+                elseif plan.pages[entry.path] then
+                    content = repoint_page(content, entry.path, plan.from, plan.to)
                 end
-                if content then
-                    writer:addFileFromMemory(entry.path, content)
-                end
+                writer:addFileFromMemory(entry.path, content)
             end
         end
     end
-    if cover_entry and not edit_err then
+    if cover_entry then
         writer:addFileFromMemory(cover_entry, changes.cover.bytes)
     end
     writer:close()
     reader:close()
 
-    if edit_err then
-        os.remove(tmp)
-        return false, edit_err
-    end
     if not wrote_opf then
         os.remove(tmp)
         return false, "OPF entry was not found while repacking."

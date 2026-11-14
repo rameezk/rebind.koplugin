@@ -25,16 +25,12 @@ local function sc(v)
     return Screen:scaleBySize(v)
 end
 
-local function fitted_size(image, width, height)
-    local scale = math.min(width / image.width, height / image.height)
-    return math.max(1, math.floor(image.width * scale)), math.max(1, math.floor(image.height * scale))
-end
-
 local function thumbnail(option, width, height)
     local image = option.image
-    local fit_w, fit_h
+    local fit_w, fit_h = width, height
     if image and image.width and image.height then
-        fit_w, fit_h = fitted_size(image, width, height)
+        local scale = math.min(width / image.width, height / image.height)
+        fit_w, fit_h = math.max(1, math.floor(image.width * scale)), math.max(1, math.floor(image.height * scale))
     end
     local bb = image and image.bytes and RenderImage:renderImageData(image.bytes, #image.bytes, false, fit_w, fit_h)
     if bb then
@@ -43,8 +39,8 @@ local function thumbnail(option, width, height)
             ImageWidget:new{
                 image = bb,
                 image_disposable = true,
-                width = width,
-                height = height,
+                width = fit_w,
+                height = fit_h,
                 scale_factor = 0,
             },
         }
