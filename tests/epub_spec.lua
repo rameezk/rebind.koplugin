@@ -846,4 +846,40 @@ T["a huge cover page without any closing bracket is scanned in linear time"] = f
     a.is_true(elapsed < 0.5)
 end
 
+T["an item that borrows Rebind's cover id but is not a jpeg or png image is refused"] = function(a)
+    local opf = opf_with_manifest('<item id="rebind-cover" href="rebind-cover.xhtml" media-type="application/xhtml+xml"/>')
+    local out, err = replaced(opf)
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
+T["a cover item without an id gets one so the original can be named"] = function(a)
+    local opf = opf_with_manifest('<item href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>')
+    local out = replaced(opf)
+    a.contains(out, 'id="rebind-original-cover"')
+    a.contains(out, '<meta name="rebind:original-cover" content="rebind-original-cover"')
+end
+
+T["rewrite repoints a cover image whose name holds an apostrophe"] = function(a)
+    local opf = OPF3_COVER_PAGE:gsub("images/cover.jpg", "images/o'cover.jpg")
+    seed_cover_book(opf, [[<html><img src="../images/o'cover.jpg"/></html>]])
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.jpg"')
+end
+
+T["a book with thousands of spine items is planned in linear time"] = function(a)
+    local items, refs = { '<item id="cover" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>' }, {}
+    for n = 1, 4000 do
+        items[#items + 1] = '<item id="c' .. n .. '" href="c' .. n .. '.xhtml" media-type="application/xhtml+xml"/>'
+        refs[#refs + 1] = '<itemref idref="c' .. n .. '"/>'
+    end
+    local opf = opf_with_manifest(table.concat(items)):gsub("<spine></spine>", "<spine>" .. table.concat(refs) .. "</spine>")
+    local started = os.clock()
+    local out = replaced(opf)
+    local elapsed = os.clock() - started
+    a.is_true(out)
+    a.is_true(elapsed < 0.5)
+end
+
 return T

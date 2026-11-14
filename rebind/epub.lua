@@ -504,6 +504,13 @@ end
 
 local function cover_page_paths(pkg, manifest, dir)
     local paths = {}
+    local by_id = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        local id = attr_get(item, "id")
+        if id and not by_id[id] then
+            by_id[id] = item
+        end
+    end
     local function add(href)
         local path = href and resolve(dir, href)
         if path then
@@ -521,7 +528,7 @@ local function cover_page_paths(pkg, manifest, dir)
     local spine = find_child(pkg, "spine")
     for index, itemref in ipairs(spine and child_elements(spine) or {}) do
         local idref = attr_get(itemref, "idref")
-        local item = idref and manifest_item_by_id(manifest, idref)
+        local item = idref and by_id[idref]
         local href = item and attr_get(item, "href")
         if href and (index == 1 or idref:lower():find("cover", 1, true) or href:lower():find("cover", 1, true)) then
             add(href)
@@ -531,7 +538,7 @@ local function cover_page_paths(pkg, manifest, dir)
 end
 
 local function own_cover_href(href)
-    return href ~= nil and href:match("^rebind%-cover%.%a+$") ~= nil
+    return href == "rebind-cover.jpg" or href == "rebind-cover.png"
 end
 
 local function set_cover(pkg, metadata, cover, opf_path)
@@ -574,6 +581,9 @@ local function set_cover(pkg, metadata, cover, opf_path)
         plan.from = resolve(dir, attr_get(previous, "href") or "")
         if attr_get(previous, "id") ~= COVER_ID then
             drop_property(previous, "cover-image")
+            if not attr_get(previous, "id") then
+                attr_set(previous, "id", "rebind-original-cover")
+            end
             original = recorded or attr_get(previous, "id")
         end
         if plan.from then
@@ -613,16 +623,20 @@ local function repoint_tag(tag, page_dir, from, new_ref)
     if name ~= "img" and name ~= "image" then
         return tag
     end
-    return (tag:gsub("(%s)([%w:]+)(%s*=%s*)([\"'])([^\"']*)%4", function(space, attr, eq, quote, value)
-        local lower = attr:lower()
-        if lower == "src" or lower == "href" or lower == "xlink:href" then
-            local target = resolve(page_dir, value)
-            if target and target == from then
-                return space .. attr .. eq .. quote .. new_ref .. quote
+    for _, quote in ipairs({ '"', "'" }) do
+        local pattern = "(%s)([%w:]+)(%s*=%s*)(" .. quote .. ")([^" .. quote .. "]*)" .. quote
+        tag = tag:gsub(pattern, function(space, attr, eq, open, value)
+            local lower = attr:lower()
+            if lower == "src" or lower == "href" or lower == "xlink:href" then
+                local target = resolve(page_dir, value)
+                if target and target == from then
+                    return space .. attr .. eq .. open .. new_ref .. open
+                end
             end
-        end
-        return nil
-    end))
+            return nil
+        end)
+    end
+    return tag
 end
 
 local function repoint_page(content, page_path, from, to)
