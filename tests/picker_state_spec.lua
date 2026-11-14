@@ -514,4 +514,45 @@ T["the cover field is hidden for a book that already has a cover"] = function(a)
     a.eq(field_for(fields, "cover"), nil)
 end
 
+T["the cover field header reads hold to view"] = function(a)
+    local _state, fields = cover_state()
+    a.eq(fields[1].hint, "Hold to view")
+end
+
+T["previewing the provider cover lists source, edition, pixel size and file size"] = function(a)
+    local state = cover_state()
+    local preview = state:preview("cover", "new", "Paperback 2005")
+    a.eq(preview.id, "new")
+    a.eq(preview.source, "Hardcover")
+    a.eq(preview.edition, "Paperback 2005")
+    a.eq(preview.size, "400×600")
+    a.eq(preview.file_size, string.format("%.1f KB", #cover_image().bytes / 1024))
+    a.eq(preview.image.width, 400)
+    a.eq(preview.selected, true)
+end
+
+T["previewing the book cover has no edition and an unselected preview reports it"] = function(a)
+    local state = cover_state()
+    local preview = state:preview("cover", "current", "Paperback 2005")
+    a.eq(preview.source, "book")
+    a.eq(preview.edition, nil)
+    a.eq(preview.image, nil)
+    a.eq(preview.selected, false)
+end
+
+T["selecting from the preview selects that tile and counts it as a change"] = function(a)
+    local state = cover_state()
+    state:select("cover", "current")
+    local before = state:change_count()
+    state:select("cover", state:preview("cover", "new", "x").id)
+    a.eq(state:selection("cover"), "new")
+    a.eq(state:change_count(), before + 1)
+end
+
+T["previewing without selecting leaves the selection alone"] = function(a)
+    local state = cover_state()
+    state:preview("cover", "current", "x")
+    a.eq(state:selection("cover"), "new")
+end
+
 return T

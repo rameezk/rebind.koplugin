@@ -27,6 +27,7 @@ local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
 local CloseIcon = require("rebind/ui/closeicon")
+local CoverPreview = require("rebind/ui/coverpreview")
 local CoverTiles = require("rebind/ui/covertiles")
 local PickerState = require("rebind/picker_state")
 local SaveAs = require("rebind/ui/saveas")
@@ -90,10 +91,22 @@ end
 function DiffPicker:_cover_block(field, width)
     local inner = width - 2 * Size.padding.default
     local group = VerticalGroup:new{ align = "left" }
-    table.insert(group, TextWidget:new{
+    local hint = TextWidget:new{
+        text = field.hint or "",
+        face = Font:getFace("cfont", 16),
+        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        max_width = math.floor(inner / 2),
+    }
+    local label = TextWidget:new{
         text = field.label,
         face = Font:getFace("tfont", 18),
-        max_width = inner,
+        max_width = inner - hint:getSize().w - sc(8),
+    }
+    table.insert(group, HorizontalGroup:new{
+        align = "center",
+        label,
+        HorizontalSpan:new{ width = inner - label:getSize().w - hint:getSize().w },
+        hint,
     })
     table.insert(group, VerticalSpan:new{ width = sc(6) })
     table.insert(group, CoverTiles.new{
@@ -103,6 +116,9 @@ function DiffPicker:_cover_block(field, width)
             self.state:select(field.key, option.id)
             self:_refresh()
         end,
+        on_hold = function(option)
+            self:_preview_cover(field, option)
+        end,
     })
     table.insert(group, VerticalSpan:new{ width = sc(6) })
     return FrameContainer:new{
@@ -110,6 +126,27 @@ function DiffPicker:_cover_block(field, width)
         padding = Size.padding.default,
         group,
     }
+end
+
+function DiffPicker:_preview_cover(field, option)
+    local preview = self.state:preview(field.key, option.id, self.edition_label)
+    if not preview then
+        return
+    end
+    local screen
+    screen = CoverPreview:new{
+        preview = preview,
+        on_back = function()
+            UIManager:close(screen)
+            self:_refresh()
+        end,
+        on_select = function()
+            UIManager:close(screen)
+            self.state:select(field.key, option.id)
+            self:_refresh()
+        end,
+    }
+    UIManager:show(screen)
 end
 
 function DiffPicker:_field_block(field, width)

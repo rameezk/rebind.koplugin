@@ -4,6 +4,7 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 
 local TapRow = InputContainer:extend{
     on_tap = nil,
+    on_hold = nil,
 }
 
 function TapRow:init()
@@ -16,7 +17,22 @@ function TapRow:init()
                 end,
             },
         },
+        Hold = {
+            GestureRange:new{
+                ges = "hold",
+                range = function()
+                    return self.dimen
+                end,
+            },
+        },
     }
+end
+
+function TapRow:onHold()
+    if self.on_hold then
+        self.on_hold()
+        return true
+    end
 end
 
 function TapRow:onTap()
