@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.4.0](https://github.com/rameezk/rebind.koplugin/compare/v2.3.0...v2.4.0) (2026-11-14)
+
+
+### Features
+
+* add missing covers when rebinding sure matches ([#152](https://github.com/rameezk/rebind.koplugin/issues/152)) ([800ee82](https://github.com/rameezk/rebind.koplugin/commit/800ee82acab43cd8d2bb96db7b5c93c703146762))
+* hold a cover to preview it full screen ([#150](https://github.com/rameezk/rebind.koplugin/issues/150)) ([78122ea](https://github.com/rameezk/rebind.koplugin/commit/78122eab47d48429edda5d16e20c564a7b92c24a))
+* offer the Hardcover cover for a book that has none ([#148](https://github.com/rameezk/rebind.koplugin/issues/148)) ([22a614e](https://github.com/rameezk/rebind.koplugin/commit/22a614eabdeea8c665a141d9b9ec1bc1b3f759e5))
+* offer the Open Library and Inventaire cover for a book that has none ([#151](https://github.com/rameezk/rebind.koplugin/issues/151)) ([e2e45ef](https://github.com/rameezk/rebind.koplugin/commit/e2e45ef967c88b5c27d990100a0df05dea3d4917))
+* replace a book's cover with the Hardcover cover and keep the original ([#149](https://github.com/rameezk/rebind.koplugin/issues/149)) ([c5b2268](https://github.com/rameezk/rebind.koplugin/commit/c5b2268568e34adbe574483ba77cb395e44a6303))
+* restore a book's original cover from the picker ([#153](https://github.com/rameezk/rebind.koplugin/issues/153)) ([0835c3d](https://github.com/rameezk/rebind.koplugin/commit/0835c3dcc1069abb8ed4cc4567d6dbd40b6f1fe1))
+
+
+### Bug Fixes
+
+* pass the skills-sync app's secrets to the skills sync ([#138](https://github.com/rameezk/rebind.koplugin/issues/138)) ([093174a](https://github.com/rameezk/rebind.koplugin/commit/093174a8107aae91411d3aa77306c30b3cd786ab))
+
 ## [2.3.0](https://github.com/rameezk/rebind.koplugin/compare/v2.2.0...v2.3.0) (2026-11-11)
 
 
