@@ -878,6 +878,28 @@ local function opf_with_manifest(items, extra_meta, version)
         .. "<manifest>" .. items .. "</manifest><spine></spine></package>"
 end
 
+T["restoring refuses an original that is not an image"] = function(a)
+    local opf = opf_with_manifest(
+        '<item id="rebind-cover" href="rebind-cover.jpg" media-type="image/jpeg" properties="cover-image"/>'
+            .. '<item id="chap" href="chapter3.xhtml" media-type="application/xhtml+xml"/>',
+        '<meta name="cover" content="rebind-cover"/><meta name="rebind:original-cover" content="chap"/>'
+    )
+    local out, err = restored(opf)
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
+T["restoring refuses an original that is the file Rebind is dropping"] = function(a)
+    local opf = opf_with_manifest(
+        '<item id="rebind-cover" href="rebind-cover.jpg" media-type="image/jpeg" properties="cover-image"/>'
+            .. '<item id="orig" href="rebind-cover.jpg" media-type="image/jpeg"/>',
+        '<meta name="cover" content="rebind-cover"/><meta name="rebind:original-cover" content="orig"/>'
+    )
+    local out, err = restored(opf)
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
 T["a manifest item that only borrows Rebind's cover id is never dropped from the archive"] = function(a)
     local opf = opf_with_manifest(
         '<item id="rebind-cover" href="chapter3.xhtml" media-type="image/jpeg" properties="cover-image"/>'

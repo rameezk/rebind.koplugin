@@ -633,10 +633,10 @@ local function set_cover(pkg, metadata, cover, opf_path)
 end
 
 local function add_property(el, property)
-    if has_token(attr_get(el, "properties"), property) then
+    local existing = attr_get(el, "properties")
+    if has_token(existing, property) then
         return
     end
-    local existing = attr_get(el, "properties")
     attr_set(el, "properties", existing and existing ~= "" and (existing .. " " .. property) or property)
 end
 
@@ -657,13 +657,21 @@ local function restore_cover(pkg, metadata, opf_path)
     local original
     if recorded ~= "none" then
         original = manifest_item_by_id(manifest, recorded)
-        if not original or recorded == COVER_ID then
+        if not original or recorded == COVER_ID or not tostring(attr_get(original, "media-type") or ""):find("^image/") then
             return nil, "The kept original cover is missing from the book."
         end
     end
     local own, own_err = own_cover_items(manifest)
     if not own then
         return nil, own_err
+    end
+    if original then
+        local original_path = resolve(dir, attr_get(original, "href") or "")
+        for _, item in ipairs(own) do
+            if resolve(dir, attr_get(item, "href")) == original_path then
+                return nil, "The kept original cover is missing from the book."
+            end
+        end
     end
 
     local plan = { drop = {}, pages = {} }
@@ -848,7 +856,14 @@ function Epub.read_metadata(path, opts)
             and manifest_item_by_id(manifest, original_cover) or nil
         local cover_path, original_path = path_of(cover_item), path_of(original_item)
         if cover_path or original_path then
-            local images = extract_named(path, { [cover_path or false] = true, [original_path or false] = true })
+            local wanted = {}
+            if cover_path then
+                wanted[cover_path] = true
+            end
+            if original_path then
+                wanted[original_path] = true
+            end
+            local images = extract_named(path, wanted) or {}
             cover_image = cover_path and Cover.describe(images[cover_path]) or nil
             original_cover_image = original_path and Cover.describe(images[original_path]) or nil
         end
