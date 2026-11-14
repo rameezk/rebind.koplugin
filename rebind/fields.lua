@@ -1,5 +1,7 @@
 local _ = require("gettext")
 
+local Cover = require("rebind/cover")
+
 local Fields = {}
 
 local PREVIEW_LIMIT = 300
@@ -269,24 +271,29 @@ end
 
 local function cover_field(current, proposed)
     local image = proposed.cover_image
-    if not is_image(image) or current.has_cover ~= false then
+    if not is_image(image) or not Cover.offered(current, image.url) then
         return nil
     end
+    local existing = current.has_cover == true
+    local present = existing and (is_image(current.cover_image) and current.cover_image or { unreadable = true })
     return {
         key = "cover",
         label = _("Cover"),
         hint = _("Hold to view"),
         kind = "image",
-        current_value = {},
+        current_value = present or {},
         new_value = image,
         is_empty = function(raw)
-            return not is_image(raw)
+            return not (is_image(raw) or raw.unreadable)
+        end,
+        same = function(a, b)
+            return is_image(a) and is_image(b) and a.bytes == b.bytes
         end,
         display = function(raw)
-            if not is_image(raw) then
-                return _("no cover")
+            if is_image(raw) then
+                return cover_size_text(raw)
             end
-            return cover_size_text(raw)
+            return raw.unreadable and _("cover") or _("no cover")
         end,
         default_choice = function(field)
             return field.is_empty(field.current_value) and "new" or "current"

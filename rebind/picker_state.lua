@@ -221,7 +221,7 @@ function PickerState:values(key)
             text = field.display(raw),
             empty = field.is_empty(raw),
             selected = self.chosen[key] == id,
-            image = field.kind == "image" and not field.is_empty(raw) and raw or nil,
+            image = field.kind == "image" and raw.bytes and raw or nil,
         }
     end
     add("current", "book", field.current_value)

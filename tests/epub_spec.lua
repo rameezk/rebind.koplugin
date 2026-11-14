@@ -562,13 +562,67 @@ T["writing a cover next to other changes keeps both"] = function(a)
     a.contains(out, 'href="rebind-cover.jpg"')
 end
 
-T["replacing an existing cover is refused for now"] = function(a)
-    local out, err = Epub._edit_opf(OPF3_WITH_COVER, { cover = NEW_COVER }, "OEBPS/content.opf")
-    a.eq(out, nil)
-    a.contains(err, "already has a cover")
-    out, err = Epub._edit_opf(OPF2_WITH_COVER, { cover = NEW_COVER }, "content.opf")
-    a.eq(out, nil)
-    a.contains(err, "already has a cover")
+local OPF3_COVER_PAGE = [[<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Old Title</dc:title>
+  </metadata>
+  <manifest>
+    <item id="cover" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+    <item id="coverpage" href="text/cover.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="coverpage"/><itemref idref="c1"/></spine>
+</package>]]
+
+local function replaced(opf, cover)
+    return Epub._edit_opf(opf, { cover = cover or NEW_COVER }, "OEBPS/content.opf")
+end
+
+T["replacing an epub3 cover points the cover-image marker at the new image and keeps the old one as the original"] = function(a)
+    local out, entry, plan = replaced(OPF3_COVER_PAGE)
+    a.eq(entry, "OEBPS/rebind-cover.jpg")
+    a.count_eq(out, 'properties="cover-image"', 1)
+    a.contains(out, '<item id="rebind-cover" href="rebind-cover.jpg" media-type="image/jpeg" properties="cover-image"')
+    a.contains(out, '<item id="cover" href="images/cover.jpg" media-type="image/jpeg"/>')
+    a.contains(out, '<meta name="cover" content="rebind-cover"')
+    a.contains(out, '<meta name="rebind:original-cover" content="cover"')
+    a.contains(out, '<meta name="rebind:cover-source" content="https://assets.test/dune.jpg"')
+    a.eq(spine_of(out), spine_of(OPF3_COVER_PAGE))
+    a.is_true(plan.pages["OEBPS/text/cover.xhtml"])
+    a.eq(plan.from, "OEBPS/images/cover.jpg")
+    a.eq(plan.to, "OEBPS/rebind-cover.jpg")
+end
+
+T["replacing an epub2 cover points the cover meta at the new image and keeps the old one as the original"] = function(a)
+    local out, entry = Epub._edit_opf(OPF2_WITH_COVER, { cover = NEW_COVER }, "content.opf")
+    a.eq(entry, "rebind-cover.jpg")
+    a.count_eq(out, 'name="cover"', 1)
+    a.contains(out, '<meta name="cover" content="rebind-cover"')
+    a.contains(out, '<item id="cover-img" href="cover.png" media-type="image/png"/>')
+    a.contains(out, '<meta name="rebind:original-cover" content="cover-img"')
+end
+
+T["replacing twice keeps the cover from before the first change as the original"] = function(a)
+    local first = replaced(OPF3_COVER_PAGE)
+    local png = { bytes = Images.png(400, 600), extension = "png", media_type = "image/png", url = "https://assets.test/b.png" }
+    local out, entry, plan = replaced(first, png)
+    a.eq(entry, "OEBPS/rebind-cover.png")
+    a.count_eq(out, 'id="rebind-cover"', 1)
+    a.count_eq(out, 'properties="cover-image"', 1)
+    a.contains(out, 'href="rebind-cover.png"')
+    a.not_contains(out, "rebind-cover.jpg")
+    a.contains(out, '<meta name="rebind:original-cover" content="cover"')
+    a.contains(out, '<meta name="rebind:cover-source" content="https://assets.test/b.png"')
+    a.is_true(plan.drop["OEBPS/rebind-cover.jpg"])
+    a.eq(plan.from, "OEBPS/rebind-cover.jpg")
+end
+
+T["replacing a cover that was added from nothing keeps the original as no cover"] = function(a)
+    local first = replaced(OPF3_BOOK)
+    local out = replaced(first, { bytes = Images.png(400, 600), extension = "png", media_type = "image/png", url = "b" })
+    a.contains(out, '<meta name="rebind:original-cover" content="none"')
+    a.count_eq(out, 'id="rebind-cover"', 1)
 end
 
 T["read_metadata reports a book without a cover"] = function(a)
@@ -625,6 +679,207 @@ T["rewrite embeds the cover exactly as downloaded after the mimetype entry"] = f
     end
     a.is_true(image)
     a.eq(image.content, NEW_COVER.bytes)
+end
+
+local OLD_IMAGE = Images.jpeg(300, 450, 3000)
+
+local function seed_cover_book(opf, page)
+    seed(opf)
+    _G.__TEST_FS["mimetype"] = "application/epub+zip"
+    _G.__TEST_FS["OEBPS/images/cover.jpg"] = OLD_IMAGE
+    _G.__TEST_FS["OEBPS/text/cover.xhtml"] = page
+    _G.__TEST_FS["OEBPS/c1.xhtml"] = "<html/>"
+    _G.__TEST_ORDER = {
+        "mimetype", "META-INF/container.xml", "OEBPS/text/cover.xhtml", "OEBPS/content.opf",
+        "OEBPS/images/cover.jpg", "OEBPS/c1.xhtml",
+    }
+end
+
+local function rewrite_book(changes)
+    local path = os.tmpname()
+    local f = assert(io.open(path, "wb"))
+    f:write("original")
+    f:close()
+    local rename = os.rename
+    os.rename = function() return true end
+    local ok = Epub.rewrite(path, changes, false)
+    os.rename = rename
+    os.remove(path)
+    os.remove(path .. ".rebind.bak")
+    local by_path = {}
+    for _, entry in ipairs(_G.__TEST_WRITES or {}) do
+        by_path[entry.path] = entry.content
+    end
+    return ok, by_path
+end
+
+T["rewrite points the cover page at the new image and keeps the old image"] = function(a)
+    seed_cover_book(OPF3_COVER_PAGE, '<html><body><img alt="c" src="../images/cover.jpg"/></body></html>')
+    local ok, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.is_true(ok)
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.jpg"')
+    a.not_contains(files["OEBPS/text/cover.xhtml"], "images/cover.jpg")
+    a.eq(files["OEBPS/images/cover.jpg"], OLD_IMAGE)
+    a.eq(files["OEBPS/rebind-cover.jpg"], NEW_COVER.bytes)
+    a.eq(files["OEBPS/c1.xhtml"], "<html/>")
+    a.contains(files["OEBPS/content.opf"], 'content="cover"')
+end
+
+T["rewrite repoints an svg cover page"] = function(a)
+    seed_cover_book(OPF3_COVER_PAGE, '<svg><image width="1" xlink:href="../images/cover.jpg"/></svg>')
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.contains(files["OEBPS/text/cover.xhtml"], 'xlink:href="../rebind-cover.jpg"')
+end
+
+T["rewrite leaves a first page that shows another image alone"] = function(a)
+    local page = '<html><img src="../images/other.jpg"/></html>'
+    seed_cover_book(OPF3_COVER_PAGE, page)
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.eq(files["OEBPS/text/cover.xhtml"], page)
+end
+
+T["rewriting a replaced cover drops Rebind's previous image but keeps the original"] = function(a)
+    local first = replaced(OPF3_COVER_PAGE)
+    seed_cover_book(first, '<html><img src="../rebind-cover.jpg"/></html>')
+    _G.__TEST_FS["OEBPS/rebind-cover.jpg"] = "previous"
+    table.insert(_G.__TEST_ORDER, "OEBPS/rebind-cover.jpg")
+    local png = { bytes = Images.png(400, 600), extension = "png", media_type = "image/png", url = "u" }
+    local ok, files = rewrite_book({ cover = png })
+    unseed()
+    a.is_true(ok)
+    a.eq(files["OEBPS/rebind-cover.jpg"], nil)
+    a.eq(files["OEBPS/rebind-cover.png"], png.bytes)
+    a.eq(files["OEBPS/images/cover.jpg"], OLD_IMAGE)
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.png"')
+end
+
+T["read_metadata can read the current and the kept original cover images"] = function(a)
+    local first = replaced(OPF3_COVER_PAGE)
+    seed_cover_book(first, "<html/>")
+    _G.__TEST_FS["OEBPS/rebind-cover.jpg"] = NEW_COVER.bytes
+    table.insert(_G.__TEST_ORDER, "OEBPS/rebind-cover.jpg")
+    local md = assert(Epub.read_metadata("/fake/book.epub", { cover_image = true }))
+    a.eq(md.cover_image.width, 400)
+    a.eq(md.cover_image.height, 600)
+    a.eq(md.cover_image.bytes, NEW_COVER.bytes)
+    a.eq(md.cover_source, "https://assets.test/dune.jpg")
+    a.eq(md.original_cover, "cover")
+    seed_cover_book(OPF3_COVER_PAGE, "<html/>")
+    md = assert(Epub.read_metadata("/fake/book.epub", { cover_image = true }))
+    a.eq(md.cover_image.width, 300)
+    a.eq(md.cover_image.size, #OLD_IMAGE)
+    md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.cover_image, nil)
+    a.eq(md.has_cover, true)
+    unseed()
+end
+
+local function opf_with_manifest(items, extra_meta, version)
+    return '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="' .. (version or "3.0") .. '">'
+        .. '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>T</dc:title>' .. (extra_meta or "") .. '</metadata>'
+        .. "<manifest>" .. items .. "</manifest><spine></spine></package>"
+end
+
+T["a manifest item that only borrows Rebind's cover id is never dropped from the archive"] = function(a)
+    local opf = opf_with_manifest(
+        '<item id="rebind-cover" href="chapter3.xhtml" media-type="image/jpeg" properties="cover-image"/>'
+    )
+    local out, err = replaced(opf)
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
+T["an own cover left in the manifest is replaced even when another item holds the cover marker"] = function(a)
+    local opf = opf_with_manifest(
+        '<item id="rebind-cover" href="rebind-cover.jpg" media-type="image/jpeg"/>'
+            .. '<item id="other" href="o.png" media-type="image/png" properties="cover-image"/>',
+        '<meta name="rebind:original-cover" content="cover"/>'
+    )
+    local out, _, plan = replaced(opf)
+    a.count_eq(out, 'id="rebind-cover"', 1)
+    a.contains(out, '<meta name="rebind:original-cover" content="cover"')
+    a.is_true(plan.drop["OEBPS/rebind-cover.jpg"])
+end
+
+T["a package path that climbs out of the archive is refused"] = function(a)
+    local out, err = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER }, "../../x/content.opf")
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
+T["rewrite leaves an image reference that climbs out of the archive alone"] = function(a)
+    local page = '<html><img src="../../../OEBPS/images/cover.jpg"/></html>'
+    seed_cover_book(OPF3_COVER_PAGE, page)
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.eq(files["OEBPS/text/cover.xhtml"], page)
+end
+
+T["rewrite repoints a cover page that is not the first spine item"] = function(a)
+    local opf = OPF3_COVER_PAGE:gsub('<spine><itemref idref="coverpage"/><itemref idref="c1"/></spine>', '<spine><itemref idref="c1"/><itemref idref="coverpage"/></spine>')
+    seed_cover_book(opf, '<html><img src="../images/cover.jpg"/></html>')
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.jpg"')
+end
+
+T["rewrite repoints the cover page the guide names in an epub2 book"] = function(a)
+    local opf = OPF2_WITH_COVER:gsub("<spine></spine>", '<spine><itemref idref="c1"/></spine><guide><reference type="cover" href="text/cover.xhtml"/></guide>')
+    opf = opf:gsub('href="cover.png"', 'href="images/cover.jpg"'):gsub('image/png', 'image/jpeg')
+    seed_cover_book(opf, '<html><img src="../images/cover.jpg"/></html>')
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.jpg"')
+    a.contains(files["OEBPS/content.opf"], '<meta name="cover" content="rebind-cover"')
+end
+
+T["a huge cover page without any closing bracket is scanned in linear time"] = function(a)
+    seed_cover_book(OPF3_COVER_PAGE, string.rep("<a ", 40000))
+    local started = os.clock()
+    local ok = rewrite_book({ cover = NEW_COVER })
+    local elapsed = os.clock() - started
+    unseed()
+    a.is_true(ok)
+    a.is_true(elapsed < 0.5)
+end
+
+T["an item that borrows Rebind's cover id but is not a jpeg or png image is refused"] = function(a)
+    local opf = opf_with_manifest('<item id="rebind-cover" href="rebind-cover.xhtml" media-type="application/xhtml+xml"/>')
+    local out, err = replaced(opf)
+    a.eq(out, nil)
+    a.is_true(err)
+end
+
+T["a cover item without an id gets one so the original can be named"] = function(a)
+    local opf = opf_with_manifest('<item href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>')
+    local out = replaced(opf)
+    a.contains(out, 'id="rebind-original-cover"')
+    a.contains(out, '<meta name="rebind:original-cover" content="rebind-original-cover"')
+end
+
+T["rewrite repoints a cover image whose name holds an apostrophe"] = function(a)
+    local opf = OPF3_COVER_PAGE:gsub("images/cover.jpg", "images/o'cover.jpg")
+    seed_cover_book(opf, [[<html><img src="../images/o'cover.jpg"/></html>]])
+    local _, files = rewrite_book({ cover = NEW_COVER })
+    unseed()
+    a.contains(files["OEBPS/text/cover.xhtml"], 'src="../rebind-cover.jpg"')
+end
+
+T["a book with thousands of spine items is planned in linear time"] = function(a)
+    local items, refs = { '<item id="cover" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>' }, {}
+    for n = 1, 4000 do
+        items[#items + 1] = '<item id="c' .. n .. '" href="c' .. n .. '.xhtml" media-type="application/xhtml+xml"/>'
+        refs[#refs + 1] = '<itemref idref="c' .. n .. '"/>'
+    end
+    local opf = opf_with_manifest(table.concat(items)):gsub("<spine></spine>", "<spine>" .. table.concat(refs) .. "</spine>")
+    local started = os.clock()
+    local out = replaced(opf)
+    local elapsed = os.clock() - started
+    a.is_true(out)
+    a.is_true(elapsed < 0.5)
 end
 
 return T

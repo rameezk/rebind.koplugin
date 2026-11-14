@@ -509,8 +509,46 @@ T["the cover field is hidden when the download failed or nothing passed the filt
     a.eq(field_for(without, "title").key, "title")
 end
 
-T["the cover field is hidden for a book that already has a cover"] = function(a)
-    local fields = Fields.build({ has_cover = true }, proposed({ cover_image = cover_image() }))
+local function with_cover_state(current_overrides)
+    local current = { title = "Same Title", has_cover = true, cover_image = Cover.describe(Images.jpeg(300, 450, 3000)) }
+    for k, v in pairs(current_overrides or {}) do
+        current[k] = v
+    end
+    local fields = Fields.build(current, proposed({ cover_image = cover_image() }))
+    return PickerState.new(fields, "Hardcover"), fields
+end
+
+T["a book with a cover keeps it selected and the cover is not a change"] = function(a)
+    local state, fields = with_cover_state()
+    a.eq(fields[1].key, "cover")
+    a.eq(state:selection("cover"), "current")
+    local before = state:change_count()
+    a.eq(state:changes().cover, nil)
+    local options = state:values("cover")
+    a.eq(options[1].tag, "book")
+    a.eq(options[1].text, "300×450")
+    a.eq(options[1].selected, true)
+    a.eq(options[2].tag, "Hardcover")
+    a.eq(options[2].text, "400×600")
+end
+
+T["choosing the provider cover for a book with a cover counts as a change"] = function(a)
+    local state = with_cover_state()
+    local before = state:change_count()
+    state:select("cover", "new")
+    a.eq(state:change_count(), before + 1)
+    a.eq(state:changes().cover.url, "https://assets.test/dune.jpg")
+end
+
+T["a cover that cannot be read still counts as the book's cover and stays selected"] = function(a)
+    local state = with_cover_state({ cover_image = false })
+    a.eq(state:selection("cover"), "current")
+    a.eq(state:changes().cover, nil)
+    a.eq(state:values("cover")[1].text, "cover")
+end
+
+T["the cover field is hidden when the book already has the cover set from the same source"] = function(a)
+    local _, fields = with_cover_state({ cover_source = "https://assets.test/dune.jpg", original_cover = "none" })
     a.eq(field_for(fields, "cover"), nil)
 end
 
@@ -553,6 +591,13 @@ T["previewing without selecting leaves the selection alone"] = function(a)
     local state = cover_state()
     state:preview("cover", "current", "x")
     a.eq(state:selection("cover"), "new")
+end
+
+T["the cover field stays when the same source cover has a kept original or another source"] = function(a)
+    local _, kept = with_cover_state({ cover_source = "https://assets.test/dune.jpg", original_cover = "cover" })
+    a.eq(field_for(kept, "cover").key, "cover")
+    local _, other = with_cover_state({ cover_source = "https://assets.test/other.jpg", original_cover = "none" })
+    a.eq(field_for(other, "cover").key, "cover")
 end
 
 return T
