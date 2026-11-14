@@ -170,7 +170,7 @@ end
 
 local CUREE_ROUTES = {
     { when = "api/search", file = "search_curee.json" },
-    { when = "attributes=claims|labels&uris=wd:Q962265", file = "works_curee.json" },
+    { when = "attributes=claims|labels|image&uris=wd:Q962265", file = "works_curee.json" },
     { when = "attributes=labels&uris=", file = "labels_curee.json" },
 }
 

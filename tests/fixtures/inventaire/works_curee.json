@@ -82,6 +82,9 @@
         "uk": "Здобич",
         "cs": "Štvanice",
         "ur": "لا کیورے"
+      },
+      "image": {
+        "url": "/img/entities/8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd"
       }
     },
     "wd:Q3208037": {
@@ -164,6 +167,9 @@
         "pt": "A Cotovia do Espaço",
         "ru": "Космический Жаворонок",
         "ur": "دی اسکائی لارک آف اسپیس"
+      },
+      "image": {
+        "url": "/img/entities/39799efe4312cde603ed1c82c848e7a77b9d7a03"
       }
     },
     "wd:Q134584508": {
@@ -200,6 +206,9 @@
       },
       "labels": {
         "fr": "Chasse royale 4 - Curée chaude"
+      },
+      "image": {
+        "url": "/img/entities/f601adb9bd9412301807323f81274bdf8414e7a5"
       }
     },
     "inv:a0312c58f7f50f16a74db2b334ed1d70": {
@@ -215,6 +224,9 @@
       },
       "labels": {
         "fr": "Journal d'une curée de campagne"
+      },
+      "image": {
+        "url": "/img/entities/6de1f4ccdc401ebe1b0775fa4541a32c45f03b4f"
       }
     },
     "inv:06b73c5bc425bfadb3350c48cdddf0d1": {
@@ -236,6 +248,9 @@
       },
       "labels": {
         "fr": "Journal d'une curée de campagne"
+      },
+      "image": {
+        "url": "/img/entities/80aa062787cdd16941c0a58c084286252f288f9c"
       }
     }
   },

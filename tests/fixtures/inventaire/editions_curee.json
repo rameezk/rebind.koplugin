@@ -110,6 +110,9 @@
         "wdt:P123": [
           "wd:Q1629027"
         ]
+      },
+      "image": {
+        "url": "/img/entities/8ee29d2db2bdfdcde6cec0f4e6655cc741da30cd"
       }
     },
     "inv:2078ee8e0e02cb244126a005b1947daa": {
@@ -146,6 +149,9 @@
         "invp:P2": [
           "a984d6f55b2a340c90abdc175b2edef02a74c320"
         ]
+      },
+      "image": {
+        "url": "/img/entities/a984d6f55b2a340c90abdc175b2edef02a74c320"
       }
     },
     "inv:23c589d1f28ca8666ae5f4cd970d069a": {
@@ -173,6 +179,9 @@
         "invp:P2": [
           "389301af628be179deffebe4cd28f4586b829ec0"
         ]
+      },
+      "image": {
+        "url": "/img/entities/389301af628be179deffebe4cd28f4586b829ec0"
       }
     },
     "inv:3018040fddfde751a56145f228d842c6": {
@@ -219,6 +228,9 @@
         "wdt:P123": [
           "wd:Q273819"
         ]
+      },
+      "image": {
+        "url": "/img/entities/fc8a53fb688aa32a3faf22b5ae04f007a08fe7e9"
       }
     },
     "inv:6e59f968a1cd00dbedeb1964de63cc73": {
@@ -258,6 +270,9 @@
         "wdt:P123": [
           "wd:Q3080726"
         ]
+      },
+      "image": {
+        "url": "/img/entities/b48ce2f5df8ac561b783495a91e05300d635e8b8"
       }
     },
     "inv:7e92b75faba5049e9ac063937774896c": {
@@ -297,6 +312,9 @@
         "wdt:P2969": [
           "3416632"
         ]
+      },
+      "image": {
+        "url": "/img/entities/76269fdcd7b472f441c4e0706e9a4d8360767a6f"
       }
     },
     "inv:857ab8cf5179714ea0b6cecec37dc027": {
@@ -339,6 +357,9 @@
         "wdt:P123": [
           "wd:Q273819"
         ]
+      },
+      "image": {
+        "url": "/img/entities/8e30dbc7828d9dbd6dd9d153356b3a46d0368739"
       }
     },
     "inv:87705d3e1b73ec373ed34e7a748add68": {
@@ -387,6 +408,9 @@
         "wdt:P268": [
           "34631837c"
         ]
+      },
+      "image": {
+        "url": "/img/entities/9b8f7c04d54babd91b8a520406824f62bf5bd7b0"
       }
     },
     "inv:88b00676d608d9d53c5974fd9b701672": {
@@ -435,6 +459,9 @@
         "invp:P2": [
           "4ce52342e36aea0dc026daa7ed48148297e64f65"
         ]
+      },
+      "image": {
+        "url": "/img/entities/4ce52342e36aea0dc026daa7ed48148297e64f65"
       }
     },
     "inv:8c1d1b43f7bd04409794a0b72d132e14": {
@@ -477,6 +504,9 @@
         "wdt:P123": [
           "wd:Q273819"
         ]
+      },
+      "image": {
+        "url": "/img/entities/10ab580d2690f8091e99894f75ff44cb8ab37852"
       }
     },
     "inv:965dde679f716a0b6d68fab6621140e3": {
@@ -501,6 +531,9 @@
         "wdt:P123": [
           "inv:2274b0b417a2538c15ff75500e74eb9d"
         ]
+      },
+      "image": {
+        "url": "/img/entities/ca086c514815d11bfa53b7641b2f6ea7d2fcc484"
       }
     },
     "inv:9bd03c5f851d204339b37241eb41bd50": {
@@ -537,6 +570,9 @@
         "invp:P2": [
           "6bc000cef37b4c6b3607ec07e96b53aa4f7b9478"
         ]
+      },
+      "image": {
+        "url": "/img/entities/6bc000cef37b4c6b3607ec07e96b53aa4f7b9478"
       }
     },
     "inv:cfe680470d6194e982740adfef78fdb8": {
@@ -567,6 +603,9 @@
         "wdt:P577": [
           "1990"
         ]
+      },
+      "image": {
+        "url": "/img/entities/259cbc074962b77ad261944e7910aaa4c68b9da4"
       }
     },
     "inv:d4079a7317f28226c5b5645751100d72": {
@@ -597,6 +636,9 @@
         "wdt:P195": [
           "wd:Q1629027"
         ]
+      },
+      "image": {
+        "url": "/img/entities/21a648228384a3887b1fcaf145b710059216f396"
       }
     },
     "inv:d8d791d9c14649d2d687990a3efb212b": {
@@ -642,6 +684,9 @@
         "invp:P2": [
           "515d16f6a07b44c7fb97e953a2592e27b4cd4b97"
         ]
+      },
+      "image": {
+        "url": "/img/entities/515d16f6a07b44c7fb97e953a2592e27b4cd4b97"
       }
     },
     "inv:e0bb7a05c49ca323a36a95bbd58b0619": {
@@ -687,6 +732,9 @@
         "wdt:P437": [
           "wd:Q193934"
         ]
+      },
+      "image": {
+        "url": "/img/entities/9bddc6aa33719635576b7ad0f93660f4db739719"
       }
     },
     "inv:e1301c1395cdd02ad9ae7535aab31362": {
@@ -711,6 +759,9 @@
         "wdt:P407": [
           "wd:Q150"
         ]
+      },
+      "image": {
+        "url": "/img/entities/6de93acd4be76d90507b18b6ec10397f9ba819a6"
       }
     },
     "inv:fee7944f22dfef2a2cf0e48e43bce761": {
@@ -753,6 +804,9 @@
         "wdt:P648": [
           "OL47825245M"
         ]
+      },
+      "image": {
+        "url": "/img/entities/9cae9b708982d7743dc52ccc28ea4b4e558cf3c5"
       }
     }
   },
