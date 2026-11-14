@@ -269,9 +269,29 @@ local function is_image(raw)
     return type(raw) == "table" and raw.bytes ~= nil
 end
 
+local function original_cover_value(current)
+    local recorded = current.original_cover
+    if recorded == nil then
+        return nil
+    end
+    if recorded == "none" then
+        return { original = true }
+    end
+    if is_image(current.original_cover_image) then
+        local copy = { original = true }
+        for key, value in pairs(current.original_cover_image) do
+            copy[key] = value
+        end
+        return copy
+    end
+    return { original = true, unreadable = true }
+end
+
 local function cover_field(current, proposed)
     local image = proposed.cover_image
-    if not is_image(image) or not Cover.offered(current, image.url) then
+    local offered = is_image(image) and Cover.offered(current, image.url)
+    local original = original_cover_value(current)
+    if not offered and not original then
         return nil
     end
     local existing = current.has_cover == true
@@ -281,7 +301,8 @@ local function cover_field(current, proposed)
         label = _("Cover"),
         kind = "image",
         current_value = present or {},
-        new_value = image,
+        new_value = offered and image or {},
+        original_value = original,
         is_empty = function(raw)
             return not (is_image(raw) or raw.unreadable)
         end,
@@ -298,7 +319,9 @@ local function cover_field(current, proposed)
             return field.is_empty(field.current_value) and "new" or "current"
         end,
         apply = function(changes, raw)
-            if is_image(raw) then
+            if raw.original then
+                changes.restore_cover = true
+            elseif is_image(raw) then
                 changes.cover = raw
             end
         end,

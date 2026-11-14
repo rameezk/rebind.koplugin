@@ -541,16 +541,37 @@ local function own_cover_href(href)
     return href == "rebind-cover.jpg" or href == "rebind-cover.png"
 end
 
+local function package_dir(opf_path)
+    local opf_dir, escaped = segments(dirname_of(opf_path or "") or "")
+    if escaped or (opf_path or ""):sub(1, 1) == "/" then
+        return nil, "The OPF file is not stored inside the EPUB."
+    end
+    return #opf_dir > 0 and table.concat(opf_dir, "/") or "", nil
+end
+
+local function own_cover_items(manifest)
+    local own = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        if attr_get(item, "id") == COVER_ID then
+            if not own_cover_href(attr_get(item, "href") or "") then
+                return nil, "The book's manifest already uses the id Rebind gives its cover."
+            end
+            own[#own + 1] = item
+        end
+    end
+    return own
+end
+
 local function set_cover(pkg, metadata, cover, opf_path)
     local manifest = find_child(pkg, "manifest")
     if not manifest then
         return nil, "No <manifest> element in OPF."
     end
-    local opf_dir, escaped = segments(dirname_of(opf_path or "") or "")
-    if escaped or (opf_path or ""):sub(1, 1) == "/" then
-        return nil, "The OPF file is not stored inside the EPUB."
+    local dir, dir_err = package_dir(opf_path)
+    if not dir then
+        return nil, dir_err
     end
-    local dir = #opf_dir > 0 and table.concat(opf_dir, "/") or nil
+    dir = dir ~= "" and dir or nil
     local plan = { drop = {}, pages = {} }
     local recorded = meta_content(metadata, ORIGINAL_META)
     local previous = current_cover_item(pkg, metadata)
@@ -558,15 +579,12 @@ local function set_cover(pkg, metadata, cover, opf_path)
     local href = COVER_ID .. "." .. cover.extension
     plan.to = dir and (dir .. "/" .. href) or href
 
-    local own = {}
+    local own, own_err = own_cover_items(manifest)
+    if not own then
+        return nil, own_err
+    end
     for _, item in ipairs(child_elements(manifest)) do
-        local item_href = attr_get(item, "href") or ""
-        if attr_get(item, "id") == COVER_ID then
-            if not own_cover_href(item_href) then
-                return nil, "The book's manifest already uses the id Rebind gives its cover."
-            end
-            own[#own + 1] = item
-        elseif resolve(dir, item_href) == plan.to then
+        if attr_get(item, "id") ~= COVER_ID and resolve(dir, attr_get(item, "href") or "") == plan.to then
             return nil, "The book already has a file named " .. plan.to .. "."
         end
     end
@@ -612,6 +630,69 @@ local function set_cover(pkg, metadata, cover, opf_path)
     append_child(metadata, new_element("meta", nil, { { "name", ORIGINAL_META }, { "content", original } }))
 
     return plan.to, plan
+end
+
+local function add_property(el, property)
+    if has_token(attr_get(el, "properties"), property) then
+        return
+    end
+    local existing = attr_get(el, "properties")
+    attr_set(el, "properties", existing and existing ~= "" and (existing .. " " .. property) or property)
+end
+
+local function restore_cover(pkg, metadata, opf_path)
+    local manifest = find_child(pkg, "manifest")
+    if not manifest then
+        return nil, "No <manifest> element in OPF."
+    end
+    local dir, dir_err = package_dir(opf_path)
+    if not dir then
+        return nil, dir_err
+    end
+    dir = dir ~= "" and dir or nil
+    local recorded = meta_content(metadata, ORIGINAL_META)
+    if not recorded then
+        return nil, "The book has no original cover to restore."
+    end
+    local original
+    if recorded ~= "none" then
+        original = manifest_item_by_id(manifest, recorded)
+        if not original or recorded == COVER_ID then
+            return nil, "The kept original cover is missing from the book."
+        end
+    end
+    local own, own_err = own_cover_items(manifest)
+    if not own then
+        return nil, own_err
+    end
+
+    local plan = { drop = {}, pages = {} }
+    for _, item in ipairs(own) do
+        plan.from = plan.from or resolve(dir, attr_get(item, "href"))
+        remove_element(manifest, item)
+        plan.drop[resolve(dir, attr_get(item, "href"))] = true
+    end
+    if not original then
+        plan.from = nil
+    end
+
+    remove_meta(metadata, function(el)
+        local name = attr_get(el, "name")
+        return name == "cover" or name == SOURCE_META or name == ORIGINAL_META
+    end)
+    if original then
+        plan.to = resolve(dir, attr_get(original, "href") or "")
+        if tostring(attr_get(pkg, "version") or ""):sub(1, 1) == "3" then
+            add_property(original, "cover-image")
+        end
+        append_child(metadata, new_element("meta", nil, { { "name", "cover" }, { "content", recorded } }))
+        if plan.from and plan.to then
+            for _, page in ipairs(cover_page_paths(pkg, manifest, dir)) do
+                plan.pages[page] = true
+            end
+        end
+    end
+    return true, plan
 end
 
 local MAX_PAGE_BYTES = 1048576
@@ -756,11 +837,20 @@ function Epub.read_metadata(path, opts)
     local isbn_13, isbn_10 = extract_isbns(metadata)
 
     local cover_item = current_cover_item(doc.root, metadata)
-    local cover_image
-    if cover_item and opts and opts.cover_image then
-        local cover_path = resolve(dirname_of(opf_path), attr_get(cover_item, "href") or "")
-        if cover_path then
-            cover_image = Cover.describe((extract_named(path, { [cover_path] = true }) or {})[cover_path])
+    local original_cover = meta_content(metadata, ORIGINAL_META)
+    local cover_image, original_cover_image
+    if opts and opts.cover_image then
+        local function path_of(item)
+            return item and resolve(dirname_of(opf_path), attr_get(item, "href") or "")
+        end
+        local manifest = find_child(doc.root, "manifest")
+        local original_item = original_cover and original_cover ~= "none" and manifest
+            and manifest_item_by_id(manifest, original_cover) or nil
+        local cover_path, original_path = path_of(cover_item), path_of(original_item)
+        if cover_path or original_path then
+            local images = extract_named(path, { [cover_path or false] = true, [original_path or false] = true })
+            cover_image = cover_path and Cover.describe(images[cover_path]) or nil
+            original_cover_image = original_path and Cover.describe(images[original_path]) or nil
         end
     end
 
@@ -778,8 +868,9 @@ function Epub.read_metadata(path, opts)
         isbn_10 = isbn_10,
         has_cover = cover_item ~= nil,
         cover_image = cover_image,
+        original_cover_image = original_cover_image,
         cover_source = meta_content(metadata, SOURCE_META),
-        original_cover = meta_content(metadata, ORIGINAL_META),
+        original_cover = original_cover,
     }
 end
 
@@ -827,6 +918,12 @@ local function edit_opf(opf_xml, changes, opf_path)
     if changes.cover then
         cover_entry, plan = set_cover(doc.root, metadata, changes.cover, opf_path)
         if not cover_entry then
+            return nil, plan
+        end
+    elseif changes.restore_cover then
+        local restored
+        restored, plan = restore_cover(doc.root, metadata, opf_path)
+        if not restored then
             return nil, plan
         end
     end
