@@ -23,7 +23,9 @@ end
 function PickerState:_open_selection()
     for _, f in ipairs(self.fields) do
         if self.extra[f.key] == nil then
-            if self:_differs(f) then
+            if f.default_choice and self:_differs(f) then
+                self.chosen[f.key] = f.default_choice(f)
+            elseif self:_differs(f) then
                 self.chosen[f.key] = "new"
             else
                 self.chosen[f.key] = "current"
@@ -219,6 +221,7 @@ function PickerState:values(key)
             text = field.display(raw),
             empty = field.is_empty(raw),
             selected = self.chosen[key] == id,
+            image = field.kind == "image" and not field.is_empty(raw) and raw or nil,
         }
     end
     add("current", "book", field.current_value)

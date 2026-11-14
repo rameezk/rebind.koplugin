@@ -456,4 +456,175 @@ T["leaving First published unselected keeps a full date"] = function(a)
     a.contains(out, "<dc:date>1999-03-01</dc:date>")
 end
 
+local Images = require("tests/support/images")
+
+local OPF3_BOOK = [[<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="pub-id">urn:isbn:9780441013593</dc:identifier>
+    <dc:title>Old Title</dc:title>
+  </metadata>
+  <manifest>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="c1"/></spine>
+</package>]]
+
+local OPF2_BOOK = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Old Title</dc:title>
+  </metadata>
+  <manifest>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine toc="ncx"><itemref idref="c1"/></spine>
+</package>]]
+
+local OPF3_WITH_COVER = [[<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Old Title</dc:title>
+  </metadata>
+  <manifest>
+    <item id="cover" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+  </manifest>
+  <spine></spine>
+</package>]]
+
+local OPF2_WITH_COVER = [[<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Old Title</dc:title>
+    <meta name="cover" content="cover-img"/>
+  </metadata>
+  <manifest>
+    <item id="cover-img" href="cover.png" media-type="image/png"/>
+  </manifest>
+  <spine></spine>
+</package>]]
+
+local NEW_COVER = {
+    bytes = Images.jpeg(400, 600),
+    extension = "jpg",
+    media_type = "image/jpeg",
+    url = "https://assets.test/dune.jpg",
+}
+
+local function spine_of(opf)
+    return opf:match("<spine.-</spine>")
+end
+
+T["adding a cover to an epub3 book points the cover-image marker and the cover meta at the new image"] = function(a)
+    local out, entry = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER }, "OEBPS/content.opf")
+    a.eq(entry, "OEBPS/rebind-cover.jpg")
+    a.contains(out, 'id="rebind-cover"')
+    a.contains(out, 'href="rebind-cover.jpg"')
+    a.contains(out, 'media-type="image/jpeg"')
+    a.contains(out, 'properties="cover-image"')
+    a.contains(out, '<meta name="cover" content="rebind-cover"')
+end
+
+T["adding a cover records the source url and no original cover"] = function(a)
+    local out = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER }, "OEBPS/content.opf")
+    a.contains(out, '<meta name="rebind:cover-source" content="https://assets.test/dune.jpg"')
+    a.contains(out, '<meta name="rebind:original-cover" content="none"')
+end
+
+T["adding a cover never touches the spine"] = function(a)
+    local out = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER }, "OEBPS/content.opf")
+    a.eq(spine_of(out), spine_of(OPF3_BOOK))
+    a.eq(spine_of(Epub._edit_opf(OPF2_BOOK, { cover = NEW_COVER }, "content.opf")), spine_of(OPF2_BOOK))
+end
+
+T["adding a cover to an epub2 book sets the cover meta without epub3 properties"] = function(a)
+    local out, entry = Epub._edit_opf(OPF2_BOOK, { cover = NEW_COVER }, "content.opf")
+    a.eq(entry, "rebind-cover.jpg")
+    a.contains(out, '<meta name="cover" content="rebind-cover"')
+    a.not_contains(out, "properties=")
+end
+
+T["a png cover is stored under a png name"] = function(a)
+    local cover = { bytes = Images.png(400, 600), extension = "png", media_type = "image/png", url = "u" }
+    local out, entry = Epub._edit_opf(OPF3_BOOK, { cover = cover }, "OEBPS/content.opf")
+    a.eq(entry, "OEBPS/rebind-cover.png")
+    a.contains(out, 'media-type="image/png"')
+end
+
+T["a cover is added to an opf with an empty manifest"] = function(a)
+    local out = assert(Epub._edit_opf(OPF2, { cover = NEW_COVER }, "content.opf"))
+    a.contains(out, 'href="rebind-cover.jpg"')
+end
+
+T["writing a cover next to other changes keeps both"] = function(a)
+    local out = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER, title = "Dune" }, "OEBPS/content.opf")
+    a.contains(out, "<dc:title>Dune</dc:title>")
+    a.contains(out, 'href="rebind-cover.jpg"')
+end
+
+T["replacing an existing cover is refused for now"] = function(a)
+    local out, err = Epub._edit_opf(OPF3_WITH_COVER, { cover = NEW_COVER }, "OEBPS/content.opf")
+    a.eq(out, nil)
+    a.contains(err, "already has a cover")
+    out, err = Epub._edit_opf(OPF2_WITH_COVER, { cover = NEW_COVER }, "content.opf")
+    a.eq(out, nil)
+    a.contains(err, "already has a cover")
+end
+
+T["read_metadata reports a book without a cover"] = function(a)
+    seed(OPF3_BOOK)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.has_cover, false)
+    a.eq(md.cover_source, nil)
+    a.eq(md.original_cover, nil)
+    unseed()
+end
+
+T["read_metadata sees an epub3 cover-image and an epub2 cover meta"] = function(a)
+    seed(OPF3_WITH_COVER)
+    a.eq(assert(Epub.read_metadata("/fake/book.epub")).has_cover, true)
+    seed(OPF2_WITH_COVER)
+    a.eq(assert(Epub.read_metadata("/fake/book.epub")).has_cover, true)
+    unseed()
+end
+
+T["read_metadata reads back the cover Rebind wrote"] = function(a)
+    local out = Epub._edit_opf(OPF3_BOOK, { cover = NEW_COVER }, "OEBPS/content.opf")
+    seed(out)
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    a.eq(md.has_cover, true)
+    a.eq(md.cover_source, "https://assets.test/dune.jpg")
+    a.eq(md.original_cover, "none")
+    unseed()
+end
+
+T["rewrite embeds the cover exactly as downloaded after the mimetype entry"] = function(a)
+    local path = os.tmpname()
+    local f = assert(io.open(path, "wb"))
+    f:write("original")
+    f:close()
+    seed(OPF3_BOOK)
+    _G.__TEST_FS["OEBPS/c1.xhtml"] = "<html/>"
+    _G.__TEST_ORDER = { "mimetype", "META-INF/container.xml", "OEBPS/content.opf", "OEBPS/c1.xhtml" }
+    _G.__TEST_FS["mimetype"] = "application/epub+zip"
+    local rename = os.rename
+    os.rename = function() return true end
+    local ok = Epub.rewrite(path, { cover = NEW_COVER }, false)
+    os.rename = rename
+    local writes = _G.__TEST_WRITES
+    unseed()
+    os.remove(path)
+    os.remove(path .. ".rebind.bak")
+    a.is_true(ok)
+    a.eq(writes[1].path, "mimetype")
+    local image
+    for _, entry in ipairs(writes) do
+        if entry.path == "OEBPS/rebind-cover.jpg" then
+            image = entry
+        end
+    end
+    a.is_true(image)
+    a.eq(image.content, NEW_COVER.bytes)
+end
+
 return T

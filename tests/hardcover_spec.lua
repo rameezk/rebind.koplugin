@@ -281,7 +281,7 @@ end
 
 T["attach_details skips the query when there is nothing to fetch"] = function(a)
     local api = FakeApi.new({ descriptions = { [4] = "Unused." } })
-    Hardcover.attach_details(api, { { book_id = 4, description = "Already here.", genres = {} } })
+    Hardcover.attach_details(api, { { book_id = 4, description = "Already here.", genres = {}, image = { url = "https://assets.test/a.jpg" } } })
     a.eq(api.calls.query, nil)
 end
 
@@ -430,6 +430,58 @@ T["pick_default_edition returns nothing when the query fails or there is nothing
     a.eq(Hardcover.pick_default_edition(empty, { book_id = 7 }, "en"), nil)
     a.eq(Hardcover.pick_default_edition(FakeApi.new({ defaults = {} }), { title = "No id" }), nil)
     a.eq(Hardcover.pick_default_edition({}, { book_id = 7 }), nil)
+end
+
+T["extract reads the cover image of a book"] = function(a)
+    local m = Hardcover.extract({ title = "Dune", image = { url = "https://assets.test/book.jpg", width = 400, height = 600 } })
+    a.eq(m.cover.url, "https://assets.test/book.jpg")
+    a.eq(m.cover.width, 400)
+    a.eq(m.cover.height, 600)
+end
+
+T["extract has no cover when the book has no image"] = function(a)
+    a.eq(Hardcover.extract({ title = "Dune" }).cover, nil)
+    a.eq(Hardcover.extract({ title = "Dune", image = {} }).cover, nil)
+    a.eq(Hardcover.extract({ title = "Dune", image = { url = "" } }).cover, nil)
+end
+
+T["the proposed cover is the edition's when edition and book both have one"] = function(a)
+    local api = FakeApi.new({ editions = {
+        { id = 11, title = "Dune", image = { url = "https://assets.test/edition.jpg" } },
+    } })
+    local book = { book_id = 7, title = "Dune", image = { url = "https://assets.test/book.jpg" } }
+    local editions = Hardcover.list_editions(api, book)
+    a.eq(Hardcover.extract(editions[1]).cover.url, "https://assets.test/edition.jpg")
+end
+
+T["the proposed cover falls back to the book's when the edition has none"] = function(a)
+    local api = FakeApi.new({ editions = { { id = 11, title = "Dune" } } })
+    local book = { book_id = 7, title = "Dune", image = { url = "https://assets.test/book.jpg" } }
+    local editions = Hardcover.list_editions(api, book)
+    a.eq(Hardcover.extract(editions[1]).cover.url, "https://assets.test/book.jpg")
+end
+
+T["the default edition carries its cover with the same fallback"] = function(a)
+    local api = FakeApi.new({ defaults = {
+        ebook = { id = 21, title = "Dune", image = { url = "https://assets.test/ebook.jpg" } },
+    } })
+    local book = { book_id = 7, title = "Dune", image = { url = "https://assets.test/book.jpg" } }
+    local picked = Hardcover.pick_default_edition(api, book)
+    a.eq(Hardcover.extract(picked).cover.url, "https://assets.test/ebook.jpg")
+end
+
+T["edition and detail queries request the cover image"] = function(a)
+    local api = FakeApi.new({ editions = {}, descriptions = { [7] = "Blurb" } })
+    Hardcover.list_editions(api, { book_id = 7 })
+    a.contains(api.calls.editions_query.query, "image { url width height }")
+    Hardcover.attach_details(api, { { book_id = 7, title = "Dune" } })
+    a.contains(api.calls.query.query, "image { url width height }")
+end
+
+T["attach_details fills in the book cover from the detail query"] = function(a)
+    local api = FakeApi.new({ images = { [7] = { url = "https://assets.test/book.jpg" } } })
+    local books = Hardcover.attach_details(api, { { book_id = 7, title = "Dune", description = "d", genres = {} } })
+    a.eq(Hardcover.extract(books[1]).cover.url, "https://assets.test/book.jpg")
 end
 
 return T

@@ -427,4 +427,91 @@ T["the destination follows the values selected in the Picker"] = function(a)
     a.eq(state:destination(), "/inbox/Same Title - Old Series.epub")
 end
 
+local Images = require("tests/support/images")
+local Cover = require("rebind/cover")
+
+local function cover_image()
+    local info = Cover.check(Images.jpeg(400, 600))
+    info.url = "https://assets.test/dune.jpg"
+    return info
+end
+
+local function cover_state(proposed_overrides)
+    local current = { title = "Same Title", has_cover = false }
+    local fields = Fields.build(current, proposed(proposed_overrides or { cover_image = cover_image() }))
+    return PickerState.new(fields, "Hardcover"), fields
+end
+
+T["the cover field comes first for a book with no cover"] = function(a)
+    local state, fields = cover_state()
+    a.eq(fields[1].key, "cover")
+    a.eq(state:differing_fields()[1].key, "cover")
+end
+
+T["the provider cover starts selected and counts as a change"] = function(a)
+    local state = cover_state()
+    a.eq(state:selection("cover"), "new")
+    local before = state:change_count()
+    state:select("cover", "current")
+    a.eq(state:change_count(), before - 1)
+    a.eq(state:changes().cover, nil)
+    state:select("cover", "new")
+    a.eq(state:changes().cover.url, "https://assets.test/dune.jpg")
+    a.eq(state:changes().cover.bytes, cover_image().bytes)
+end
+
+T["the cover shows up in the apply label"] = function(a)
+    local same = {}
+    for k, v in pairs(CURRENT) do
+        same[k] = v
+    end
+    same.cover_image = cover_image()
+    local current = { has_cover = false }
+    for k, v in pairs(CURRENT) do
+        current[k] = v
+    end
+    local state = PickerState.new(Fields.build(current, same), "Hardcover")
+    a.eq(state:apply_label(), "Apply 1 change")
+end
+
+T["the cover offers the book as no cover and the provider cover with its size"] = function(a)
+    local state = cover_state()
+    local options = state:values("cover")
+    a.eq(#options, 2)
+    a.eq(options[1].id, "current")
+    a.eq(options[1].tag, "book")
+    a.eq(options[1].text, "no cover")
+    a.eq(options[1].selected, false)
+    a.eq(options[1].image, nil)
+    a.eq(options[2].id, "new")
+    a.eq(options[2].tag, "Hardcover")
+    a.eq(options[2].text, "400×600")
+    a.eq(options[2].selected, true)
+    a.eq(options[2].image.width, 400)
+end
+
+T["the bulk button counts the cover and moves it with the other fields"] = function(a)
+    local state = cover_state()
+    local n = #state:differing_fields()
+    a.eq(state:bulk_label(), "Use book values for all " .. n)
+    state:bulk()
+    a.eq(state:selection("cover"), "current")
+    a.eq(state:bulk_label(), "Use Hardcover values for all " .. n)
+    state:bulk()
+    a.eq(state:selection("cover"), "new")
+end
+
+T["the cover field is hidden when the download failed or nothing passed the filter"] = function(a)
+    local with = Fields.build({ has_cover = false }, proposed({ cover_image = cover_image() }))
+    local without = Fields.build({ has_cover = false }, proposed())
+    a.eq(field_for(without, "cover"), nil)
+    a.eq(#without + 1, #with)
+    a.eq(field_for(without, "title").key, "title")
+end
+
+T["the cover field is hidden for a book that already has a cover"] = function(a)
+    local fields = Fields.build({ has_cover = true }, proposed({ cover_image = cover_image() }))
+    a.eq(field_for(fields, "cover"), nil)
+end
+
 return T

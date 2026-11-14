@@ -259,10 +259,49 @@ local function first_published_field(current, proposed)
     return field
 end
 
+local function cover_size_text(image)
+    return string.format("%d×%d", image.width, image.height)
+end
+
+local function is_image(raw)
+    return type(raw) == "table" and raw.bytes ~= nil
+end
+
+local function cover_field(current, proposed)
+    local image = proposed.cover_image
+    if not is_image(image) or current.has_cover ~= false then
+        return nil
+    end
+    return {
+        key = "cover",
+        label = _("Cover"),
+        kind = "image",
+        current_value = {},
+        new_value = image,
+        is_empty = function(raw)
+            return not is_image(raw)
+        end,
+        display = function(raw)
+            if not is_image(raw) then
+                return _("no cover")
+            end
+            return cover_size_text(raw)
+        end,
+        default_choice = function(field)
+            return field.is_empty(field.current_value) and "new" or "current"
+        end,
+        apply = function(changes, raw)
+            if is_image(raw) then
+                changes.cover = raw
+            end
+        end,
+    }
+end
+
 function Fields.build(current, proposed)
     current = current or {}
     proposed = proposed or {}
-    return {
+    local fields = {
         title_field(current, proposed),
         author_field(current, proposed),
         series_field(current, proposed),
@@ -272,6 +311,11 @@ function Fields.build(current, proposed)
         publisher_field(current, proposed),
         description_field(current, proposed),
     }
+    local cover = cover_field(current, proposed)
+    if cover then
+        table.insert(fields, 1, cover)
+    end
+    return fields
 end
 
 return Fields

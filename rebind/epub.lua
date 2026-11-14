@@ -367,6 +367,96 @@ local function read_first_published(metadata)
     return el and get_text(el):match("^%s*(%d%d%d%d)") or nil
 end
 
+local function find_child(pkg, name)
+    for _, el in ipairs(child_elements(pkg)) do
+        if el.name == name then
+            return el
+        end
+    end
+    return nil
+end
+
+local function has_token(value, token)
+    for word in tostring(value or ""):gmatch("%S+") do
+        if word == token then
+            return true
+        end
+    end
+    return false
+end
+
+local function manifest_item_by_id(manifest, id)
+    for _, el in ipairs(child_elements(manifest)) do
+        if el.name == "item" and attr_get(el, "id") == id then
+            return el
+        end
+    end
+    return nil
+end
+
+local function current_cover_item(pkg, metadata)
+    local manifest = find_child(pkg, "manifest")
+    if not manifest then
+        return nil
+    end
+    for _, el in ipairs(child_elements(manifest)) do
+        if el.name == "item" and has_token(attr_get(el, "properties"), "cover-image") then
+            return el
+        end
+    end
+    local marker = find_meta(metadata, function(el)
+        return attr_get(el, "name") == "cover"
+    end)
+    local id = marker and attr_get(marker, "content")
+    return id and manifest_item_by_id(manifest, id) or nil
+end
+
+local COVER_ID = "rebind-cover"
+local SOURCE_META = "rebind:cover-source"
+local ORIGINAL_META = "rebind:original-cover"
+
+local function meta_content(metadata, name)
+    local el = find_meta(metadata, function(e)
+        return attr_get(e, "name") == name
+    end)
+    return el and attr_get(el, "content") or nil
+end
+
+local function dirname_of(path)
+    return path:match("^(.*)/[^/]*$")
+end
+
+local function add_cover(pkg, metadata, cover, opf_path)
+    if current_cover_item(pkg, metadata) then
+        return nil, "The book already has a cover; replacing it is not supported yet."
+    end
+    local manifest = find_child(pkg, "manifest")
+    if not manifest then
+        return nil, "No <manifest> element in OPF."
+    end
+    local href = COVER_ID .. "." .. cover.extension
+    local attrs = {
+        { "id", COVER_ID },
+        { "href", href },
+        { "media-type", cover.media_type },
+    }
+    if tostring(attr_get(pkg, "version") or ""):sub(1, 1) == "3" then
+        attrs[#attrs + 1] = { "properties", "cover-image" }
+    end
+    append_child(manifest, new_element("item", nil, attrs))
+
+    remove_meta(metadata, function(el)
+        local name = attr_get(el, "name")
+        return name == "cover" or name == SOURCE_META or name == ORIGINAL_META
+    end)
+    append_child(metadata, new_element("meta", nil, { { "name", "cover" }, { "content", COVER_ID } }))
+    append_child(metadata, new_element("meta", nil, { { "name", SOURCE_META }, { "content", cover.url or "" } }))
+    append_child(metadata, new_element("meta", nil, { { "name", ORIGINAL_META }, { "content", "none" } }))
+
+    local dir = dirname_of(opf_path or "")
+    return dir and (dir .. "/" .. href) or href
+end
+
 local function opf_path_from_container(container)
     return container:match('full%-path%s*=%s*"([^"]+)"')
         or container:match("full%-path%s*=%s*'([^']+)'")
@@ -428,7 +518,7 @@ function Epub.read_metadata(path)
         return nil, "Could not read the OPF file."
     end
 
-    local _, metadata, err = parse_metadata(opf_xml)
+    local doc, metadata, err = parse_metadata(opf_xml)
     if not metadata then
         return nil, err
     end
@@ -464,10 +554,13 @@ function Epub.read_metadata(path)
         publisher = publisher,
         isbn_13 = isbn_13,
         isbn_10 = isbn_10,
+        has_cover = current_cover_item(doc.root, metadata) ~= nil,
+        cover_source = meta_content(metadata, SOURCE_META),
+        original_cover = meta_content(metadata, ORIGINAL_META),
     }
 end
 
-local function edit_opf(opf_xml, changes)
+local function edit_opf(opf_xml, changes, opf_path)
     local doc, metadata, err = parse_metadata(opf_xml)
     if not metadata then
         return nil, err
@@ -507,13 +600,21 @@ local function edit_opf(opf_xml, changes)
         end
     end
 
+    local cover_entry
+    if changes.cover then
+        cover_entry, err = add_cover(doc.root, metadata, changes.cover, opf_path)
+        if not cover_entry then
+            return nil, err
+        end
+    end
+
     local ok, out = pcall(function()
         return SLAXML:xml(doc)
     end)
     if not ok or not out then
         return nil, "Could not serialize the edited OPF."
     end
-    return out
+    return out, cover_entry
 end
 
 local function copy_file(src, dst)
@@ -595,15 +696,17 @@ function Epub.rewrite(path, changes, keep_backup)
     writer:setZipCompression("deflate")
 
     local wrote_opf = false
+    local cover_entry
     local edit_err
     for entry in reader:iterate() do
         if entry.path ~= "mimetype" and not edit_err then
             local content = reader:extractToMemory(entry.path)
             if content then
                 if entry.path == opf_path then
-                    local edited, e = edit_opf(content, changes)
+                    local edited, e = edit_opf(content, changes, opf_path)
                     if edited then
                         content = edited
+                        cover_entry = e
                         wrote_opf = true
                     else
                         edit_err = e
@@ -615,6 +718,9 @@ function Epub.rewrite(path, changes, keep_backup)
                 end
             end
         end
+    end
+    if cover_entry and not edit_err then
+        writer:addFileFromMemory(cover_entry, changes.cover.bytes)
     end
     writer:close()
     reader:close()

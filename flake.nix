@@ -32,6 +32,7 @@
               python3
             ]
             ++ lib.optionals stdenv.hostPlatform.isLinux [
+              procps
               xz
             ];
           env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {

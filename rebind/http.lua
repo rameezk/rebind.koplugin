@@ -85,14 +85,10 @@ local function wait_seconds(response, attempt)
     return math.min(Http.BASE_BACKOFF * 2 ^ (attempt - 1), Http.MAX_WAIT)
 end
 
-function Http:get_json(url, params)
-    local query = Http.query_string(params)
-    if query ~= "" then
-        url = url .. (url:find("?", 1, true) and "&" or "?") .. query
-    end
+function Http:_fetch(url, accept, read)
     local req = {
         url = url,
-        headers = { ["User-Agent"] = self.user_agent, ["Accept"] = "application/json" },
+        headers = { ["User-Agent"] = self.user_agent, ["Accept"] = accept },
     }
 
     for attempt = 1, Http.MAX_ATTEMPTS do
@@ -108,13 +104,32 @@ function Http:get_json(url, params)
         elseif response.status ~= 200 then
             return nil, "HTTP " .. tostring(response.status)
         else
-            local parsed, decoded = pcall(require("json").decode, response.body)
-            if not parsed or type(decoded) ~= "table" then
-                return nil, "invalid JSON response"
-            end
-            return decoded
+            return read(response.body)
         end
     end
+end
+
+function Http:get_json(url, params)
+    local query = Http.query_string(params)
+    if query ~= "" then
+        url = url .. (url:find("?", 1, true) and "&" or "?") .. query
+    end
+    return self:_fetch(url, "application/json", function(body)
+        local parsed, decoded = pcall(require("json").decode, body)
+        if not parsed or type(decoded) ~= "table" then
+            return nil, "invalid JSON response"
+        end
+        return decoded
+    end)
+end
+
+function Http:get_binary(url)
+    return self:_fetch(url, "image/jpeg,image/png,image/*;q=0.8", function(body)
+        if body == "" then
+            return nil, "empty response"
+        end
+        return body
+    end)
 end
 
 return Http

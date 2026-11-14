@@ -109,6 +109,13 @@ local function first_published_of(book)
     return year_text(book.release_year)
 end
 
+local function cover_candidate(image)
+    if type(image) ~= "table" or type(image.url) ~= "string" or image.url == "" then
+        return nil
+    end
+    return { url = image.url, width = tonumber(image.width), height = tonumber(image.height) }
+end
+
 function Hardcover.extract(book)
     local series_name, series_index
     local se = series_entry(book)
@@ -136,6 +143,7 @@ function Hardcover.extract(book)
         pages = book.pages,
         users_count = book.users_count,
         users_read_count = book.users_read_count,
+        cover = cover_candidate(book.image),
     }
 end
 
@@ -145,6 +153,7 @@ local DETAILS_QUERY = [[
         id
         description
         genres: cached_tags(path: "Genre")
+        image { url width height }
       }
     }
 ]]
@@ -157,7 +166,7 @@ function Hardcover.attach_details(Api, books)
     local ids = {}
     for _, book in ipairs(books) do
         local id = tonumber(book.book_id)
-        if id and (book.description == nil or book.genres == nil) then
+        if id and (book.description == nil or book.genres == nil or book.image == nil) then
             ids[#ids + 1] = id
         end
     end
@@ -189,6 +198,9 @@ function Hardcover.attach_details(Api, books)
             if book.genres == nil then
                 book.genres = genres_from_tags(row.genres)
             end
+            if book.image == nil then
+                book.image = row.image
+            end
         end
     end
 
@@ -216,6 +228,7 @@ local EDITION_FIELDS = [[
         release_date
         publisher { name }
         language { code2 language }
+        image { url width height }
 ]]
 
 local EDITIONS_QUERY = [[
@@ -295,6 +308,7 @@ local function edition_entry(row, book, book_id)
         publisher = row.publisher,
         pages = row.pages,
         users_count = row.users_count,
+        image = cover_candidate(row.image) and row.image or book.image,
     }
 end
 
