@@ -80,7 +80,7 @@ local function tag_widget(tag, max_width)
     }
 end
 
-local function tile(option, width, on_tap)
+local function tile(option, width, on_tap, on_hold)
     local border = option.selected and Size.border.thick or Size.border.thin
     local padding = Size.padding.default
     local inner_w = width - 2 * (border + padding)
@@ -106,6 +106,7 @@ local function tile(option, width, on_tap)
     }
     return TapRow:new{
         on_tap = on_tap,
+        on_hold = on_hold,
         dimen = Geom:new{ w = width, h = box:getSize().h },
         box,
     }
@@ -122,6 +123,8 @@ function CoverTiles.new(opts)
         end
         table.insert(row, tile(option, tile_w, function()
             opts.on_select(option)
+        end, function()
+            opts.on_hold(option)
         end))
     end
     return row

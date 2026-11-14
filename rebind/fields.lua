@@ -279,6 +279,7 @@ local function cover_field(current, proposed)
     return {
         key = "cover",
         label = _("Cover"),
+        hint = _("Hold to view"),
         kind = "image",
         current_value = present or {},
         new_value = image,

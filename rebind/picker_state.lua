@@ -235,6 +235,25 @@ function PickerState:values(key)
     return out
 end
 
+function PickerState:preview(key, id, edition_label)
+    for _i, option in ipairs(self:values(key)) do
+        if option.id == id then
+            local image = option.image
+            local is_provider = id == "new"
+            local has_edition = is_provider and edition_label and edition_label ~= ""
+            return {
+                id = id,
+                source = option.tag,
+                edition = has_edition and edition_label or nil,
+                size = option.text,
+                file_size = image and string.format("%.1f KB", #image.bytes / 1024) or nil,
+                image = image,
+                selected = option.selected,
+            }
+        end
+    end
+end
+
 function PickerState:_field(key)
     for _i, f in ipairs(self.fields) do
         if f.key == key then
