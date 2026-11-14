@@ -152,4 +152,9 @@ T["a cover is offered to a book without one, or with another cover, but not for 
     a.eq(Cover.offered({ has_cover = true, cover_source = url, original_cover = "none" }, url), false)
 end
 
+T["describe refuses an image with an absurd pixel count"] = function(a)
+    a.eq(Cover.describe(Images.jpeg(30000, 40000)), nil)
+    a.eq(Cover.describe(Images.jpeg(300, 450, 3000)).width, 300)
+end
+
 return T

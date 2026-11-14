@@ -437,20 +437,30 @@ local function segments(path)
     local out = {}
     for part in path:gmatch("[^/]+") do
         if part == ".." then
+            if #out == 0 then
+                return out, true
+            end
             out[#out] = nil
         elseif part ~= "." then
             out[#out + 1] = part
         end
     end
-    return out
+    return out, false
 end
 
 local function resolve(dir, href)
     local target = unescape((href:gsub("#.*$", "")))
+    if target:find("%z") then
+        return nil
+    end
     if dir and dir ~= "" then
         target = dir .. "/" .. target
     end
-    return table.concat(segments(target), "/")
+    local parts, escaped = segments(target)
+    if escaped then
+        return nil
+    end
+    return table.concat(parts, "/")
 end
 
 local function relative(from_dir, to)
@@ -494,22 +504,34 @@ end
 
 local function cover_page_paths(pkg, manifest, dir)
     local paths = {}
+    local function add(href)
+        local path = href and resolve(dir, href)
+        if path then
+            paths[#paths + 1] = path
+        end
+    end
     local guide = find_child(pkg, "guide")
     if guide then
         for _, ref in ipairs(child_elements(guide)) do
-            local href = attr_get(ref, "href")
-            if attr_get(ref, "type") == "cover" and href then
-                paths[#paths + 1] = resolve(dir, href)
+            if attr_get(ref, "type") == "cover" then
+                add(attr_get(ref, "href"))
             end
         end
     end
     local spine = find_child(pkg, "spine")
-    local first = spine and child_elements(spine)[1]
-    local item = first and manifest_item_by_id(manifest, attr_get(first, "idref"))
-    if item and attr_get(item, "href") then
-        paths[#paths + 1] = resolve(dir, attr_get(item, "href"))
+    for index, itemref in ipairs(spine and child_elements(spine) or {}) do
+        local idref = attr_get(itemref, "idref")
+        local item = idref and manifest_item_by_id(manifest, idref)
+        local href = item and attr_get(item, "href")
+        if href and (index == 1 or idref:lower():find("cover", 1, true) or href:lower():find("cover", 1, true)) then
+            add(href)
+        end
     end
     return paths
+end
+
+local function own_cover_href(href)
+    return href ~= nil and href:match("^rebind%-cover%.%a+$") ~= nil
 end
 
 local function set_cover(pkg, metadata, cover, opf_path)
@@ -517,29 +539,50 @@ local function set_cover(pkg, metadata, cover, opf_path)
     if not manifest then
         return nil, "No <manifest> element in OPF."
     end
-    local dir = dirname_of(opf_path or "")
+    local opf_dir, escaped = segments(dirname_of(opf_path or "") or "")
+    if escaped or (opf_path or ""):sub(1, 1) == "/" then
+        return nil, "The OPF file is not stored inside the EPUB."
+    end
+    local dir = #opf_dir > 0 and table.concat(opf_dir, "/") or nil
     local plan = { drop = {}, pages = {} }
     local recorded = meta_content(metadata, ORIGINAL_META)
-    local original = recorded
     local previous = current_cover_item(pkg, metadata)
+
+    local href = COVER_ID .. "." .. cover.extension
+    plan.to = dir and (dir .. "/" .. href) or href
+
+    local own = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        local item_href = attr_get(item, "href") or ""
+        if attr_get(item, "id") == COVER_ID then
+            if not own_cover_href(item_href) then
+                return nil, "The book's manifest already uses the id Rebind gives its cover."
+            end
+            own[#own + 1] = item
+        elseif resolve(dir, item_href) == plan.to then
+            return nil, "The book already has a file named " .. plan.to .. "."
+        end
+    end
+    for _, item in ipairs(own) do
+        remove_element(manifest, item)
+        plan.drop[resolve(dir, attr_get(item, "href"))] = true
+    end
+    plan.drop[plan.to] = true
+
+    local original = recorded or "none"
     if previous then
         plan.from = resolve(dir, attr_get(previous, "href") or "")
-        if attr_get(previous, "id") == COVER_ID then
-            remove_element(manifest, previous)
-            plan.drop[plan.from] = true
-            original = recorded or "none"
-        else
+        if attr_get(previous, "id") ~= COVER_ID then
             drop_property(previous, "cover-image")
             original = recorded or attr_get(previous, "id")
         end
-        for _, page in ipairs(cover_page_paths(pkg, manifest, dir)) do
-            plan.pages[page] = true
+        if plan.from then
+            for _, page in ipairs(cover_page_paths(pkg, manifest, dir)) do
+                plan.pages[page] = true
+            end
         end
-    else
-        original = recorded or "none"
     end
 
-    local href = COVER_ID .. "." .. cover.extension
     local attrs = {
         { "id", COVER_ID },
         { "href", href },
@@ -558,27 +601,59 @@ local function set_cover(pkg, metadata, cover, opf_path)
     append_child(metadata, new_element("meta", nil, { { "name", SOURCE_META }, { "content", cover.url or "" } }))
     append_child(metadata, new_element("meta", nil, { { "name", ORIGINAL_META }, { "content", original } }))
 
-    plan.to = dir and (dir .. "/" .. href) or href
     return plan.to, plan
 end
 
-local function repoint_page(content, page_path, from, to)
-    local page_dir = dirname_of(page_path)
-    local new_ref = relative(page_dir, to)
-    return (content:gsub("<(%a+)(%s[^>]*)>", function(tag, attrs)
-        local name = tag:lower()
-        if name ~= "img" and name ~= "image" then
-            return nil
-        end
-        local fixed = attrs:gsub("(%s)([%w:]+)(%s*=%s*)([\"'])(.-)%4", function(space, attr, eq, quote, value)
-            local lower = attr:lower()
-            if (lower == "src" or lower == "href" or lower == "xlink:href") and resolve(page_dir, value) == from then
+local MAX_PAGE_BYTES = 1048576
+local MAX_TAG_BYTES = 4096
+
+local function repoint_tag(tag, page_dir, from, new_ref)
+    local name = tag:match("^<(%a+)")
+    name = name and name:lower()
+    if name ~= "img" and name ~= "image" then
+        return tag
+    end
+    return (tag:gsub("(%s)([%w:]+)(%s*=%s*)([\"'])([^\"']*)%4", function(space, attr, eq, quote, value)
+        local lower = attr:lower()
+        if lower == "src" or lower == "href" or lower == "xlink:href" then
+            local target = resolve(page_dir, value)
+            if target and target == from then
                 return space .. attr .. eq .. quote .. new_ref .. quote
             end
-            return nil
-        end)
-        return "<" .. tag .. fixed .. ">"
+        end
+        return nil
     end))
+end
+
+local function repoint_page(content, page_path, from, to)
+    if not from or #content > MAX_PAGE_BYTES then
+        return content
+    end
+    local page_dir = dirname_of(page_path)
+    local new_ref = relative(page_dir, to)
+    local out, pos, close = {}, 1, nil
+    while true do
+        local open = content:find("<", pos, true)
+        if not open then
+            break
+        end
+        if not close or close < open then
+            close = content:find(">", open, true)
+        end
+        if not close then
+            break
+        end
+        out[#out + 1] = content:sub(pos, open - 1)
+        if close - open > MAX_TAG_BYTES then
+            out[#out + 1] = "<"
+            pos = open + 1
+        else
+            out[#out + 1] = repoint_tag(content:sub(open, close), page_dir, from, new_ref)
+            pos = close + 1
+        end
+    end
+    out[#out + 1] = content:sub(pos)
+    return table.concat(out)
 end
 
 local function opf_path_from_container(container)
@@ -670,8 +745,9 @@ function Epub.read_metadata(path, opts)
     local cover_image
     if cover_item and opts and opts.cover_image then
         local cover_path = resolve(dirname_of(opf_path), attr_get(cover_item, "href") or "")
-        local bytes = (extract_named(path, { [cover_path] = true }) or {})[cover_path]
-        cover_image = Cover.describe(bytes)
+        if cover_path then
+            cover_image = Cover.describe((extract_named(path, { [cover_path] = true }) or {})[cover_path])
+        end
     end
 
     return {

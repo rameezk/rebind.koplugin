@@ -95,10 +95,11 @@ end
 
 function Cover.describe(bytes)
     local info = Cover.inspect(bytes)
-    if info then
-        info.bytes = bytes
-        info.size = #bytes
+    if not info or info.width * info.height > Cover.MAX_PIXELS then
+        return nil
     end
+    info.bytes = bytes
+    info.size = #bytes
     return info
 end
 
