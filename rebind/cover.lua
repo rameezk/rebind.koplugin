@@ -93,24 +93,37 @@ function Cover.inspect(bytes)
     return nil
 end
 
+function Cover.describe(bytes)
+    local info = Cover.inspect(bytes)
+    if not info or info.width * info.height > Cover.MAX_PIXELS then
+        return nil
+    end
+    info.bytes = bytes
+    info.size = #bytes
+    return info
+end
+
 function Cover.check(bytes)
     if type(bytes) ~= "string" or #bytes < Cover.MIN_BYTES then
         return nil
     end
-    local info = Cover.inspect(bytes)
+    local info = Cover.describe(bytes)
     if not info or info.height < Cover.MIN_HEIGHT then
-        return nil
-    end
-    if info.width * info.height > Cover.MAX_PIXELS then
         return nil
     end
     local ratio = info.width / info.height
     if ratio < Cover.MIN_RATIO or ratio > Cover.MAX_RATIO then
         return nil
     end
-    info.bytes = bytes
-    info.size = #bytes
     return info
+end
+
+function Cover.offered(current, url)
+    if not current.has_cover then
+        return true
+    end
+    local kept_original = current.original_cover ~= nil and current.original_cover ~= "none"
+    return not (current.cover_source == url and not kept_original)
 end
 
 function Cover.fetch(http, candidate)
