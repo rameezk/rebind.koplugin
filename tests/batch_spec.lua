@@ -477,6 +477,9 @@ end
 
 local Library = require("tests/support/library")
 local Organize = require("rebind/organize")
+local Http = require("rebind/http")
+local Images = require("tests/support/images")
+local FakeTransport = require("tests/support/fake_transport")
 
 local function library_batch(root, books, opts)
     opts = opts or {}
@@ -513,6 +516,7 @@ local function library_batch(root, books, opts)
             filename_template = Organize.DEFAULT_FILENAME_TEMPLATE,
             folder_template = Organize.DEFAULT_FOLDER_TEMPLATE,
         },
+        http = opts.http,
         rewrite = function(path, changes, keep)
             calls[#calls + 1] = { file = path, changes = changes, keep = keep }
             if opts.rewrite then
@@ -1000,6 +1004,65 @@ T["the batch tells its owner each time the device is taken"] = function(a)
     batch:release()
     batch:lookup_next()
     a.eq(taken, 2)
+end
+
+local COVER_URL = "https://img.test/dune.jpg"
+
+local function cover_http(routes)
+    local transport = FakeTransport.new(routes)
+    return Http.new{ transport = transport:fn(), sleep = function() end }, transport
+end
+
+local function cover_book(has_cover)
+    local book = dune("a.epub", "Dune Chronicles")
+    book.meta.has_cover = has_cover
+    book.match.cover = { url = COVER_URL }
+    return book
+end
+
+T["a sure match for a book without a cover gets the cover with its other changes"] = function(a)
+    Library.with_library(function(root)
+        local bytes = Images.jpeg(400, 600)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = bytes } })
+        local batch, calls = library_batch(root, { cover_book(false) }, { http = http })
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(calls[1].changes.series, "Dune Chronicles")
+        a.eq(calls[1].changes.cover.bytes, bytes)
+        a.eq(calls[1].changes.cover.url, COVER_URL)
+    end)
+end
+
+T["a sure match for a book with a cover never downloads or changes it"] = function(a)
+    Library.with_library(function(root)
+        local http, transport = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch, calls = library_batch(root, { cover_book(true) }, { http = http })
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(calls[1].changes.cover, nil)
+        a.eq(#transport.calls, 0)
+    end)
+end
+
+T["a failed or filtered cover download skips only the cover"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(100, 150) } })
+        local batch, calls = library_batch(root, { cover_book(false) }, { http = http })
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(calls[1].changes.series, "Dune Chronicles")
+        a.eq(calls[1].changes.cover, nil)
+        a.eq(batch.entries[1].state, "done")
+    end)
+end
+
+T["lookup downloads no cover"] = function(a)
+    Library.with_library(function(root)
+        local http, transport = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        a.eq(batch:sure_count(), 1)
+        a.eq(#transport.calls, 0)
+    end)
 end
 
 return T

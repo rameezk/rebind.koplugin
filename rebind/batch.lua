@@ -1,6 +1,7 @@
 local _ = require("gettext")
 
 local Apply = require("rebind/apply")
+local Cover = require("rebind/cover")
 local Epub = require("rebind/epub")
 local Fields = require("rebind/fields")
 local Lookup = require("rebind/lookup")
@@ -283,6 +284,7 @@ function Batch.new(opts)
         preferred_language = opts.preferred_language,
         rewrite = opts.rewrite,
         relocate = opts.relocate,
+        http = opts.http,
         save_as = opts.save_as or {},
         open_file = opts.open_file,
         same_file = opts.same_file or function(a, b)
@@ -690,8 +692,21 @@ function Batch:begin_rebind()
     return self.queue_total
 end
 
+function Batch:_with_missing_cover(entry)
+    local book = entry.book
+    if entry.current.has_cover or not (book and book.cover and self.http) then
+        return entry
+    end
+    local with_cover = {}
+    for key, value in pairs(entry) do
+        with_cover[key] = value
+    end
+    with_cover.book = Cover.attach(self.http, book)
+    return with_cover
+end
+
 function Batch:_rebind_entry(entry)
-    local state = self:_picker_state(entry)
+    local state = self:_picker_state(self:_with_missing_cover(entry))
     local changes = state:changes()
     local outcome = Apply.run(entry.file, changes, {
         keep_backup = state.save_as.keep_backup,
