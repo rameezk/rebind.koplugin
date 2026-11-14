@@ -142,4 +142,14 @@ T["attach copes with no proposal"] = function(a)
     a.eq(next(Cover.attach(client({}), nil)), nil)
 end
 
+T["a cover is offered to a book without one, or with another cover, but not for the same source"] = function(a)
+    local url = "https://assets.test/dune.jpg"
+    a.is_true(Cover.offered({ has_cover = false }, url))
+    a.is_true(Cover.offered({ has_cover = true }, url))
+    a.is_true(Cover.offered({ has_cover = true, cover_source = "https://other/x.jpg" }, url))
+    a.is_true(Cover.offered({ has_cover = true, cover_source = url, original_cover = "cover" }, url))
+    a.eq(Cover.offered({ has_cover = true, cover_source = url }, url), false)
+    a.eq(Cover.offered({ has_cover = true, cover_source = url, original_cover = "none" }, url), false)
+end
+
 return T

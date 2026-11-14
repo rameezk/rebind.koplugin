@@ -390,7 +390,7 @@ function Rebind:onRebind(file)
         return
     end
 
-    local current, err = Epub.read_metadata(file)
+    local current, err = Epub.read_metadata(file, { cover_image = true })
     if not current then
         info(_("Could not read EPUB metadata: ") .. tostring(err))
         return
@@ -736,7 +736,7 @@ function Rebind:_translateText(text, target)
 end
 
 function Rebind:_withCover(current, book, done)
-    if not (book and book.cover and current.has_cover == false) then
+    if not (book and book.cover and Cover.offered(current, book.cover.url)) then
         done(book)
         return
     end

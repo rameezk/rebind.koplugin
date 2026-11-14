@@ -93,6 +93,15 @@ function Cover.inspect(bytes)
     return nil
 end
 
+function Cover.describe(bytes)
+    local info = Cover.inspect(bytes)
+    if info then
+        info.bytes = bytes
+        info.size = #bytes
+    end
+    return info
+end
+
 function Cover.check(bytes)
     if type(bytes) ~= "string" or #bytes < Cover.MIN_BYTES then
         return nil
@@ -111,6 +120,14 @@ function Cover.check(bytes)
     info.bytes = bytes
     info.size = #bytes
     return info
+end
+
+function Cover.offered(current, url)
+    if not current.has_cover then
+        return true
+    end
+    local kept_original = current.original_cover ~= nil and current.original_cover ~= "none"
+    return not (current.cover_source == url and not kept_original)
 end
 
 function Cover.fetch(http, candidate)
