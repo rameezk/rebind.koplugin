@@ -1001,13 +1001,9 @@ function Rebind:_saveAsDefaults()
     }
 end
 
-function Rebind:_showDiff(file, current, book, chain, results, on_apply, row)
-    if row then
-        self:_openDiff(file, current, book, chain, results, on_apply, row)
-        return
-    end
+function Rebind:_showDiff(file, current, book, chain, results)
     self:_withCover(current, book, function(attached)
-        self:_openDiff(file, current, attached, chain, results, on_apply, row)
+        self:_openDiff(file, current, attached, chain, results)
     end)
 end
 
@@ -1333,13 +1329,25 @@ function Rebind:_openBatchRow(batch, screen, entry)
     local function on_apply(changes, opts)
         self:_applyBatchRow(batch, screen, entry, changes, opts)
     end
-    local function show(book)
-        self:_showDiff(entry.file, entry.current, book, chain, entry.matches or {}, on_apply, {
+    local function open(book)
+        self:_openDiff(entry.file, entry.current, book, chain, entry.matches or {}, on_apply, {
             save_as = batch:save_as_for(entry),
             on_change = function(save_as)
                 entry.save_as = save_as
             end,
         })
+    end
+    local function show(book)
+        if not batch:wants_row_cover(entry, book) then
+            open(book)
+            return
+        end
+        Trapper:wrap(function()
+            Trapper:info(_("Loading the cover…"))
+            local _state, attached = batch:row_picker(entry, book)
+            Trapper:clear()
+            open(attached)
+        end)
     end
     if entry.state == "sure" then
         show(entry.book)

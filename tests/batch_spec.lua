@@ -479,6 +479,7 @@ local Library = require("tests/support/library")
 local Organize = require("rebind/organize")
 local Http = require("rebind/http")
 local Images = require("tests/support/images")
+local Cover = require("rebind/cover")
 local FakeTransport = require("tests/support/fake_transport")
 
 local function library_batch(root, books, opts)
@@ -1062,6 +1063,126 @@ T["lookup downloads no cover"] = function(a)
         local batch = library_batch(root, { cover_book(false) }, { http = http })
         a.eq(batch:sure_count(), 1)
         a.eq(#transport.calls, 0)
+    end)
+end
+
+local function row_entry(batch)
+    return batch.entries[1]
+end
+
+local function cover_field_of(state)
+    for _i, field in ipairs(state.fields) do
+        if field.key == "cover" then
+            return field
+        end
+    end
+    return nil
+end
+
+T["the batch reads each book with its current cover image"] = function(a)
+    local Epub = require("rebind/epub")
+    local original = Epub.read_metadata
+    local seen
+    Epub.read_metadata = function(_path, opts)
+        seen = opts
+        return { title = "Dune", authors = { "Frank Herbert" } }
+    end
+    local ok, err = pcall(function()
+        local batch = Batch.new{ files = { "/a.epub" }, chain = {}, clock = function() return 0 end }
+        batch.read_metadata("/a.epub")
+        a.eq(seen and seen.cover_image, true)
+    end)
+    Epub.read_metadata = original
+    assert(ok, err)
+end
+
+T["a sure match row offers the provider cover for a book with no cover"] = function(a)
+    Library.with_library(function(root)
+        local bytes = Images.jpeg(400, 600)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = bytes } })
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        local entry = row_entry(batch)
+        a.eq(entry.state, "sure")
+        local state = batch:row_picker(entry, entry.book)
+        local field = cover_field_of(state)
+        a.eq(field.display(field.current_value), "no cover")
+        a.eq(field.new_value.bytes, bytes)
+        a.eq(state.chosen.cover, "new")
+        a.eq(state:changes().cover.bytes, bytes)
+    end)
+end
+
+T["a review row keeps the current cover selected"] = function(a)
+    Library.with_library(function(root)
+        local current = Images.jpeg(300, 450)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local book = cover_book(true)
+        book.meta.cover_image = Cover.describe(current)
+        book.match.title = "Dune a.epub"
+        book.match.authors = { "Someone Else" }
+        local batch = library_batch(root, { book }, { http = http })
+        local entry = row_entry(batch)
+        a.eq(entry.state, "review")
+        local state = batch:row_picker(entry, entry.book)
+        local field = cover_field_of(state)
+        a.eq(field.current_value.bytes, current)
+        a.eq(state.chosen.cover, "current")
+        a.eq(state:changes().cover, nil)
+        a.eq(state.opened.chosen.cover, "current")
+    end)
+end
+
+T["a row offers the original cover when the book keeps one"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local book = cover_book(true)
+        book.meta.original_cover = "none"
+        local batch = library_batch(root, { book }, { http = http })
+        local entry = row_entry(batch)
+        local field = cover_field_of(batch:row_picker(entry, entry.book))
+        a.eq(field.original_value.original, true)
+    end)
+end
+
+T["a row hides the cover field when the download is filtered out"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(100, 150) } })
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        local entry = row_entry(batch)
+        local state = batch:row_picker(entry, entry.book)
+        a.eq(cover_field_of(state), nil)
+        a.eq(#state.fields, 8)
+        a.eq(state:changes().series, "Dune Chronicles")
+    end)
+end
+
+T["a row hides the cover field when the download fails"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({})
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        local entry = row_entry(batch)
+        local state, attached = batch:row_picker(entry, entry.book)
+        a.eq(cover_field_of(state), nil)
+        a.eq(attached.cover_image, nil)
+    end)
+end
+
+T["a row without a provider book still opens a picker"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({})
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        local state = batch:row_picker(row_entry(batch), nil)
+        a.eq(cover_field_of(state), nil)
+    end)
+end
+
+T["opening a row downloads the cover only then"] = function(a)
+    Library.with_library(function(root)
+        local http, transport = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        a.eq(#transport.calls, 0)
+        batch:row_picker(row_entry(batch), row_entry(batch).book)
+        a.eq(#transport.calls, 1)
     end)
 end
 
