@@ -303,7 +303,7 @@ function Batch.new(opts)
         queue = {},
         queue_total = 0,
         queue_done = 0,
-        results = { rebound = 0, sorted = 0, failed = 0, not_moved = 0 },
+        results = { rebound = 0, sorted = 0, failed = 0, not_moved = 0, covers_added = 0 },
         total = #(opts.files or {}),
         skips = {},
         skip_order = {},
@@ -731,6 +731,7 @@ function Batch:_rebind_entry(entry)
         relocate = self.relocate,
     })
     self:_settle(entry, outcome, changes)
+    outcome.cover_added = outcome.rewritten and changes.cover ~= nil
     return outcome
 end
 
@@ -744,6 +745,9 @@ function Batch:rebind_next()
     local ok, outcome = xpcall(self._rebind_entry, tostring, self, entry)
     if not ok then
         outcome = { ok = false, stage = "write", error = outcome }
+    end
+    if outcome.cover_added then
+        self.results.covers_added = self.results.covers_added + 1
     end
     if outcome.ok then
         self.results.rebound = self.results.rebound + 1
@@ -790,6 +794,11 @@ function Batch:summary()
         parts[#parts + 1] = _("1 was rebound but not moved.")
     elseif results.not_moved > 1 then
         parts[#parts + 1] = string.format(_("%d were rebound but not moved."), results.not_moved)
+    end
+    if results.covers_added == 1 then
+        parts[#parts + 1] = _("1 got a new cover.")
+    elseif results.covers_added > 1 then
+        parts[#parts + 1] = string.format(_("%d got a new cover."), results.covers_added)
     end
     if #parts == 0 then
         return nil

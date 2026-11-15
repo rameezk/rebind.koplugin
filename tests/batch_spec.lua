@@ -518,6 +518,7 @@ local function library_batch(root, books, opts)
             folder_template = Organize.DEFAULT_FOLDER_TEMPLATE,
         },
         http = opts.http,
+        relocate = opts.relocate,
         rewrite = function(path, changes, keep)
             calls[#calls + 1] = { file = path, changes = changes, keep = keep }
             if opts.rewrite then
@@ -1014,8 +1015,8 @@ local function cover_http(routes)
     return Http.new{ transport = transport:fn(), sleep = function() end }, transport
 end
 
-local function cover_book(has_cover)
-    local book = dune("a.epub", "Dune Chronicles")
+local function cover_book(has_cover, name)
+    local book = dune(name or "a.epub", "Dune Chronicles")
     book.meta.has_cover = has_cover
     book.match.cover = { url = COVER_URL }
     return book
@@ -1193,6 +1194,48 @@ T["a row opened with no network client still opens a picker without a cover fiel
         local state, attached = batch:row_picker(entry, entry.book)
         a.eq(cover_field_of(state), nil)
         a.eq(attached, entry.book)
+    end)
+end
+
+T["the summary counts the covers added"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local books = { cover_book(false, "a.epub"), cover_book(false, "b.epub"), cover_book(true, "c.epub") }
+        local batch = library_batch(root, books, { http = http })
+        batch:rebind_all()
+        a.eq(batch:summary(), "✓ 3 books rebound and sorted into your library. 2 got a new cover.")
+    end)
+end
+
+T["the summary counts one cover in the singular"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch = library_batch(root, { cover_book(false) }, { http = http })
+        batch:rebind_all()
+        a.eq(batch:summary(), "✓ 1 book rebound and sorted into your library. 1 got a new cover.")
+    end)
+end
+
+T["the summary counts a cover on a book that was not moved"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch = library_batch(root, { cover_book(false) }, {
+            http = http,
+            relocate = function()
+                return nil, "disk full"
+            end,
+        })
+        batch:rebind_all()
+        a.eq(batch:summary(), "1 was rebound but not moved. 1 got a new cover.")
+    end)
+end
+
+T["the summary leaves out the cover sentence when no cover was added"] = function(a)
+    Library.with_library(function(root)
+        local http = cover_http({ { when = "img.test/dune.jpg", body = Images.jpeg(400, 600) } })
+        local batch = library_batch(root, { cover_book(true) }, { http = http })
+        batch:rebind_all()
+        a.eq(batch:summary(), "✓ 1 book rebound and sorted into your library.")
     end)
 end
 
