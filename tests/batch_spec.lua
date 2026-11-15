@@ -1186,4 +1186,14 @@ T["opening a row downloads the cover only then"] = function(a)
     end)
 end
 
+T["a row opened with no network client still opens a picker without a cover field"] = function(a)
+    Library.with_library(function(root)
+        local batch = library_batch(root, { cover_book(false) }, {})
+        local entry = row_entry(batch)
+        local state, attached = batch:row_picker(entry, entry.book)
+        a.eq(cover_field_of(state), nil)
+        a.eq(attached, entry.book)
+    end)
+end
+
 return T
