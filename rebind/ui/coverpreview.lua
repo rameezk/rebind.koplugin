@@ -53,11 +53,12 @@ end
 
 function CoverPreview:_image(width, height)
     local image = self.preview.image
-    local fit_w, fit_h = width, height
+    local source_w, source_h = Screen:getWidth(), Screen:getHeight()
     if image and image.width and image.height then
-        local scale = math.min(width / image.width, height / image.height)
-        fit_w, fit_h = math.max(1, math.floor(image.width * scale)), math.max(1, math.floor(image.height * scale))
+        source_w, source_h = image.width, image.height
     end
+    local scale = math.min(width / source_w, height / source_h)
+    local fit_w, fit_h = math.max(1, math.floor(source_w * scale)), math.max(1, math.floor(source_h * scale))
     local bb = image and RenderImage:renderImageData(image.bytes, #image.bytes, false, fit_w, fit_h)
     if bb then
         return CenterContainer:new{
