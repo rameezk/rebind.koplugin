@@ -271,12 +271,16 @@ local function default_sleep(seconds)
     require("ffi/util").sleep(seconds)
 end
 
+local function read_with_cover(file)
+    return Epub.read_metadata(file, { cover_image = true })
+end
+
 function Batch.new(opts)
     return setmetatable({
         pending = { unpack(opts.files or {}) },
         entries = {},
         chain = opts.chain or {},
-        read_metadata = opts.read_metadata or Epub.read_metadata,
+        read_metadata = opts.read_metadata or read_with_cover,
         clock = opts.clock or default_clock(),
         sleep = opts.sleep or default_sleep,
         changed = {},
@@ -612,10 +616,22 @@ function Batch:save_as_state()
     return state
 end
 
-function Batch:_picker_state(entry)
-    local state = PickerState.new(Fields.build(entry.current, entry.book), entry.book.provider_name)
+function Batch:_picker_state(entry, book)
+    local state = PickerState.new(Fields.build(entry.current, book), book and book.provider_name)
     state:set_save_as(self:save_as_for(entry))
     return state
+end
+
+function Batch:wants_row_cover(entry, book)
+    return book ~= nil and book.cover ~= nil and self.http ~= nil and Cover.offered(entry.current, book.cover.url)
+end
+
+function Batch:row_picker(entry, book)
+    local attached = book
+    if self:wants_row_cover(entry, book) then
+        attached = Cover.attach(self.http, book)
+    end
+    return self:_picker_state(entry, attached), attached
 end
 
 function Batch:_settle(entry, outcome, changes)
@@ -706,7 +722,7 @@ function Batch:_with_missing_cover(entry)
 end
 
 function Batch:_rebind_entry(entry)
-    local state = self:_picker_state(self:_with_missing_cover(entry))
+    local state = self:_picker_state(entry, self:_with_missing_cover(entry).book)
     local changes = state:changes()
     local outcome = Apply.run(entry.file, changes, {
         keep_backup = state.save_as.keep_backup,

@@ -53,15 +53,21 @@ end
 
 function CoverPreview:_image(width, height)
     local image = self.preview.image
-    local bb = image and RenderImage:renderImageData(image.bytes, #image.bytes, false, width, height)
+    local source_w, source_h = Screen:getWidth(), Screen:getHeight()
+    if image and image.width and image.height then
+        source_w, source_h = image.width, image.height
+    end
+    local scale = math.min(width / source_w, height / source_h)
+    local fit_w, fit_h = math.max(1, math.floor(source_w * scale)), math.max(1, math.floor(source_h * scale))
+    local bb = image and RenderImage:renderImageData(image.bytes, #image.bytes, false, fit_w, fit_h)
     if bb then
         return CenterContainer:new{
             dimen = Geom:new{ w = width, h = height },
             ImageWidget:new{
                 image = bb,
                 image_disposable = true,
-                width = width,
-                height = height,
+                width = fit_w,
+                height = fit_h,
                 scale_factor = 0,
             },
         }
