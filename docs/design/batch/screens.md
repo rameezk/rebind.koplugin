@@ -94,7 +94,9 @@ A section with no rows is not shown. Each row shows the book's title and author 
 
 A Picker opened from a row starts its Save as from the batch's; a change there applies to that book only. Applying moves the row to Done; closing the Picker without applying leaves the row where it was.
 
-A sure match writes exactly what its Picker would apply untouched: the Proposed value for each Field that is not empty and differs, otherwise the Current value. No translation is offered. A sure match with no changes is not rewritten but still follows Save as.
+A Picker opened from a row is the same Picker as for a single book, Cover field included: the "book", "original" and Provider tiles, hold to preview, and a new download when the Edition or Provider changes. The Provider's cover downloads when the row is opened, behind "Loading the cover…", never during lookup. A failed or filtered download hides the Cover field with no error. Rows show no cover thumbnail or hint, and done rows do not reopen; a cover is changed or restored after a batch by rebinding that book on its own.
+
+A sure match writes exactly what its Picker would apply untouched: the Proposed value for each Field that is not empty and differs, otherwise the Current value. For a book with no cover, that includes the Provider's cover, downloaded just before the write; an existing cover is never replaced. No translation is offered. A sure match with no changes is not rewritten but still follows Save as.
 
 ## 07 Tapping the open book - `07-open-book.png`
 
@@ -124,7 +126,9 @@ Same box as 05: "Rebinding your books… X of N", progress bar, current filename
 
 The review list again, with a bordered summary under the title, built from the outcomes, for example:
 
-> ✓ 3 books rebound and sorted into your library. 1 could not be written. 1 was rebound but not moved.
+> ✓ 3 books rebound and sorted into your library. 2 got a new cover. 1 could not be written. 1 was rebound but not moved.
+
+The cover sentence counts every cover "Rebind N sure matches" wrote, including on a book that was rebound but not moved, and is left out when none was. Covers chosen in a row's Picker are not counted, like the books themselves, and a sure match that got no cover is not mentioned.
 
 Written books move to Done with their new path in grey. A failed write moves back to To review as `Write failed`, unchanged on disk. A rewrite whose move failed moves back as `Not moved`. The primary button becomes a bordered "Close" when no sure matches are left, including a batch that never had any. It closes the same way as the close icon, asking first as in 08 when anything is unfinished.
 
