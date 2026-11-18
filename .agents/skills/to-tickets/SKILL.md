@@ -14,6 +14,8 @@ Every spec becomes at least one ticket. Agents and humans build only from ticket
 
 ## How it works
 
+Each `[[name]]` here is another skill, whose file is `../<name>/SKILL.md` beside this skill's own: when a step hands work to one, load that skill by reading that file in full and follow its instructions before doing the step. Never do the step from the summary here.
+
 1. **Resolve the tracker.** Read `.tracker.toml` at the project root to learn where tickets go - it names `local` or `github`, the same destination [[to-spec]] published the spec to. See [[tracker-config]] for the file's shape; if it is missing or malformed, hand off to [[tracker-config]] rather than guessing a destination.
 
 2. **Read the spec.** Take the spec passed as an argument (a `docs/specs/NNNN-slug/` folder or a GitHub issue), or the one just written in this session. Read its full body, including the agreed seams and the out-of-scope section - a ticket that builds something the spec refused is a defect.
@@ -59,6 +61,13 @@ Every spec becomes at least one ticket. Agents and humans build only from ticket
 
    How a ticket's identity, status, and edges are physically recorded is tracker-specific. Follow the mechanics for the configured tracker: [`publish-local.md`](publish-local.md) for `local`, [`publish-github.md`](publish-github.md) for `github`.
 
+7. **Land the docs.** Refining, specifying, and slicing leave documentation in the working tree that dispatch depends on: the ADRs and `docs/CONTEXT.md` entries [[decision-context]] wrote during [[refine]], and on `local` the spec folder and its ticket files. [[work-on]] branches each ticket off the up-to-date default branch, so until these merge, a fresh session cannot see the records its ticket leans on - and on `local`, cannot see the ticket at all. Once the tickets are published, raise them as one pull request without being asked:
+
+   - Gather the uncommitted documentation this refine, spec, and ticket run produced. Leave out any other uncommitted change - it is not yours to ship. If there is nothing to land, as when a `github` run recorded no ADR or term, skip this step and say so.
+   - Create a `docs/` branch following [[git-branching]], carrying the gathered docs onto it. They are what the branch is for, so they are not the dirty tree [[git-branching]] stops on; if an unrelated change blocks the branch, stop and report rather than stashing or discarding it.
+   - Commit with [[git-committing]], staging only the gathered paths.
+   - Open the pull request with [[git-pr]], ready for review. Its `## Notes` links the spec: the `docs/specs/NNNN-slug/` folder on `local`, the spec issue's URL on `github`.
+
 ## Completion
 
-The tickets are done when every one answers "what can I demo when this is done?" with a behaviour, the frontier ticket has no blockers and can start immediately, and the edges between them are real. Stop there. This skill produces the task graph; it does not build it. Dispatch is a separate step the user runs - one ticket per fresh session, working the frontier.
+The tickets are done when every one answers "what can I demo when this is done?" with a behaviour, the frontier ticket has no blockers and can start immediately, and the edges between them are real. Then the docs pull request is open, or there was nothing to land. Report the published tickets and the pull request's URL, and stop there. This skill produces the task graph; it does not build it. Dispatch is a separate step the user runs - one ticket per fresh session, working the frontier.
