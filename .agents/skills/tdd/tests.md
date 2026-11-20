@@ -32,7 +32,7 @@ then paymentService.process was called once with cart.total
 when createUser({name: "Alice"}) runs
 then a SELECT on the users table returns a row for "Alice"
 
-# GOOD - round-trips through the public API
+# GOOD - round-trips through the interface
 when createUser({name: "Alice"}) runs
 then getUser(id) returns a user whose name is "Alice"
 ```

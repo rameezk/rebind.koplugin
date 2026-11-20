@@ -11,13 +11,13 @@ When exploring the codebase, read `docs/CONTEXT.md` if it exists so test names a
 
 ## Seams: agree before testing
 
-A **seam** is the public boundary you test at - the interface where you observe behaviour without reaching inside. Tests live at seams, never against internals.
+Tests drive code at a seam, through the interface its callers use, never against the implementation behind it. What a seam, an interface and an adapter are, and when a seam is real, is defined in [[codebase-design]] and nowhere else: load it before naming the seams under test, and name them in its vocabulary. That is what keeps the seam agreed in [[refine]] and recorded in the spec the same seam tested here.
 
 **Test only at pre-agreed seams.** Before writing any test, state the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You cannot test everything, so agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case. Ask: "What is the public interface here, and which seams should we test?"
 
 This agreement is the precondition [[work-on]] relies on when it drives this skill. If the seams were settled upstream in a spec, restate them and confirm; if nothing settled them, settle them here before the first test.
 
-When a test needs to stand in for a dependency at a seam, see [`mocking.md`](mocking.md) - the default is don't, unless it's a system boundary.
+When a test needs to stand in for a dependency at a seam, see [`mocking.md`](mocking.md) - the default is don't, unless the dependency's kind in [[codebase-design]] calls for a test adapter.
 
 ## The loop
 
@@ -29,15 +29,15 @@ Repeat this, one small behaviour at a time:
 
 Keep each cycle small: one seam, one behaviour, one minimal implementation, seconds-to-minutes per loop. Run the suite at every step and see the result before claiming red or green.
 
-## Tests that can only run in CI
+## Tests that need hardware this machine lacks
 
-Some seams' tests cannot run on the machine you are on - they need hardware or a platform it lacks, such as a VM test on a host without KVM - and the repo's instructions leave them to CI. Their red and green come from CI, never from a local attempt, a narrower substitute, or a skipped red:
+Some seams' tests cannot run on the machine you are on - they need hardware or a platform it lacks, such as a VM test on a host without KVM. Before treating one as out of reach, read the repo's instructions for a way to run it from here on other hardware, such as a remote builder or a test host. When the repo documents one, the test is a local test: run it that way at every step of the loop, and its red and green come from that run, exactly as for any other test. No pull request or CI run is part of the loop.
 
-1. **Red** - commit the test change alone and push it on a draft pull request. Watch CI until that test fails, and fails for the right reason.
-2. **Green** - commit the simplest implementation, push it, and watch CI until the test passes.
-3. **Refactor** - as usual, with each push watched until CI is green again.
+When the repo documents no such way, the test can only run in CI, and CI is never the loop's oracle. Every push would cost a full CI run, two per slice, and in a private repository those runs spend the account's limited Actions minutes. So a CI-only test drives nothing:
 
-The CI run is the run: it is what lets you claim red or green for such a test. When the test fails in CI and its log does not say why, make the test report more - fuller assertion messages, the output it saw - and push again, rather than trying to run it locally.
+- **Flag it when agreeing seams.** Say which seams' tests can only run in CI before the first test is written, so the user can choose between a way to run them from here and taking them green-only.
+- **Drive the change at the seams that do run here.** The red-green-refactor loop runs only there.
+- **Write the CI-only test alongside the code it covers,** commit them together, and let the pull request's ordinary CI run prove it green. It gets no red of its own, and no extra pushes or early pull request are made for it. Report it as green-only.
 
 ## Refactor and consolidate the slice
 
@@ -62,9 +62,9 @@ Always start a bug fix with a failing test that reproduces the bug **end-to-end,
 
 ## Guardrails
 
-- NEVER write production code without a failing test that demands it. If you catch yourself writing uncovered code, stop and write the test first.
+- NEVER write production code without a failing test that demands it, unless the code sits behind a CI-only seam the user agreed to take green-only. If you catch yourself writing uncovered code, stop and write the test first.
 - Do not delete or weaken an assertion to force green. Fix the code, or fix a test that was genuinely wrong - and say which.
-- Run the tests at every step. Never claim red or green without having run the suite and seen the result. For a test that can only run in CI, that run is CI's.
+- Run the tests at every step. Never claim red or green without having run the suite and seen the result. Never push to get a red or green from CI.
 - If an existing, unrelated test starts failing during a change, stop and report. Do not silently edit unrelated tests to make the suite pass.
 - Run single test files as you go for speed; run the full suite once the feature is complete, and report that final run.
 

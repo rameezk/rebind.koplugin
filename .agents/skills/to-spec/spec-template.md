@@ -22,7 +22,7 @@
 
 ## Testing & Seams
 
-{The seams the feature is tested at - the fewest, highest seams possible (Feathers), agreed before writing.
+{The seams the feature is tested at, named in the codebase-design vocabulary - the fewest, highest seams possible, agreed before writing.
 
 Then the key behavioural cases in Given / When / Then form - external behaviour, not implementation detail:
 

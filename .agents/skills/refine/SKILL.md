@@ -44,6 +44,12 @@ Digging up facts is on you, not the user. When a question turns on something in 
 
 Don't stall the round waiting on it. An in-flight lookup is just another unresolved input, so only the questions that depend on its result wait; raise the rest of the frontier right away.
 
+## Shape of the code
+
+A new feature reaches questions about the code's shape as surely as a refactor does: where new behaviour lives, what a module's interface offers its callers, whether modules merge or split, where a seam goes and what fills it. As soon as the tree has a branch like that - even one among many questions about behaviour - load [[codebase-design]] before raising it, and frame the question and your pick in its vocabulary rather than in your own terms. A seam agreed here is the seam the spec records and [[tdd]] tests at, so it has to be named the same way in every step.
+
+When an interface is still open and worth getting right, [[codebase-design]] says how to draw up alternatives and compare them; bring its pick into the round as your recommendation, and leave the choice to the user.
+
 ## Recording decisions
 
 Refining is where decisions get made, so it is also where they get recorded - inline, the moment they settle, not deferred to some later step. When a choice settles that a future reader would otherwise have to reverse-engineer, or a term needs pinning down, hand off to [[decision-context]] right then: an ADR if the decision clears its bar (hard to reverse, surprising without context, a genuine trade-off), a `docs/CONTEXT.md` entry if a term just got sharpened. Don't batch these up to the end, and don't leave them for [[to-spec]] to maybe catch - the spec references the record, it doesn't create it.
