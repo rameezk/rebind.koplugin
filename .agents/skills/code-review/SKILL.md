@@ -29,7 +29,7 @@ Capture the diff once, three-dot so the comparison is against the merge-base: `g
 Find what the change was *supposed* to do, in this order, resolving the tracker from `.tracker.toml` (see [[tracker-config]]):
 
 1. The **ticket**: an issue reference in the commit messages (`#123`, `Closes #45`) fetched via `gh`, or a `local` ticket under `docs/specs/NNNN-slug/` matching the branch or feature.
-2. Its **parent spec** - the ticket names it; read it for the agreed seams and the out-of-scope section.
+2. Its **parent spec** - the ticket names it; read it for the agreed seams and the out-of-scope section. The ticket alone sets the scope: the rest of the spec belongs to sibling tickets.
 3. A path the user passed as an argument.
 4. If nothing turns up, ask the user where the spec is. If they say there is none, the Spec axis skips and reports "no spec available".
 
@@ -59,7 +59,7 @@ Either way, each axis gets the same inputs and the same brief.
 
 - The diff command and commit list.
 - The ticket and its parent spec (path or fetched contents), including the agreed seams and the out-of-scope section.
-- The brief: "Report: (a) requirements the ticket or spec asked for that are missing or partial; (b) behaviour in the diff that was not asked for - scope creep, especially anything the spec's out-of-scope section explicitly refused; (c) requirements that look implemented but where the implementation looks wrong. Quote the ticket or spec line for each finding. Under 400 words."
+- The brief: "Report: (a) requirements the ticket asked for that are missing or partial - the spec only sets the seams and limits they are built within, and its other requirements belong to sibling tickets, so never report one of those as missing; (b) behaviour in the diff the ticket did not ask for - scope creep, including work the parent spec describes but this ticket does not, which belongs to a sibling ticket, and especially anything the spec's out-of-scope section explicitly refused; (c) requirements that look implemented but where the implementation looks wrong. Quote the ticket or spec line for each finding. Under 400 words."
 
 If there is no spec, skip the Spec axis and say so in the report.
 
