@@ -1,3 +1,4 @@
+local Isbn = require("rebind/isbn")
 local Translate = require("rebind/translate")
 
 local Provider = {}
@@ -15,7 +16,7 @@ local FIELDS = table.concat({
     "key", "title", "author_name", "first_publish_year", "subject", "place", "person", "time",
     "series_name", "series_position", "cover_i",
     "editions", "editions.key", "editions.title", "editions.language", "editions.publisher",
-    "editions.publish_date", "editions.ebook_access", "editions.cover_i",
+    "editions.publish_date", "editions.isbn", "editions.ebook_access", "editions.cover_i",
 }, ",")
 
 local MARC_TO_ISO = {
@@ -161,6 +162,7 @@ function Provider:_neutral(doc, edition)
         match.edition_format = EBOOK_ACCESS[edition.ebook_access] and "E-Book" or nil
         match.release_year = year_of(first_string(edition.publish_date)) or match.release_year
         match.language = language_of(edition)
+        match.isbn = Isbn.best(unpack(type(edition.isbn) == "table" and edition.isbn or {}))
         match.cover = cover_of(edition) or match.cover
     end
     return match

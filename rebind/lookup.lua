@@ -56,19 +56,40 @@ local function isbn_only(meta, isbn)
     return out
 end
 
+local function remember_isbn(result, isbn)
+    if result.method == "isbn" then
+        for _i, match in ipairs(result.matches) do
+            match.lookup_isbn = isbn
+        end
+    end
+    return result
+end
+
 function Lookup.find(chain, meta)
     local found = meta and not (meta.isbn_13 or meta.isbn_10) and meta.found_isbns or {}
     for index = 1, math.min(#found, MAX_FOUND_ISBN_TRIES) do
         local attempt = search_chain(chain, isbn_only(meta, found[index]))
         if #attempt.matches > 0 and attempt.method == "isbn" then
             attempt.found_isbn = found[index]
-            return attempt
+            return remember_isbn(attempt, found[index])
         end
         if Lookup.all_failed(attempt) then
             break
         end
     end
-    return search_chain(chain, meta)
+    return remember_isbn(search_chain(chain, meta), meta and (meta.isbn_13 or meta.isbn_10))
+end
+
+function Lookup.carry_isbn(source, book)
+    if type(source) ~= "table" or source.lookup_isbn or not (book and book.lookup_isbn) then
+        return source
+    end
+    local out = {}
+    for key, value in pairs(source) do
+        out[key] = value
+    end
+    out.lookup_isbn = book.lookup_isbn
+    return out
 end
 
 function Lookup.find_in(provider, meta)
@@ -146,7 +167,7 @@ function Lookup.auto_edition(chain, current, book, preferred)
     local ok, edition = pcall(function()
         return provider and Lookup.pick_edition(provider, book, current and current.language, preferred)
     end)
-    return ok and edition or book
+    return ok and edition and Lookup.carry_isbn(edition, book) or book
 end
 
 function Lookup.skipped_text(result)

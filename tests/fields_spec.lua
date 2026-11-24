@@ -308,6 +308,23 @@ T["the ISBN editor rejects a number that is not an ISBN"] = function(a)
     a.eq(field.validate(""), nil)
 end
 
+T["the chosen edition's ISBN is proposed"] = function(a)
+    local field = by_key(build({}, { isbn = "9780575099968" }), "isbn")
+    a.eq(field.display(field.new_value), "9780575099968")
+end
+
+T["an edition's ISBN-10 is proposed as ISBN-13"] = function(a)
+    local field = by_key(build({}, { isbn = "0137314914" }), "isbn")
+    a.eq(field.display(field.new_value), "9780137314911")
+end
+
+T["an edition without an ISBN proposes the ISBN the lookup used"] = function(a)
+    local field = by_key(build({}, { lookup_isbn = "978-1-4919-3936-9" }), "isbn")
+    a.eq(field.display(field.new_value), "9781491939369")
+    field = by_key(build({}, { isbn = "9780575099968", lookup_isbn = "9781491939369" }), "isbn")
+    a.eq(field.display(field.new_value), "9780575099968")
+end
+
 T["a proposed ISBN that is not an ISBN is never written"] = function(a)
     local field = by_key(build(CURRENT, { isbn = "not an isbn" }), "isbn")
     local changes = {}

@@ -691,6 +691,33 @@ T["a typed ISBN counts as a change and is written as ISBN-13"] = function(a)
     a.eq(state:changes().isbn, "9780137314911")
 end
 
+T["a proposed edition ISBN counts as a change on a book without one"] = function(a)
+    local state = PickerState.new(Fields.build({}, { title = "X", isbn = "9780575099968" }), "Hardcover")
+    a.eq(state:selection("isbn"), "new")
+    a.eq(state:changes().isbn, "9780575099968")
+    a.eq(state:change_count(), 2)
+end
+
+T["a proposed ISBN-10 is written as ISBN-13"] = function(a)
+    local state = PickerState.new(Fields.build({}, { isbn = "0137314914" }), "Hardcover")
+    a.eq(state:changes().isbn, "9780137314911")
+end
+
+T["an edition ISBN equal to the book's is not a change, even written differently"] = function(a)
+    local state = PickerState.new(Fields.build({ isbn_10 = "0137314914" }, { isbn = "9780137314911" }), "Hardcover")
+    a.eq(state:selection("isbn"), "current")
+    a.eq(state:changes().isbn, nil)
+end
+
+T["choosing another edition changes the proposed ISBN"] = function(a)
+    local state = PickerState.new(Fields.build({}, { isbn = "9780575099968" }), "Hardcover")
+    a.eq(state:changes().isbn, "9780575099968")
+    state:set_fields(Fields.build({}, { isbn = "9780137314911" }), "Hardcover")
+    a.eq(state:changes().isbn, "9780137314911")
+    state:set_fields(Fields.build({}, { lookup_isbn = "9781491939369" }), "Hardcover")
+    a.eq(state:changes().isbn, "9781491939369")
+end
+
 T["clearing the ISBN counts as a change"] = function(a)
     local current = {}
     for k, v in pairs(CURRENT) do

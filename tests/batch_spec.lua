@@ -568,6 +568,30 @@ T["a sure match writes what its picker would apply untouched"] = function(a)
     end)
 end
 
+T["a sure match writes the chosen edition's isbn to a book with none"] = function(a)
+    Library.with_library(function(root)
+        local book = dune("a.epub", nil)
+        book.match.isbn = "9780575099968"
+        local batch, calls = library_batch(root, { book })
+        a.eq(batch.entries[1].changes, 1)
+        batch:rebind_all()
+        a.eq(#calls, 1)
+        a.eq(calls[1].changes.isbn, "9780575099968")
+    end)
+end
+
+T["a sure match whose book already holds the edition's isbn writes no isbn"] = function(a)
+    Library.with_library(function(root)
+        local book = dune("a.epub", "Dune Chronicles")
+        book.meta.isbn_10 = "0137314914"
+        book.match.isbn = "9780137314911"
+        local batch, calls = library_batch(root, { book })
+        batch:rebind_all()
+        a.eq(calls[1].changes.isbn, nil)
+        a.eq(calls[1].changes.series, "Dune Chronicles")
+    end)
+end
+
 T["a sure match with no changes is moved but not rewritten"] = function(a)
     Library.with_library(function(root)
         local batch, calls = library_batch(root, { dune("a.epub", nil) })

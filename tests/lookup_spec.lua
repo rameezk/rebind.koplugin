@@ -436,6 +436,24 @@ T["a metadata isbn is used without trying found isbns"] = function(a)
     a.eq(table.concat(isbn_calls(transport), ","), "9780441013593")
 end
 
+T["a match from an isbn lookup remembers the isbn it was found by"] = function(a)
+    local ol = open_library(FOUND_ROUTES)
+    local found = Lookup.find({ ol }, { title = "Dune", found_isbns = { "9781491939369", "9780441013593" } })
+    a.eq(found.matches[1].lookup_isbn, "9780441013593")
+    local metadata = Lookup.find({ ol }, { title = "Dune", isbn_10 = "0441172717", isbn_13 = "9780441013593" })
+    a.eq(metadata.matches[1].lookup_isbn, "9780441013593")
+    local searched = Lookup.find({ ol }, { title = "Dune" })
+    a.eq(searched.matches[1].lookup_isbn, nil)
+end
+
+T["an edition without its own isbn keeps the isbn the book was found by"] = function(a)
+    local book = { lookup_isbn = "9780441013593" }
+    a.eq(Lookup.carry_isbn({ edition_id = "1" }, book).lookup_isbn, "9780441013593")
+    a.eq(Lookup.carry_isbn({ edition_id = "1", lookup_isbn = "9780575099968" }, book).lookup_isbn, "9780575099968")
+    a.eq(Lookup.carry_isbn(nil, book), nil)
+    a.eq(Lookup.carry_isbn({ edition_id = "1" }, nil).lookup_isbn, nil)
+end
+
 T["the search dialog is filled with the found isbn when there is no metadata isbn"] = function(a)
     a.eq(Lookup.search_terms({ title = "Dune", found_isbns = { "9781491939369" } }).isbn, "9781491939369")
     a.eq(Lookup.search_terms({ isbn_13 = "9780441013593", found_isbns = { "9781491939369" } }).isbn, "9780441013593")

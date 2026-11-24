@@ -514,7 +514,7 @@ function Rebind:_showEditions(book, chain, on_pick)
                     subtitle = Labels.edition_label(edition),
                     on_select = function()
                         UIManager:close(list)
-                        on_pick(edition)
+                        on_pick(Lookup.carry_isbn(edition, book))
                     end,
                 }
             end
@@ -616,7 +616,7 @@ function Rebind:_pickEditionInLanguage(picker, current, book, chain, code, name,
             end
 
             self:_showEditionList(editions, name, function(edition)
-                self:_useSource(picker, current, shown, edition)
+                self:_useSource(picker, current, shown, Lookup.carry_isbn(edition, book))
                 on_done()
                 self:_offerGapTranslation(picker, code, name,
                     _("%2 has no %1 description or genres. Those exist per book, not per edition."), book.provider_name)

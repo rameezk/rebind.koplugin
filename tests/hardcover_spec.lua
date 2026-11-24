@@ -94,6 +94,20 @@ T["list_editions asks the API for one more edition than it shows"] = function(a)
     a.eq(api.calls.editions_query.parameters.limit, 31)
 end
 
+T["list_editions carries each edition's isbn and asks for it"] = function(a)
+    local api = FakeApi.new({ editions = {
+        { id = 1, isbn_13 = "9780575099968", isbn_10 = "0575099968" },
+        { id = 2, isbn_10 = "0137314914" },
+        { id = 3 },
+    } })
+    local editions = Hardcover.list_editions(api, { book_id = 7 })
+    a.eq(Hardcover.extract(editions[1]).isbn, "9780575099968")
+    a.eq(Hardcover.extract(editions[2]).isbn, "9780137314911")
+    a.eq(Hardcover.extract(editions[3]).isbn, nil)
+    a.contains(api.calls.editions_query.query, "isbn_13")
+    a.contains(api.calls.editions_query.query, "isbn_10")
+end
+
 T["list_editions leaves audiobooks out of the query"] = function(a)
     local api = FakeApi.new({ editions = { { id = 1 } } })
     Hardcover.list_editions(api, { book_id = 7 })
