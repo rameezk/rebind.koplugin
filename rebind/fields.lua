@@ -208,7 +208,7 @@ local function isbn_field(current, proposed)
         current.isbn_13 or current.isbn_10, proposed.isbn,
         function(changes, raw)
             local text = trim(raw)
-            changes.isbn = text == "" and "" or Isbn.to_13(text) or text
+            changes.isbn = text == "" and "" or Isbn.to_13(text)
         end)
     field.same = function(a, b)
         return (Isbn.to_13(a) or trim(a)) == (Isbn.to_13(b) or trim(b))

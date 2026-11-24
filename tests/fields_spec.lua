@@ -308,4 +308,11 @@ T["the ISBN editor rejects a number that is not an ISBN"] = function(a)
     a.eq(field.validate(""), nil)
 end
 
+T["a proposed ISBN that is not an ISBN is never written"] = function(a)
+    local field = by_key(build(CURRENT, { isbn = "not an isbn" }), "isbn")
+    local changes = {}
+    field.apply(changes, field.new_value)
+    a.eq(changes.isbn, nil)
+end
+
 return T

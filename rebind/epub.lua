@@ -331,7 +331,7 @@ local function attr_remove(el, name)
     if el.attr then
         el.attr[name] = nil
         for i = #el.attr, 1, -1 do
-            if el.attr[i].name == name and not el.attr[i].nsPrefix then
+            if el.attr[i].name == name then
                 table.remove(el.attr, i)
             end
         end
@@ -347,7 +347,7 @@ local function is_isbn_identifier(el)
     if scheme and scheme:upper() == "ISBN" then
         return true
     end
-    return detect_isbn(text) ~= nil
+    return Isbn.to_13(text) ~= nil
 end
 
 local function declares_opf_prefix(el)
@@ -367,17 +367,27 @@ local function set_isbn(pkg, metadata, prefix, isbn)
     local unique = attr_get(pkg, "unique-identifier")
     local ours = {}
     for _, el in ipairs(child_elements(metadata)) do
-        if is_dc(el, "identifier") and attr_get(el, "id") ~= unique and is_isbn_identifier(el) then
+        local is_unique = unique ~= nil and attr_get(el, "id") == unique
+        if is_dc(el, "identifier") and not is_unique and is_isbn_identifier(el) then
             ours[#ours + 1] = el
         end
     end
     local keep = ours[1]
+    local function drop(el)
+        local id = attr_get(el, "id")
+        remove_element(metadata, el)
+        if id and id ~= "" then
+            remove_meta(metadata, function(meta)
+                return attr_get(meta, "refines") == "#" .. id
+            end)
+        end
+    end
     for i = 2, #ours do
-        remove_element(metadata, ours[i])
+        drop(ours[i])
     end
     if isbn == "" then
         if keep then
-            remove_element(metadata, keep)
+            drop(keep)
         end
         return
     end
