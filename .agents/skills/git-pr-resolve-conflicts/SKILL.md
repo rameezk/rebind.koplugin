@@ -18,9 +18,13 @@ needs a force-push. A merge keeps the pushed history intact and records the
 resolution as one commit a reviewer can read on its own.
 
 Each `[[name]]` here is another skill, whose file is `../<name>/SKILL.md`
-beside this skill's own: when a step hands work to one, load that skill by
-reading that file and follow its instructions in full before doing the step.
-Never do the step from the summary here.
+beside this skill's own: when a step hands work to one, load that skill and
+follow its instructions in full before doing the step. Loading it means reading
+every line of that `SKILL.md`, and every file it links to that the step relies
+on, before acting: never a `head`, a line range or any other partial read, since
+the rules a skill ends on - its guardrails and its completion bar - are the ones
+a truncated read drops. Never do the step from the summary here; it says only
+what this skill adds.
 
 ## When to use
 
@@ -152,22 +156,65 @@ any follow-up fixes. `git show --remerge-diff <merge commit>` shows exactly how
 the resolution differs from git's automatic merge - the part a person or agent
 chose.
 
-Put that through [[code-review]] and [[security-review]] and drive the
-review-fix-re-review loop to sign-off, as [[work-on]] does, pinning the head
-review to an exact SHA. A resolution that only combined non-overlapping lines,
-with no behaviour to judge, does not need both reviews; use judgement and say
-what you ran.
+Put the change through two independent reviews, run in **separate sub-agents
+launched in one message** so they go concurrently in isolated contexts, each
+with fresh eyes on code this session is biased toward: [[code-review]] for
+standards and spec conformance, and [[security-review]] for vulnerabilities.
+Each runs as a single sub-agent reporting back here; [[code-review]] folds its
+own Standards and Spec axes into inline passes rather than spawning them
+further, since it is nested (its step 4 covers this). Run both against the
+**merged commit** - the base commit this merge brought in - and pass it to each
+sub-agent as the explicit fixed point, so neither has to ask, along with the
+output of `git show --remerge-diff <merge commit>` and the list of follow-up
+commits: those are what the review judges, and the rest of the PR's diff is
+context. Pin the other end too: pass the head as the exact commit SHA (`git
+rev-parse HEAD` at launch), never a bare `HEAD`. Each review states the range it
+covered on its first line; record that SHA against the review's result, because
+*Push* checks it. Both are strictly read-only. Collect both reports, then triage
+as the orchestrator - and treat this as a **loop, not a single pass**, the way a
+human change goes back to its reviewers until they sign off:
 
-## Push
+- Fix real findings the way *Check what the merge broke* fixes a break -
+  test-first through a fresh [[tdd]] cycle when there is behaviour to test, not
+  a patch that skips the loop - landing each fix as its own follow-up commit.
+- For a finding you judge not worth acting on, say which and why - do not
+  silently drop it.
+- Then hand the updated diff back for another pass. Scope the re-review to
+  **what the fix commits changed, not to which review raised the finding**:
+  every review whose domain those new commits could touch runs again. A fix is
+  new code, and new code carries new risk - so a fix made for a [[code-review]]
+  finding still gets a fresh [[security-review]], because the change you just
+  wrote could introduce a vulnerability the earlier clean pass never saw. A
+  review may skip re-running only when the new commits provably cannot reach its
+  domain (for example, a docs-only or comment-only follow-up needs no security
+  re-review); a clean prior result is never on its own a reason to skip. When
+  unsure, re-run it.
 
-Push the merge commit and any follow-ups to the PR branch:
+Repeat until every review comes back clean - no actionable findings left beyond
+the ones you have explicitly and defensibly set aside. Keep the loop honest: if
+a reviewer keeps flagging the same thing and you keep declining it, stop and
+surface the disagreement to the user rather than spinning.
+
+## Push - only once every review covers the head
+
+Before pushing, run `git rev-parse HEAD` and check each review in turn. A review
+covers the head when its last clean pass was at exactly that SHA, or when every
+commit after that pass provably cannot reach the review's domain, by the same
+test *Review what the resolution changed* uses, and you can name each such
+commit and why. If any review does not cover the head, go back to *Review what
+the resolution changed* - do not push. This is the check that catches a fix
+commit landing after the last review: a fix is new code, and an unreviewed fix
+is an unreviewed change.
+
+Then push the merge commit and any follow-ups to the PR branch:
 
 ```bash
 git push
 ```
 
 Never force-push. If the push is rejected because the branch moved, fetch it,
-merge it in the same way, and go back through *Check what the merge broke*.
+merge it in the same way, and go back through *Check what the merge broke* and
+*Review what the resolution changed*.
 
 ## Wait for the required checks - and fix what goes red
 
@@ -188,8 +235,9 @@ and the PR conflicts again:
 
 When a required check fails, read its log, then fix the cause through the same
 loop as *Check what the merge broke*: test-first when there is behaviour to
-test, a focused follow-up commit, and a proportional review of what the fix
-changed. Push, and watch again, until every required check is green. If a check
+test, and a focused follow-up commit. The fix is new code: put it through
+*Review what the resolution changed*, and push only once both reviews cover the
+head. Then watch again, until every required check is green. If a check
 never appears on a mergeable PR, find out why and report it rather than calling
 the checks green. If the checks cannot be read at all - a token without access
 to them, say - say so in the report rather than claiming they passed.
@@ -241,12 +289,13 @@ change any ticket's status.
 
 Done when the base - or exactly the commit your instructions named - is merged
 into the PR's branch with every conflict resolved to keep both sides' intent,
-the repo's checks are clean, the reviews that ran came back signed off, the
-merge and any follow-ups are pushed without a force-push, the PR no longer
-conflicts with what was merged, its required checks are green on the pushed
-head, any `## Reviews` section covers that head, and any `## Before / After`
-section shows that head against its base. Report the PR URL, the
-commit merged, each conflicted file and how it was resolved, the merge commit
-and any follow-up SHAs, the test and check results, how the review findings
-were handled, the required checks' final state, and the before/after assets
-commit SHA when the section was refreshed.
+the repo's checks are clean, [[code-review]] and [[security-review]] each ran in
+its own sub-agent, were driven to sign-off, and cover the pushed head, the merge
+and any follow-ups are pushed without a force-push, the PR no longer conflicts
+with what was merged, its required checks are green on the pushed head, any
+`## Reviews` section covers that head, and any `## Before / After` section shows
+that head against its base. Report the PR URL, the commit merged, each
+conflicted file and how it was resolved, the merge commit and any follow-up
+SHAs, the test and check results, how the review findings were handled with each
+review's last clean SHA, the required checks' final state, and the before/after
+assets commit SHA when the section was refreshed.
