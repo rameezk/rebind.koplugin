@@ -18,7 +18,9 @@ local function skip(result, provider, reason, failed)
     result.skipped[#result.skipped + 1] = { provider = provider, reason = reason, failed = failed }
 end
 
-function Lookup.find(chain, meta)
+local MAX_FOUND_ISBN_TRIES = 3
+
+local function search_chain(chain, meta)
     local result = { matches = {}, method = "search", tried = {}, skipped = {}, empty_chain = #(chain or {}) == 0 }
     for _i, provider in ipairs(chain or {}) do
         local ready, reason = provider:ready()
@@ -42,6 +44,33 @@ function Lookup.find(chain, meta)
     return result
 end
 
+local function isbn_only(meta, isbn)
+    local out = {}
+    for key, value in pairs(meta) do
+        out[key] = value
+    end
+    out.found_isbns = nil
+    out.title, out.authors = nil, {}
+    out.isbn_13 = #isbn == 13 and isbn or nil
+    out.isbn_10 = #isbn == 10 and isbn or nil
+    return out
+end
+
+function Lookup.find(chain, meta)
+    local found = meta and not (meta.isbn_13 or meta.isbn_10) and meta.found_isbns or {}
+    for index = 1, math.min(#found, MAX_FOUND_ISBN_TRIES) do
+        local attempt = search_chain(chain, isbn_only(meta, found[index]))
+        if #attempt.matches > 0 and attempt.method == "isbn" then
+            attempt.found_isbn = found[index]
+            return attempt
+        end
+        if Lookup.all_failed(attempt) then
+            break
+        end
+    end
+    return search_chain(chain, meta)
+end
+
 function Lookup.find_in(provider, meta)
     return Lookup.find({ provider }, meta)
 end
@@ -51,7 +80,7 @@ function Lookup.search_terms(meta)
     return {
         title = meta.title or "",
         author = meta.authors and meta.authors[1] or "",
-        isbn = meta.isbn_13 or meta.isbn_10 or "",
+        isbn = meta.isbn_13 or meta.isbn_10 or (meta.found_isbns and meta.found_isbns[1]) or "",
     }
 end
 
@@ -69,7 +98,7 @@ function Lookup.with_terms(meta, terms)
     local isbn = trimmed(terms.isbn):gsub("[%s%-]", ""):upper()
     out.title = title ~= "" and title or nil
     out.authors = author ~= "" and { author } or {}
-    out.isbn_13, out.isbn_10 = nil, nil
+    out.isbn_13, out.isbn_10, out.found_isbns = nil, nil, nil
     if isbn:match("^%d%d%d%d%d%d%d%d%d%d%d%d%d$") then
         out.isbn_13 = isbn
     elseif isbn:match("^%d%d%d%d%d%d%d%d%d[%dX]$") then

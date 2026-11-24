@@ -383,4 +383,69 @@ T["the provider row names the provider of the current match"] = function(a)
     a.eq(Lookup.provider_text(nil), "None")
 end
 
+local function isbn_calls(transport)
+    local isbns = {}
+    for _i, call in ipairs(transport.calls) do
+        local isbn = call.decoded:match("isbn:(%d+X?)")
+        if isbn then
+            isbns[#isbns + 1] = isbn
+        end
+    end
+    return isbns
+end
+
+local FOUND_ROUTES = {
+    { when = "isbn:9780441013593", file = "isbn_dune.json" },
+    { when = "isbn:", file = "search_none.json" },
+    { when = "title=", file = "search_dune.json" },
+}
+
+T["the second found isbn matches and the result says it came from a found isbn"] = function(a)
+    local ol, transport = open_library(FOUND_ROUTES)
+    local result = Lookup.find({ ol }, { title = "Dune", found_isbns = { "9781491939369", "9780441013593" } })
+    a.eq(result.method, "isbn")
+    a.eq(result.found_isbn, "9780441013593")
+    a.eq(result.matches[1].by_isbn, true)
+    a.eq(table.concat(isbn_calls(transport), ","), "9781491939369,9780441013593")
+end
+
+T["found isbns that no provider knows fall back to the title and author search"] = function(a)
+    local ol = open_library(FOUND_ROUTES)
+    local result = Lookup.find({ ol }, { title = "Dune", found_isbns = { "9781491939369" } })
+    a.eq(result.method, "search")
+    a.eq(result.found_isbn, nil)
+    a.is_true(#result.matches > 0)
+end
+
+T["at most three found isbns are tried before the search"] = function(a)
+    local ol, transport = open_library(FOUND_ROUTES)
+    local found = { "9781491939369", "9780575099968", "080442957X", "9780441013593", "9780137314911" }
+    local result = Lookup.find({ ol }, { title = "Dune", found_isbns = found })
+    a.eq(result.method, "search")
+    a.eq(table.concat(isbn_calls(transport), ","), "9781491939369,9780575099968,080442957X")
+end
+
+T["a metadata isbn is used without trying found isbns"] = function(a)
+    local ol, transport = open_library(FOUND_ROUTES)
+    local result = Lookup.find({ ol }, {
+        title = "Dune",
+        isbn_13 = "9780441013593",
+        found_isbns = { "9781491939369" },
+    })
+    a.eq(result.found_isbn, nil)
+    a.eq(table.concat(isbn_calls(transport), ","), "9780441013593")
+end
+
+T["the search dialog is filled with the found isbn when there is no metadata isbn"] = function(a)
+    a.eq(Lookup.search_terms({ title = "Dune", found_isbns = { "9781491939369" } }).isbn, "9781491939369")
+    a.eq(Lookup.search_terms({ isbn_13 = "9780441013593", found_isbns = { "9781491939369" } }).isbn, "9780441013593")
+    a.eq(Lookup.search_terms({ title = "Dune" }).isbn, "")
+end
+
+T["a typed isbn replaces the found isbns"] = function(a)
+    local meta = Lookup.with_terms({ title = "Dune", found_isbns = { "9781491939369" } },
+        { title = "Dune", author = "", isbn = "" })
+    a.eq(meta.found_isbns, nil)
+end
+
 return T

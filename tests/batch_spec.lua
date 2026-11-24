@@ -163,6 +163,21 @@ T["an isbn match is a sure match tagged with isbn and its provider"] = function(
     a.eq(batch:tag(entry), "ISBN · Prov · 2 changes")
 end
 
+T["a found isbn match that agrees with nothing is not written unseen"] = function(a)
+    local batch = batch_for({
+        ["/b/x.epub"] = { title = "X", authors = { "Y" }, found_isbns = { "9780441013593" } },
+    }, function(meta)
+        if meta.isbn_13 then
+            return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
+        end
+        return {}, "search"
+    end)
+    batch:lookup_all()
+    local entry = batch.entries[1]
+    a.eq(entry.state, "review")
+    a.eq(entry.book.title, "Dune")
+end
+
 T["one agreeing match is sure"] = function(a)
     local batch = batch_for({
         ["/b/x.epub"] = { title = "The Left Hand of Darkness", authors = { "Le Guin, Ursula K." } },
