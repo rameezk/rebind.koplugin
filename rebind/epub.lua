@@ -380,7 +380,7 @@ local function number_after_label(rest)
     end
     local digits, used = "", 0
     local pos = 1
-    local ten, ten_used
+    local ten, ten_used, ten_pos
     while true do
         local token = tail:match("^[%dXx]+", pos)
         if not token then
@@ -393,7 +393,7 @@ local function number_after_label(rest)
             return digits, #gap + used
         end
         if #digits == 10 and digits:match("^%d%d%d%d%d%d%d%d%d[%dX]$") and isbn10_valid(digits) then
-            ten, ten_used = digits, used
+            ten, ten_used, ten_pos = digits, used, pos
         end
         if #digits >= 13 then
             break
@@ -404,7 +404,7 @@ local function number_after_label(rest)
         end
         pos = pos + 1
     end
-    if ten then
+    if ten and not tail:find("^%-%d", ten_pos) then
         return ten, #gap + ten_used
     end
     return nil
@@ -426,6 +426,7 @@ local function ebook_labelled(text, label_start, number_end)
             after = after:gsub("[%a%-]+%s*$", "")
         end
     end
+    before = before:match(".*%)%s*(.*)$") or before
     before, after = before:lower(), after:lower()
     for _, word in ipairs({ "ebook", "e%-book", "epub", "electronic" }) do
         if before:find(word) or after:find(word) then
@@ -949,7 +950,10 @@ local function extract_named(path, names, max_size)
     for entry in reader:iterate() do
         local too_big = max_size and entry.size and entry.size > max_size
         if names[entry.path] and out[entry.path] == nil and not too_big then
-            out[entry.path] = reader:extractToMemory(entry.path)
+            local content = reader:extractToMemory(entry.path)
+            if not (max_size and content and #content > max_size) then
+                out[entry.path] = content
+            end
         end
     end
     reader:close()

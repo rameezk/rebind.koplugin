@@ -1149,4 +1149,23 @@ T["a document that declares a huge size is not read"] = function(a)
     a.eq(#md.found_isbns, 0)
 end
 
+T["a hyphenated isbn 13 with a wrong check digit is not cut down to an isbn 10"] = function(a)
+    local md = text_book(NO_ID, { "<p>ISBN 978-4-41-0001-902</p>" })
+    a.eq(#md.found_isbns, 0)
+end
+
+T["an ebook label closed before the next isbn label belongs to the previous isbn"] = function(a)
+    local md = text_book(NO_ID, {
+        "<p>ISBN 0-8044-2957-X ISBN 978-0-441-01359-3 (ebook) ISBN 978-1-4919-3936-9</p>",
+    })
+    a.eq(md.found_isbns[1], "9780441013593")
+    a.eq(md.found_isbns[2], "080442957X")
+    a.eq(md.found_isbns[3], "9781491939369")
+end
+
+T["a document larger than the cap is not read even when the archive reports no size"] = function(a)
+    local md = text_book(NO_ID, { "<p>ISBN 978-1-4919-3936-9</p>" .. string.rep(" ", 3 * 1024 * 1024) })
+    a.eq(#md.found_isbns, 0)
+end
+
 return T
