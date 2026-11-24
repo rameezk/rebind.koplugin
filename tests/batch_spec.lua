@@ -186,6 +186,30 @@ T["a found isbn match with an agreeing title is sure and says where the isbn cam
     a.eq(batch:tag(entry), "ISBN from the book · Prov · 2 changes")
 end
 
+T["a found isbn tag stacks its label above the rest on two lines"] = function(a)
+    local batch = found_isbn_batch(
+        { title = "The Hyperion", authors = { "Unknown" } },
+        match("Hyperion", { "Dan Simmons" }, { by_isbn = true })
+    )
+    batch:lookup_all()
+    local lines = batch:tag_lines(batch.entries[1])
+    a.eq(#lines, 2)
+    a.eq(lines[1], "ISBN from the book")
+    a.eq(lines[2], "Prov · 2 changes")
+end
+
+T["a tag without a found isbn stays on one line"] = function(a)
+    local batch = batch_for({
+        ["/b/x.epub"] = { title = "X", authors = { "Y" }, isbn_13 = "9780441013593" },
+    }, function()
+        return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
+    end)
+    batch:lookup_all()
+    local lines = batch:tag_lines(batch.entries[1])
+    a.eq(#lines, 1)
+    a.eq(lines[1], "ISBN · Prov · 2 changes")
+end
+
 T["a found isbn match with an agreeing author only is sure"] = function(a)
     local batch = found_isbn_batch(
         { title = "Unknown", authors = { "Dan Simmons" } },

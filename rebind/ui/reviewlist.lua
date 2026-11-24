@@ -57,8 +57,12 @@ local function row_title(entry)
     return title
 end
 
-local function tag_widget(text, muted, plain)
+local function tag_widget(lines, muted, plain)
     local color = muted and Blitbuffer.COLOR_DARK_GRAY or Blitbuffer.COLOR_BLACK
+    local rows = VerticalGroup:new{ align = "center" }
+    for _i, text in ipairs(lines) do
+        rows[#rows + 1] = TextWidget:new{ text = text, face = Font:getFace("cfont", 17), fgcolor = color }
+    end
     return FrameContainer:new{
         bordersize = plain and 0 or Size.border.thin,
         color = color,
@@ -67,7 +71,7 @@ local function tag_widget(text, muted, plain)
         padding_left = sc(10),
         padding_right = sc(10),
         margin = 0,
-        TextWidget:new{ text = text, face = Font:getFace("cfont", 17), fgcolor = color },
+        rows,
     }
 end
 
@@ -118,9 +122,9 @@ local function save_as_row(batch, width, on_tap)
     }
 end
 
-local function entry_row(entry, width, tag, subtitle, on_tap)
+local function entry_row(entry, width, tag_lines, subtitle, on_tap)
     local done = entry.state == "done"
-    local tag_box = tag_widget(tag, entry.state ~= "review", done)
+    local tag_box = tag_widget(tag_lines, entry.state ~= "review", done)
     local text_w = width - sc(34) - tag_box:getSize().w - sc(12)
     local lines = VerticalGroup:new{
         align = "left",
@@ -213,7 +217,7 @@ function ReviewList.show(opts)
             for _j, entry in ipairs(section.entries) do
                 local subtitle = entry.state == "done" and batch:done_location(entry) or entry.name
                 items[#items + 1] = {
-                    widget = entry_row(entry, width, batch:tag(entry), subtitle, function()
+                    widget = entry_row(entry, width, batch:tag_lines(entry), subtitle, function()
                         opts.on_open(entry, screen)
                     end),
                     section = section.key,

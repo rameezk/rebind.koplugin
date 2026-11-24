@@ -589,6 +589,18 @@ function Batch.isbn_prefix(entry)
     return ""
 end
 
+function Batch:tag_lines(entry)
+    local text = self:tag(entry)
+    if entry.isbn == "found" then
+        local label = _("ISBN from the book")
+        local rest = text:sub(#label + #" · " + 1)
+        if text:sub(1, #label) == label and rest ~= "" then
+            return { label, rest }
+        end
+    end
+    return { text }
+end
+
 function Batch:tag(entry)
     if entry.state == "done" then
         return entry.sorted and _("✓ Sorted") or _("✓ Rebound")
