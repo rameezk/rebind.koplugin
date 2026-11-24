@@ -328,29 +328,47 @@ end
 
 local FRONT_DOCUMENTS, BACK_DOCUMENTS = 10, 5
 local MAX_DOCUMENT_TEXT = 100000
+local MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 local MAX_TOTAL_TEXT = 300000
 local LABEL_REACH = 30
 local EBOOK_REACH = 25
 
+local BREAKING_TAGS = { br = true, p = true, div = true, li = true, h1 = true, h2 = true, h3 = true, h4 = true, h5 = true, h6 = true }
+
+local function strip_tags(markup)
+    local pieces, pos = {}, 1
+    while true do
+        local open = markup:find("<", pos, true)
+        local close = open and markup:find(">", open, true)
+        if not close then
+            pieces[#pieces + 1] = markup:sub(pos)
+            break
+        end
+        pieces[#pieces + 1] = markup:sub(pos, open - 1)
+        local name = markup:match("^/?%s*(%w+)", open + 1)
+        if name and BREAKING_TAGS[name:lower()] then
+            pieces[#pieces + 1] = "\n"
+        end
+        pos = close + 1
+    end
+    return table.concat(pieces)
+end
+
 local function visible_text(markup)
-    local text = markup:gsub("<[sS][cC][rR][iI][pP][tT].-</[sS][cC][rR][iI][pP][tT]>", " ")
-    text = text:gsub("<[sS][tT][yY][lL][eE].-</[sS][tT][yY][lL][eE]>", " ")
-    text = text:gsub("<%s*[bB][rR]%s*/?>", "\n")
-    text = text:gsub("</%s*[pPdDlLhH][%w]*%s*>", "\n")
-    text = text:gsub("<[^>]*>", "")
+    local text = strip_tags(markup:sub(1, MAX_DOCUMENT_TEXT * 2))
     local named = { amp = "&", lt = "<", gt = ">", quot = '"', apos = "'", nbsp = " " }
     text = text:gsub("&#[xX](%x+);", function(hex)
         local code = tonumber(hex, 16)
-        return code == 0xA0 and " " or (code < 128 and string.char(code) or " ")
+        return code < 128 and string.char(code) or " "
     end)
     text = text:gsub("&#(%d+);", function(dec)
         local code = tonumber(dec)
-        return code == 160 and " " or (code < 128 and string.char(code) or " ")
+        return code < 128 and string.char(code) or " "
     end)
     text = text:gsub("&(%a+);", function(name)
         return named[name] or " "
     end)
-    text = text:gsub("\194\160", " "):gsub("[\226][\128][\144-\149]", "-")
+    text = text:gsub("\194\160", " "):gsub("\226\128[\144-\149]", "-")
     return (text:sub(1, MAX_DOCUMENT_TEXT))
 end
 
@@ -362,6 +380,7 @@ local function number_after_label(rest)
     end
     local digits, used = "", 0
     local pos = 1
+    local ten, ten_used
     while true do
         local token = tail:match("^[%dXx]+", pos)
         if not token then
@@ -374,7 +393,7 @@ local function number_after_label(rest)
             return digits, #gap + used
         end
         if #digits == 10 and digits:match("^%d%d%d%d%d%d%d%d%d[%dX]$") and isbn10_valid(digits) then
-            return digits, #gap + used
+            ten, ten_used = digits, used
         end
         if #digits >= 13 then
             break
@@ -385,15 +404,29 @@ local function number_after_label(rest)
         end
         pos = pos + 1
     end
+    if ten then
+        return ten, #gap + ten_used
+    end
     return nil
 end
 
 local function ebook_labelled(text, label_start, number_end)
-    local line_start = (text:sub(1, label_start - 1):match(".*()\n") or 0) + 1
-    local before = text:sub(math.max(line_start, label_start - EBOOK_REACH), label_start - 1):lower()
-    local line_end = (text:find("\n", number_end + 1, true) or #text + 1) - 1
-    local after = text:sub(number_end + 1, math.min(line_end, number_end + EBOOK_REACH)):lower()
-    after = after:match("^(.-)isbn") or after
+    local window_start = math.max(1, label_start - EBOOK_REACH)
+    local before = text:sub(window_start, label_start - 1)
+    local newline = before:reverse():find("\n", 1, true)
+    if newline then
+        before = before:sub(#before - newline + 2)
+    end
+    local after = text:sub(number_end + 1, number_end + EBOOK_REACH)
+    after = after:match("^[^\n]*") or after
+    local next_label = after:lower():find("isbn", 1, true)
+    if next_label then
+        after = after:sub(1, next_label - 1)
+        if not after:find("[%)%]]%s*$") then
+            after = after:gsub("[%a%-]+%s*$", "")
+        end
+    end
+    before, after = before:lower(), after:lower()
     for _, word in ipairs({ "ebook", "e%-book", "epub", "electronic" }) do
         if before:find(word) or after:find(word) then
             return true
@@ -907,14 +940,15 @@ local function open_reader(path)
     return reader
 end
 
-local function extract_named(path, names)
+local function extract_named(path, names, max_size)
     local reader = open_reader(path)
     if not reader then
         return nil, "Could not open EPUB."
     end
     local out = {}
     for entry in reader:iterate() do
-        if names[entry.path] and out[entry.path] == nil then
+        local too_big = max_size and entry.size and entry.size > max_size
+        if names[entry.path] and out[entry.path] == nil and not too_big then
             out[entry.path] = reader:extractToMemory(entry.path)
         end
     end
@@ -954,7 +988,7 @@ local function found_isbns(path, root, opf_path)
             wanted[doc_path] = true
         end
     end
-    local texts = next(wanted) and extract_named(path, wanted) or {}
+    local texts = next(wanted) and extract_named(path, wanted, MAX_DOCUMENT_BYTES) or {}
     local ebook, other, seen = {}, {}, {}
     local budget = MAX_TOTAL_TEXT
     for _, doc_path in ipairs(chosen) do

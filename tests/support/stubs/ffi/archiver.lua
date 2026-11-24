@@ -28,7 +28,7 @@ function Archiver.Reader:iterate()
         local p = order[i]
         if p then
             self._seen[p] = true
-            return { path = p }
+            return { path = p, size = _G.__TEST_SIZES and _G.__TEST_SIZES[p] or nil }
         end
     end
 end

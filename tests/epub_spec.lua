@@ -1012,7 +1012,7 @@ T["a book with thousands of spine items is planned in linear time"] = function(a
     a.is_true(elapsed < 0.5)
 end
 
-local function text_book(identifier, pages)
+local function text_book(identifier, pages, size)
     local items, refs, fs, order = {}, {}, {
         ["META-INF/container.xml"] = CONTAINER,
     }, { "mimetype", "META-INF/container.xml", "OEBPS/content.opf" }
@@ -1034,8 +1034,10 @@ local function text_book(identifier, pages)
 </package>]], identifier or "", table.concat(items), table.concat(refs))
     _G.__TEST_FS = fs
     _G.__TEST_ORDER = order
+    _G.__TEST_SIZES = size and { ['OEBPS/page01.xhtml'] = size } or nil
     local md = assert(Epub.read_metadata("/fake/book.epub"))
     unseed()
+    _G.__TEST_SIZES = nil
     return md
 end
 
@@ -1119,6 +1121,32 @@ end
 T["a junk ten digit identifier is no isbn"] = function(a)
     local md = text_book('<dc:identifier>0804429570</dc:identifier>', {})
     a.eq(md.isbn_10, nil)
+end
+
+T["an ebook label after the next isbn label belongs to that isbn"] = function(a)
+    local md = text_book(NO_ID, { "<p>Print ISBN 978-0-441-01359-3 eBook ISBN 978-1-4919-3936-9</p>" })
+    a.eq(md.found_isbns[1], "9781491939369")
+    a.eq(md.found_isbns[2], "9780441013593")
+    md = text_book(NO_ID, { "<p>ISBN 978-0-441-01359-3 (ebook) ISBN 978-1-4919-3936-9 (print)</p>" })
+    a.eq(md.found_isbns[1], "9780441013593")
+end
+
+T["a hyphenated isbn 13 whose first ten digits pass the isbn 10 check is read whole"] = function(a)
+    local md = text_book(NO_ID, { "<p>ISBN 978-4-41-0001-901</p>" })
+    a.eq(md.found_isbns[1], "9784410001901")
+end
+
+T["a very long document without line breaks or closing tags is read quickly"] = function(a)
+    local filler = string.rep("<x ", 30000) .. string.rep("word ", 20000)
+    local started = os.clock()
+    local md = text_book(NO_ID, { filler .. "<p>ISBN 978-1-4919-3936-9</p>" })
+    a.is_true(os.clock() - started < 2)
+    a.eq(#md.found_isbns <= 1, true)
+end
+
+T["a document that declares a huge size is not read"] = function(a)
+    local md = text_book(NO_ID, { "<p>ISBN 978-1-4919-3936-9</p>" }, 50 * 1024 * 1024)
+    a.eq(#md.found_isbns, 0)
 end
 
 return T
