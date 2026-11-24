@@ -1,3 +1,4 @@
+local Isbn = require("rebind/isbn")
 local Translate = require("rebind/translate")
 
 local Provider = {}
@@ -29,6 +30,8 @@ local PUBLICATION_DATE = "wdt:P577"
 local PUBLISHER = "wdt:P123"
 local REF_LIMITS = { [AUTHOR] = AUTHOR_LIMIT, [GENRE] = GENRE_LIMIT, [SERIES] = 1 }
 local EDITION_OF = "wdt:P629"
+local EDITION_ISBN_13 = "wdt:P212"
+local EDITION_ISBN_10 = "wdt:P957"
 local EDITION_TITLE = "wdt:P1476"
 local EDITION_LANGUAGE = "wdt:P407"
 local LANGUAGE_ISO_639_1 = "wdt:P218"
@@ -236,6 +239,7 @@ function Provider:_edition_matches(editions, book, language)
         match.title = type(title) == "string" and title ~= "" and title or book.title
         match.publisher = publishers[i] and label_of(labels[publishers[i]], language) or nil
         match.language = code or nil
+        match.isbn = Isbn.best(claim(edition, EDITION_ISBN_13)[1], claim(edition, EDITION_ISBN_10)[1])
         match.release_year = published or book.release_year
         match.cover = cover_of(edition) or book.cover
         match.ref = { work_uri = book.ref.work_uri, edition_uri = edition.uri }

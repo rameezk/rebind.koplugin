@@ -203,9 +203,13 @@ local function publisher_field(current, proposed)
         end)
 end
 
+local function proposed_isbn(proposed)
+    return Isbn.to_13(proposed.isbn) or Isbn.to_13(proposed.lookup_isbn) or proposed.isbn
+end
+
 local function isbn_field(current, proposed)
     local field = text_field("isbn", _("ISBN"), "text",
-        current.isbn_13 or current.isbn_10, proposed.isbn,
+        current.isbn_13 or current.isbn_10, proposed_isbn(proposed),
         function(changes, raw)
             local text = trim(raw)
             changes.isbn = text == "" and "" or Isbn.to_13(text)

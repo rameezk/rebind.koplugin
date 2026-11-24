@@ -128,6 +128,7 @@ T["a book with french and english editions gets a french edition when the langua
     a.eq(edition.language, "fr")
     a.eq(edition.title, "La curée")
     a.eq(edition.publisher, "Hatier")
+    a.eq(edition.isbn, "9782218958847")
     a.eq(edition.release_year, "2011")
     a.eq(edition.provider_id, "inventaire")
     a.eq(edition.authors[1], "Émile Zola")

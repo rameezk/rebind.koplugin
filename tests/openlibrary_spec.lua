@@ -140,6 +140,7 @@ T["a search match gets the english ebook over a paperback and a german ebook"] =
     a.eq(edition.language, "en")
     a.eq(edition.publisher, "Bloomsbury")
     a.eq(edition.edition_format, "E-Book")
+    a.eq(edition.isbn, "9781408855652")
     a.eq(edition.provider_id, "openlibrary")
     a.eq(edition.authors[1], "J. K. Rowling")
     a.contains(transport.calls[2].decoded, "language:eng")

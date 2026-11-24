@@ -53,4 +53,19 @@ function Isbn.to_13(text)
     return nil
 end
 
+function Isbn.best(...)
+    local converted
+    for i = 1, select("#", ...) do
+        local candidate = select(i, ...)
+        local isbn = Isbn.to_13(candidate)
+        if isbn then
+            if digits_of(candidate) == isbn then
+                return isbn
+            end
+            converted = converted or isbn
+        end
+    end
+    return converted
+end
+
 return Isbn

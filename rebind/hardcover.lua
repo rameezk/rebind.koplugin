@@ -1,3 +1,4 @@
+local Isbn = require("rebind/isbn")
 local Translate = require("rebind/translate")
 
 local Hardcover = {
@@ -140,6 +141,7 @@ function Hardcover.extract(book)
         edition_format = book.edition_format or book.filetype,
         language = language_code(book.language),
         publisher = publisher_name(book.publisher),
+        isbn = Isbn.best(book.isbn_13, book.isbn_10),
         pages = book.pages,
         users_count = book.users_count,
         users_read_count = book.users_read_count,
@@ -221,6 +223,8 @@ local NOT_AUDIOBOOK = [[
 local EDITION_FIELDS = [[
         id
         title
+        isbn_13
+        isbn_10
         edition_format
         reading_format_id
         pages
@@ -306,6 +310,8 @@ local function edition_entry(row, book, book_id)
         release_year = release_year_of(row.release_date),
         language = row.language,
         publisher = row.publisher,
+        isbn_13 = row.isbn_13,
+        isbn_10 = row.isbn_10,
         pages = row.pages,
         users_count = row.users_count,
         image = cover_candidate(row.image) and row.image or book.image,
