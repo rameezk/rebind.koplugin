@@ -1012,4 +1012,113 @@ T["a book with thousands of spine items is planned in linear time"] = function(a
     a.is_true(elapsed < 0.5)
 end
 
+local function text_book(identifier, pages)
+    local items, refs, fs, order = {}, {}, {
+        ["META-INF/container.xml"] = CONTAINER,
+    }, { "mimetype", "META-INF/container.xml", "OEBPS/content.opf" }
+    for i, body in ipairs(pages) do
+        local name = string.format("page%02d.xhtml", i)
+        items[#items + 1] = string.format('<item id="p%d" href="%s" media-type="application/xhtml+xml"/>', i, name)
+        refs[#refs + 1] = string.format('<itemref idref="p%d"/>', i)
+        fs["OEBPS/" .. name] = "<html><body>" .. body .. "</body></html>"
+        order[#order + 1] = "OEBPS/" .. name
+    end
+    fs["OEBPS/content.opf"] = string.format([[<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Found</dc:title>
+    %s
+  </metadata>
+  <manifest>%s</manifest>
+  <spine>%s</spine>
+</package>]], identifier or "", table.concat(items), table.concat(refs))
+    _G.__TEST_FS = fs
+    _G.__TEST_ORDER = order
+    local md = assert(Epub.read_metadata("/fake/book.epub"))
+    unseed()
+    return md
+end
+
+local function pages_with(count, at, body)
+    local pages = {}
+    for i = 1, count do
+        pages[i] = i == at and body or "<p>Chapter " .. i .. "</p>"
+    end
+    return pages
+end
+
+local NO_ID = '<dc:identifier id="BookId">urn:uuid:1234</dc:identifier>'
+
+T["a labelled isbn in the third document is found"] = function(a)
+    local md = text_book(NO_ID, pages_with(5, 3, "<p>ISBN 978-1-4919-3936-9</p>"))
+    a.eq(md.isbn_13, nil)
+    a.eq(#md.found_isbns, 1)
+    a.eq(md.found_isbns[1], "9781491939369")
+end
+
+T["a labelled isbn in the last document is found"] = function(a)
+    local md = text_book(NO_ID, pages_with(40, 40, "<p>ISBN: 978-1-4919-3936-9</p>"))
+    a.eq(md.found_isbns[1], "9781491939369")
+end
+
+T["a labelled isbn outside the first ten and last five documents is not found"] = function(a)
+    local md = text_book(NO_ID, pages_with(40, 20, "<p>ISBN 978-1-4919-3936-9</p>"))
+    a.eq(#md.found_isbns, 0)
+    md = text_book(NO_ID, pages_with(40, 11, "<p>ISBN 978-1-4919-3936-9</p>"))
+    a.eq(#md.found_isbns, 0)
+    md = text_book(NO_ID, pages_with(40, 36, "<p>ISBN 978-1-4919-3936-9</p>"))
+    a.eq(#md.found_isbns, 1)
+    md = text_book(NO_ID, pages_with(40, 10, "<p>ISBN 978-1-4919-3936-9</p>"))
+    a.eq(#md.found_isbns, 1)
+end
+
+T["a labelled number with a wrong check digit is not found"] = function(a)
+    local md = text_book(NO_ID, { "<p>ISBN 978-1-4919-3936-8</p>" })
+    a.eq(#md.found_isbns, 0)
+end
+
+T["a valid number without an isbn label is not found"] = function(a)
+    local md = text_book(NO_ID, { "<p>Catalogue 978-1-4919-3936-9 printed in Ireland</p>" })
+    a.eq(#md.found_isbns, 0)
+end
+
+T["found isbns labelled ebook come first and the rest keep page order"] = function(a)
+    local md = text_book(NO_ID, {
+        "<p>Hardcover ISBN 978-0-441-01359-3</p><p>ISBN 978-1-4919-3936-9 (ebook)</p><p>ISBN 0-8044-2957-X</p>",
+    })
+    a.eq(md.found_isbns[1], "9781491939369")
+    a.eq(md.found_isbns[2], "9780441013593")
+    a.eq(md.found_isbns[3], "080442957X")
+end
+
+T["epub and electronic labels also put an isbn first, before or after the number"] = function(a)
+    local md = text_book(NO_ID, {
+        "<p>ISBN 978-0-441-01359-3</p><p>Electronic ISBN: 978-1-4919-3936-9</p>",
+        "<p>ISBN-13: 978-0-575-09996-8 (EPUB)</p>",
+    })
+    a.eq(md.found_isbns[1], "9781491939369")
+    a.eq(md.found_isbns[2], "9780575099968")
+    a.eq(md.found_isbns[3], "9780441013593")
+end
+
+T["a valid metadata isbn means the text is not searched"] = function(a)
+    local md = text_book('<dc:identifier opf:scheme="ISBN">9780441013593</dc:identifier>',
+        { "<p>ISBN 978-1-4919-3936-9</p>" })
+    a.eq(md.isbn_13, "9780441013593")
+    a.eq(md.found_isbns, nil)
+end
+
+T["a junk identifier is no isbn and the text is searched"] = function(a)
+    local md = text_book('<dc:identifier id="BookId">9781491939368</dc:identifier>',
+        { "<p>ISBN 978-1-4919-3936-9</p>" })
+    a.eq(md.isbn_13, nil)
+    a.eq(md.isbn_10, nil)
+    a.eq(md.found_isbns[1], "9781491939369")
+end
+
+T["a junk ten digit identifier is no isbn"] = function(a)
+    local md = text_book('<dc:identifier>0804429570</dc:identifier>', {})
+    a.eq(md.isbn_10, nil)
+end
+
 return T

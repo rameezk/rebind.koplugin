@@ -298,15 +298,130 @@ local function clear_series(metadata)
     end)
 end
 
+local function isbn13_valid(digits)
+    local sum = 0
+    for i = 1, 12 do
+        sum = sum + tonumber(digits:sub(i, i)) * (i % 2 == 1 and 1 or 3)
+    end
+    return (10 - sum % 10) % 10 == tonumber(digits:sub(13, 13))
+end
+
+local function isbn10_valid(chars)
+    local sum = 0
+    for i = 1, 10 do
+        local c = chars:sub(i, i)
+        sum = sum + (c == "X" and 10 or tonumber(c)) * (11 - i)
+    end
+    return sum % 11 == 0
+end
+
 local function detect_isbn(txt)
     local s = txt:upper():gsub("[^0-9X]", "")
-    if #s == 13 and s:match("^%d+$") then
+    if #s == 13 and s:match("^%d+$") and isbn13_valid(s) then
         return "isbn_13", s
     end
-    if #s == 10 and s:match("^%d%d%d%d%d%d%d%d%d[%dX]$") then
+    if #s == 10 and s:match("^%d%d%d%d%d%d%d%d%d[%dX]$") and isbn10_valid(s) then
         return "isbn_10", s
     end
     return nil
+end
+
+local FRONT_DOCUMENTS, BACK_DOCUMENTS = 10, 5
+local MAX_DOCUMENT_TEXT = 100000
+local MAX_TOTAL_TEXT = 300000
+local LABEL_REACH = 30
+local EBOOK_REACH = 25
+
+local function visible_text(markup)
+    local text = markup:gsub("<[sS][cC][rR][iI][pP][tT].-</[sS][cC][rR][iI][pP][tT]>", " ")
+    text = text:gsub("<[sS][tT][yY][lL][eE].-</[sS][tT][yY][lL][eE]>", " ")
+    text = text:gsub("<%s*[bB][rR]%s*/?>", "\n")
+    text = text:gsub("</%s*[pPdDlLhH][%w]*%s*>", "\n")
+    text = text:gsub("<[^>]*>", "")
+    local named = { amp = "&", lt = "<", gt = ">", quot = '"', apos = "'", nbsp = " " }
+    text = text:gsub("&#[xX](%x+);", function(hex)
+        local code = tonumber(hex, 16)
+        return code == 0xA0 and " " or (code < 128 and string.char(code) or " ")
+    end)
+    text = text:gsub("&#(%d+);", function(dec)
+        local code = tonumber(dec)
+        return code == 160 and " " or (code < 128 and string.char(code) or " ")
+    end)
+    text = text:gsub("&(%a+);", function(name)
+        return named[name] or " "
+    end)
+    text = text:gsub("\194\160", " "):gsub("[\226][\128][\144-\149]", "-")
+    return (text:sub(1, MAX_DOCUMENT_TEXT))
+end
+
+local function number_after_label(rest)
+    rest = rest:gsub("^%-%s?1[03]%f[%D]", ""):gsub("^%s1[03]%s*:", ":")
+    local gap, tail = rest:match("^([^%d\n]*)(.*)$")
+    if #gap > LABEL_REACH or tail == "" then
+        return nil
+    end
+    local digits, used = "", 0
+    local pos = 1
+    while true do
+        local token = tail:match("^[%dXx]+", pos)
+        if not token then
+            break
+        end
+        digits = digits .. token:upper()
+        pos = pos + #token
+        used = pos - 1
+        if #digits == 13 and digits:match("^%d+$") and isbn13_valid(digits) then
+            return digits, #gap + used
+        end
+        if #digits == 10 and digits:match("^%d%d%d%d%d%d%d%d%d[%dX]$") and isbn10_valid(digits) then
+            return digits, #gap + used
+        end
+        if #digits >= 13 then
+            break
+        end
+        local sep = tail:match("^[%- ]", pos)
+        if not sep then
+            break
+        end
+        pos = pos + 1
+    end
+    return nil
+end
+
+local function ebook_labelled(text, label_start, number_end)
+    local line_start = (text:sub(1, label_start - 1):match(".*()\n") or 0) + 1
+    local before = text:sub(math.max(line_start, label_start - EBOOK_REACH), label_start - 1):lower()
+    local line_end = (text:find("\n", number_end + 1, true) or #text + 1) - 1
+    local after = text:sub(number_end + 1, math.min(line_end, number_end + EBOOK_REACH)):lower()
+    after = after:match("^(.-)isbn") or after
+    for _, word in ipairs({ "ebook", "e%-book", "epub", "electronic" }) do
+        if before:find(word) or after:find(word) then
+            return true
+        end
+    end
+    return false
+end
+
+local function found_in_text(text, ebook, other, seen)
+    local lowered = text:lower()
+    local from = 1
+    while true do
+        local label_start, label_end = lowered:find("isbn", from, true)
+        if not label_start then
+            break
+        end
+        from = label_end + 1
+        local isbn, consumed = number_after_label(text:sub(label_end + 1, label_end + 1 + 80))
+        if isbn then
+            local number_end = label_end + consumed
+            from = number_end + 1
+            if not seen[isbn] then
+                seen[isbn] = true
+                local list = ebook_labelled(text, label_start, number_end) and ebook or other
+                list[#list + 1] = isbn
+            end
+        end
+    end
 end
 
 local function extract_isbns(metadata)
@@ -807,6 +922,55 @@ local function extract_named(path, names)
     return out
 end
 
+local function spine_documents(root, opf_path)
+    local manifest, spine = find_child(root, "manifest"), find_child(root, "spine")
+    local paths = {}
+    if not (manifest and spine) then
+        return paths
+    end
+    local hrefs = {}
+    for _, item in ipairs(child_elements(manifest)) do
+        if item.name == "item" then
+            hrefs[attr_get(item, "id") or ""] = attr_get(item, "href")
+        end
+    end
+    local dir = dirname_of(opf_path)
+    for _, itemref in ipairs(child_elements(spine)) do
+        local href = hrefs[attr_get(itemref, "idref") or ""]
+        local resolved = href and resolve(dir, href)
+        if resolved then
+            paths[#paths + 1] = resolved
+        end
+    end
+    return paths
+end
+
+local function found_isbns(path, root, opf_path)
+    local spine = spine_documents(root, opf_path)
+    local wanted, chosen = {}, {}
+    for index, doc_path in ipairs(spine) do
+        if index <= FRONT_DOCUMENTS or index > #spine - BACK_DOCUMENTS then
+            chosen[#chosen + 1] = doc_path
+            wanted[doc_path] = true
+        end
+    end
+    local texts = next(wanted) and extract_named(path, wanted) or {}
+    local ebook, other, seen = {}, {}, {}
+    local budget = MAX_TOTAL_TEXT
+    for _, doc_path in ipairs(chosen) do
+        local markup = texts[doc_path]
+        if markup and budget > 0 then
+            local text = visible_text(markup):sub(1, budget)
+            budget = budget - #text
+            found_in_text(text, ebook, other, seen)
+        end
+    end
+    for _, isbn in ipairs(other) do
+        ebook[#ebook + 1] = isbn
+    end
+    return ebook
+end
+
 function Epub.read_metadata(path, opts)
     local got, err = extract_named(path, { ["META-INF/container.xml"] = true })
     if not got then
@@ -849,6 +1013,10 @@ function Epub.read_metadata(path, opts)
         end
     end
     local isbn_13, isbn_10 = extract_isbns(metadata)
+    local found
+    if not (isbn_13 or isbn_10) then
+        found = found_isbns(path, doc.root, opf_path)
+    end
 
     local cover_item = current_cover_item(doc.root, metadata)
     local original_cover = meta_content(metadata, ORIGINAL_META)
@@ -887,6 +1055,7 @@ function Epub.read_metadata(path, opts)
         publisher = publisher,
         isbn_13 = isbn_13,
         isbn_10 = isbn_10,
+        found_isbns = found,
         has_cover = cover_item ~= nil,
         cover_image = cover_image,
         original_cover_image = original_cover_image,

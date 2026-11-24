@@ -442,7 +442,7 @@ function Batch:_classify(entry)
     entry.matches = matches
     if #matches == 0 then
         entry.kind = "none"
-    elseif found.method == "isbn" then
+    elseif found.method == "isbn" and not found.found_isbn then
         self:_sure_entry(entry, current, matches[1], true)
     elseif #matches == 1 and Batch.agrees(current, matches[1]) then
         self:_sure_entry(entry, current, matches[1], false)
