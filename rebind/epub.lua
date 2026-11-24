@@ -1,5 +1,6 @@
 local Archiver = require("ffi/archiver")
 local Cover = require("rebind/cover")
+local Isbn = require("rebind/isbn")
 local SLAXML = require("rebind/vendor/slaxdom")
 
 local DC_NS = "http://purl.org/dc/elements/1.1/"
@@ -471,6 +472,92 @@ local function extract_isbns(metadata)
         end
     end
     return isbn_13, isbn_10
+end
+
+local OPF_NS = "http://www.idpf.org/2007/opf"
+
+local function attr_remove(el, name)
+    if el.attr then
+        el.attr[name] = nil
+        for i = #el.attr, 1, -1 do
+            if el.attr[i].name == name then
+                table.remove(el.attr, i)
+            end
+        end
+    end
+end
+
+local function is_isbn_identifier(el)
+    local text = get_text(el)
+    if text:lower():match("^%s*urn:isbn:") then
+        return true
+    end
+    local scheme = attr_get(el, "scheme")
+    if scheme and scheme:upper() == "ISBN" then
+        return true
+    end
+    return Isbn.to_13(text) ~= nil
+end
+
+local function declares_opf_prefix(el)
+    for _, a in ipairs(el.attr or {}) do
+        if a.nsPrefix == "xmlns" and a.name == "opf" then
+            return true
+        end
+    end
+    return false
+end
+
+local function opf_prefix_declared(pkg, metadata)
+    return declares_opf_prefix(pkg) or declares_opf_prefix(metadata)
+end
+
+local function set_isbn(pkg, metadata, prefix, isbn)
+    local unique = attr_get(pkg, "unique-identifier")
+    local ours = {}
+    for _, el in ipairs(child_elements(metadata)) do
+        local is_unique = unique ~= nil and attr_get(el, "id") == unique
+        if is_dc(el, "identifier") and not is_unique and is_isbn_identifier(el) then
+            ours[#ours + 1] = el
+        end
+    end
+    local keep = ours[1]
+    local function drop(el)
+        local id = attr_get(el, "id")
+        remove_element(metadata, el)
+        if id and id ~= "" then
+            remove_meta(metadata, function(meta)
+                return attr_get(meta, "refines") == "#" .. id
+            end)
+        end
+    end
+    for i = 2, #ours do
+        drop(ours[i])
+    end
+    if isbn == "" then
+        if keep then
+            drop(keep)
+        end
+        return
+    end
+    local epub2 = (attr_get(pkg, "version") or ""):match("^2") ~= nil
+    local value = "urn:isbn:" .. isbn
+    if keep then
+        set_text(keep, value)
+        if not epub2 then
+            attr_remove(keep, "scheme")
+        end
+    else
+        keep = new_element("identifier", prefix, nil, value)
+        append_child(metadata, keep)
+    end
+    if epub2 and attr_get(keep, "scheme") == nil then
+        keep.attr.scheme = "ISBN"
+        table.insert(keep.attr, { type = "attribute", name = "scheme", nsPrefix = "opf", value = "ISBN" })
+        if not opf_prefix_declared(pkg, metadata) then
+            table.insert(keep.attr, 1, { type = "attribute", name = "opf", nsPrefix = "xmlns", value = OPF_NS })
+        end
+    end
 end
 
 local function read_series(metadata)
@@ -1130,6 +1217,9 @@ local function edit_opf(opf_xml, changes, opf_path)
     apply_dc_text("description", changes.description)
     apply_dc_text("language", changes.language)
     apply_dc_text("publisher", changes.publisher)
+    if changes.isbn ~= nil then
+        set_isbn(doc.root, metadata, prefix, changes.isbn)
+    end
     if changes.first_published ~= nil then
         set_first_published(metadata, prefix, changes.first_published)
     end

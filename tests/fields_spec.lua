@@ -9,6 +9,7 @@ local CURRENT = {
     series_index = "3",
     language = "en",
     publisher = "Old House",
+    isbn_13 = "9781491939369",
 }
 
 local PROPOSED = {
@@ -39,7 +40,7 @@ local T = {}
 
 T["build exposes one field per editable value"] = function(a)
     local fields = build()
-    a.eq(#fields, 8)
+    a.eq(#fields, 9)
     a.eq(by_key(fields, "title").editor, "text")
     a.eq(by_key(fields, "author").editor, "authors")
     a.eq(by_key(fields, "series").editor, "series")
@@ -259,6 +260,59 @@ T["current values survive a build with no proposal"] = function(a)
     a.eq(by_key(fields, "title").display(by_key(fields, "title").current_value), "Old Title")
     a.eq(by_key(fields, "author").display(by_key(fields, "author").current_value), "Old Author")
     a.eq(by_key(fields, "series").display(by_key(fields, "series").current_value), "Old Series #3")
+end
+
+T["ISBN follows Publisher and shows the book's ISBN as its current value"] = function(a)
+    local fields = build()
+    local keys = {}
+    for i, f in ipairs(fields) do
+        keys[f.key] = i
+    end
+    a.eq(keys.isbn, keys.publisher + 1)
+    local field = by_key(fields, "isbn")
+    a.eq(field.editor, "text")
+    a.eq(field.display(field.current_value), "9781491939369")
+end
+
+T["an ISBN-10 typed into the editor applies as ISBN-13"] = function(a)
+    local field = by_key(build(), "isbn")
+    local changes = {}
+    local raw = field.from_input(" 0-13-731491-4 ")
+    a.eq(field.display(raw), "9780137314911")
+    field.apply(changes, raw)
+    a.eq(changes.isbn, "9780137314911")
+end
+
+T["a book holding an ISBN-10 shows it and applies it as ISBN-13"] = function(a)
+    local field = by_key(build({ isbn_10 = "0137314914" }, {}), "isbn")
+    a.eq(field.display(field.current_value), "0137314914")
+    local changes = {}
+    field.apply(changes, field.current_value)
+    a.eq(changes.isbn, "9780137314911")
+end
+
+T["an emptied ISBN applies as a clear"] = function(a)
+    local field = by_key(build(), "isbn")
+    local raw = field.from_input("  ")
+    a.is_true(field.is_empty(raw))
+    local changes = {}
+    field.apply(changes, raw)
+    a.eq(changes.isbn, "")
+end
+
+T["the ISBN editor rejects a number that is not an ISBN"] = function(a)
+    local field = by_key(build(), "isbn")
+    a.is_true(field.validate("9781491939360"))
+    a.is_true(field.validate("hello"))
+    a.eq(field.validate("978-1-4919-3936-9"), nil)
+    a.eq(field.validate(""), nil)
+end
+
+T["a proposed ISBN that is not an ISBN is never written"] = function(a)
+    local field = by_key(build(CURRENT, { isbn = "not an isbn" }), "isbn")
+    local changes = {}
+    field.apply(changes, field.new_value)
+    a.eq(changes.isbn, nil)
 end
 
 return T

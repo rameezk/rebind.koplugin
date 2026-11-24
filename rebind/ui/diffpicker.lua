@@ -400,6 +400,8 @@ function DiffPicker:_edit(field, seed)
         opts.description = _("Separate multiple genres with commas.")
     elseif field.key == "first_published" then
         opts.description = _("A 4-digit year. Leave empty to clear.")
+    elseif field.key == "isbn" then
+        opts.description = _("An ISBN-10 or ISBN-13. Leave empty to clear.")
     end
     if long then
         opts.fullscreen = true
