@@ -37,12 +37,16 @@ A Match that is safe to write without opening the Picker.
 _Avoid_: confident match, auto match
 
 **Field**:
-One piece of metadata Rebind can write: Cover, Title, Author(s), Series, Genre(s), Language, Publisher, Description or First published.
+One piece of metadata Rebind can write: Cover, Title, Author(s), Series, Genre(s), Language, Publisher, Description, First published or ISBN.
 _Avoid_: tag, property
 
 **First published**:
 The year a Book was originally published, regardless of which Edition is chosen.
 _Avoid_: publication date, release date, pubdate
+
+**Found ISBN**:
+An ISBN read from the book's own text, such as its copyright page, rather than from its metadata.
+_Avoid_: scanned ISBN, text ISBN
 
 **Current value**:
 A Field's value as the EPUB holds it before the Rebind.
