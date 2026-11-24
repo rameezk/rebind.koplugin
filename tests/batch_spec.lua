@@ -163,19 +163,84 @@ T["an isbn match is a sure match tagged with isbn and its provider"] = function(
     a.eq(batch:tag(entry), "ISBN · Prov · 2 changes")
 end
 
-T["a found isbn match that agrees with nothing is not written unseen"] = function(a)
-    local batch = batch_for({
-        ["/b/x.epub"] = { title = "X", authors = { "Y" }, found_isbns = { "9780441013593" } },
+local function found_isbn_batch(current, found_match)
+    current.found_isbns = { "9780441013593" }
+    return batch_for({
+        ["/b/x.epub"] = current,
     }, function(meta)
         if meta.isbn_13 then
-            return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
+            return { found_match }, "isbn"
         end
         return {}, "search"
     end)
+end
+
+T["a found isbn match with an agreeing title is sure and says where the isbn came from"] = function(a)
+    local batch = found_isbn_batch(
+        { title = "The Hyperion", authors = { "Unknown" } },
+        match("Hyperion", { "Dan Simmons" }, { by_isbn = true })
+    )
+    batch:lookup_all()
+    local entry = batch.entries[1]
+    a.eq(entry.state, "sure")
+    a.eq(batch:tag(entry), "ISBN from the book · Prov · 2 changes")
+end
+
+T["a found isbn tag stacks its label above the rest on two lines"] = function(a)
+    local batch = found_isbn_batch(
+        { title = "The Hyperion", authors = { "Unknown" } },
+        match("Hyperion", { "Dan Simmons" }, { by_isbn = true })
+    )
+    batch:lookup_all()
+    local lines = batch:tag_lines(batch.entries[1])
+    a.eq(#lines, 2)
+    a.eq(lines[1], "ISBN from the book")
+    a.eq(lines[2], "Prov · 2 changes")
+end
+
+T["a tag without a found isbn stays on one line"] = function(a)
+    local batch = batch_for({
+        ["/b/x.epub"] = { title = "X", authors = { "Y" }, isbn_13 = "9780441013593" },
+    }, function()
+        return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
+    end)
+    batch:lookup_all()
+    local lines = batch:tag_lines(batch.entries[1])
+    a.eq(#lines, 1)
+    a.eq(lines[1], "ISBN · Prov · 2 changes")
+end
+
+T["a found isbn match with an agreeing author only is sure"] = function(a)
+    local batch = found_isbn_batch(
+        { title = "Unknown", authors = { "Dan Simmons" } },
+        match("Hyperion", { "Dan Simmons" }, { by_isbn = true })
+    )
+    batch:lookup_all()
+    a.eq(batch.entries[1].state, "sure")
+end
+
+T["a found isbn match that agrees with nothing goes to review holding that match"] = function(a)
+    local batch = found_isbn_batch(
+        { title = "X", authors = { "Y" } },
+        match("Dune", { "Frank Herbert" }, { by_isbn = true })
+    )
     batch:lookup_all()
     local entry = batch.entries[1]
     a.eq(entry.state, "review")
     a.eq(entry.book.title, "Dune")
+    a.eq(batch:tag(entry), "ISBN from the book · Check match")
+end
+
+T["a metadata isbn match that agrees with nothing is still sure and says isbn"] = function(a)
+    local batch = batch_for({
+        ["/b/x.epub"] = { title = "X", authors = { "Y" }, isbn_13 = "9780441013593" },
+    }, function()
+        return { match("Dune", { "Frank Herbert" }, { by_isbn = true }) }, "isbn"
+    end)
+    batch:lookup_all()
+    local entry = batch.entries[1]
+    a.eq(entry.state, "sure")
+    a.is_true(batch:tag(entry):match("^ISBN · ") ~= nil)
 end
 
 T["one agreeing match is sure"] = function(a)
