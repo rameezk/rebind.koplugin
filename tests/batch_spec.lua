@@ -1152,7 +1152,7 @@ T["a row hides the cover field when the download is filtered out"] = function(a)
         local entry = row_entry(batch)
         local state = batch:row_picker(entry, entry.book)
         a.eq(cover_field_of(state), nil)
-        a.eq(#state.fields, 8)
+        a.eq(#state.fields, 9)
         a.eq(state:changes().series, "Dune Chronicles")
     end)
 end

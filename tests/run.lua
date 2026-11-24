@@ -15,6 +15,7 @@ local specs = {
     "tests/fields_spec",
     "tests/hardcover_spec",
     "tests/http_spec",
+    "tests/isbn_spec",
     "tests/inventaire_spec",
     "tests/labels_spec",
     "tests/logo_spec",

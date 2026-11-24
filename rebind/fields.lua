@@ -1,6 +1,7 @@
 local _ = require("gettext")
 
 local Cover = require("rebind/cover")
+local Isbn = require("rebind/isbn")
 
 local Fields = {}
 
@@ -202,6 +203,30 @@ local function publisher_field(current, proposed)
         end)
 end
 
+local function isbn_field(current, proposed)
+    local field = text_field("isbn", _("ISBN"), "text",
+        current.isbn_13 or current.isbn_10, proposed.isbn,
+        function(changes, raw)
+            local text = trim(raw)
+            changes.isbn = text == "" and "" or Isbn.to_13(text)
+        end)
+    field.same = function(a, b)
+        return (Isbn.to_13(a) or trim(a)) == (Isbn.to_13(b) or trim(b))
+    end
+    field.from_input = function(input)
+        local text = trim(input)
+        return Isbn.to_13(text) or text
+    end
+    field.validate = function(input)
+        local text = trim(input)
+        if text ~= "" and not Isbn.to_13(text) then
+            return _("Enter a valid ISBN, or leave it empty to clear.")
+        end
+        return nil
+    end
+    return field
+end
+
 local function series_field(current, proposed)
     return {
         key = "series",
@@ -340,6 +365,7 @@ function Fields.build(current, proposed)
         genres_field(current, proposed),
         language_field(current, proposed),
         publisher_field(current, proposed),
+        isbn_field(current, proposed),
         description_field(current, proposed),
     }
     local cover = cover_field(current, proposed)

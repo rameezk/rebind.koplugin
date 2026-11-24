@@ -1012,4 +1012,98 @@ T["a book with thousands of spine items is planned in linear time"] = function(a
     a.is_true(elapsed < 0.5)
 end
 
+local function isbn_opf(version, identifiers, unique)
+    return '<?xml version="1.0" encoding="utf-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="' .. version
+        .. '" unique-identifier="' .. (unique or "BookId") .. '">\n  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">\n'
+        .. '    <dc:title>T</dc:title>\n' .. identifiers .. '\n  </metadata>\n  <manifest></manifest>\n</package>'
+end
+
+local UUID_ID = '    <dc:identifier id="BookId">urn:uuid:11111111-2222-3333-4444-555555555555</dc:identifier>'
+
+T["writing an ISBN into an EPUB 2 book adds one urn identifier with the ISBN scheme"] = function(a)
+    local out = assert(Epub._edit_opf(isbn_opf("2.0", UUID_ID), { isbn = "9781781100219" }))
+    a.count_eq(out, "urn:isbn:9781781100219", 1)
+    a.contains(out, 'opf:scheme="ISBN">urn:isbn:9781781100219</dc:identifier>')
+    a.contains(out, "urn:uuid:11111111-2222-3333-4444-555555555555")
+end
+
+T["writing an ISBN into an EPUB 3 book adds a urn identifier without a scheme"] = function(a)
+    local out = assert(Epub._edit_opf(isbn_opf("3.0", UUID_ID), { isbn = "9781781100219" }))
+    a.count_eq(out, "urn:isbn:9781781100219", 1)
+    a.contains(out, "<dc:identifier>urn:isbn:9781781100219</dc:identifier>")
+    a.not_contains(out, "opf:scheme")
+end
+
+T["writing an ISBN declares the opf prefix when the package has none"] = function(a)
+    local opf = '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="BookId">x</dc:identifier></metadata><manifest></manifest></package>'
+    local out = assert(Epub._edit_opf(opf, { isbn = "9781781100219" }))
+    a.contains(out, 'xmlns:opf="http://www.idpf.org/2007/opf"')
+    a.contains(out, 'opf:scheme="ISBN"')
+end
+
+T["writing an ISBN combines several ISBN identifiers into one"] = function(a)
+    local ids = UUID_ID .. '\n    <dc:identifier opf:scheme="ISBN">9780441013593</dc:identifier>\n    <dc:identifier>urn:isbn:9780575099968</dc:identifier>'
+    local out = assert(Epub._edit_opf(isbn_opf("2.0", ids), { isbn = "9781781100219" }))
+    a.count_eq(out, "<dc:identifier", 2)
+    a.count_eq(out, "urn:isbn:9781781100219", 1)
+    a.not_contains(out, "9780441013593")
+    a.not_contains(out, "9780575099968")
+end
+
+T["writing an ISBN never changes the unique identifier even when it is an ISBN"] = function(a)
+    local ids = '    <dc:identifier id="BookId" opf:scheme="ISBN">9780441013593</dc:identifier>'
+    local out = assert(Epub._edit_opf(isbn_opf("2.0", ids), { isbn = "9781781100219" }))
+    a.contains(out, '<dc:identifier id="BookId" opf:scheme="ISBN">9780441013593</dc:identifier>')
+    a.count_eq(out, "<dc:identifier", 2)
+    a.contains(out, "urn:isbn:9781781100219</dc:identifier>")
+end
+
+T["clearing the ISBN removes the extra ISBN identifier and keeps the unique one"] = function(a)
+    local ids = '    <dc:identifier id="BookId" opf:scheme="ISBN">9780441013593</dc:identifier>\n    <dc:identifier>urn:isbn:9780575099968</dc:identifier>'
+    local out = assert(Epub._edit_opf(isbn_opf("2.0", ids), { isbn = "" }))
+    a.count_eq(out, "<dc:identifier", 1)
+    a.contains(out, "9780441013593")
+    a.not_contains(out, "9780575099968")
+end
+
+T["rewrite with an ISBN passes validation and writes the identifier"] = function(a)
+    seed(isbn_opf("2.0", UUID_ID))
+    _G.__TEST_FS["mimetype"] = "application/epub+zip"
+    _G.__TEST_ORDER = { "mimetype", "META-INF/container.xml", "OEBPS/content.opf" }
+    local ok, files = rewrite_book({ isbn = "9781781100219" })
+    unseed()
+    a.is_true(ok)
+    a.contains(files["OEBPS/content.opf"], "urn:isbn:9781781100219")
+end
+
+T["writing an ISBN updates an existing ISBN identifier when the package names no unique identifier"] = function(a)
+    local ids = '    <dc:identifier>urn:isbn:9780441013593</dc:identifier>'
+    local opf = isbn_opf("3.0", ids):gsub(' unique%-identifier="BookId"', "")
+    local out = assert(Epub._edit_opf(opf, { isbn = "9781781100219" }))
+    a.count_eq(out, "<dc:identifier", 1)
+    a.contains(out, "urn:isbn:9781781100219")
+    a.not_contains(out, "9780441013593")
+end
+
+T["writing an ISBN leaves an identifier that only looks like an ISBN alone"] = function(a)
+    local ids = UUID_ID .. '\n    <dc:identifier>doi:10.123/45678</dc:identifier>'
+    local out = assert(Epub._edit_opf(isbn_opf("3.0", ids), { isbn = "9781781100219" }))
+    a.contains(out, "doi:10.123/45678")
+    a.count_eq(out, "<dc:identifier", 3)
+end
+
+T["writing an ISBN in an EPUB 3 book drops a leftover opf:scheme"] = function(a)
+    local ids = UUID_ID .. '\n    <dc:identifier opf:scheme="ISBN">9780441013593</dc:identifier>'
+    local out = assert(Epub._edit_opf(isbn_opf("3.0", ids), { isbn = "9781781100219" }))
+    a.not_contains(out, "opf:scheme")
+    a.contains(out, "<dc:identifier>urn:isbn:9781781100219</dc:identifier>")
+end
+
+T["removing an ISBN identifier also removes the metadata that refines it"] = function(a)
+    local ids = UUID_ID .. '\n    <dc:identifier id="print">urn:isbn:9780441013593</dc:identifier>\n    <meta refines="#print" property="identifier-type">15</meta>'
+    local out = assert(Epub._edit_opf(isbn_opf("3.0", ids), { isbn = "" }))
+    a.not_contains(out, "9780441013593")
+    a.not_contains(out, "#print")
+end
+
 return T
