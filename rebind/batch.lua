@@ -89,11 +89,12 @@ function Batch.normalize_author(name)
     return clean(name)
 end
 
-function Batch.agrees(current, match)
+local function titles_agree(current, match)
     local title = Batch.normalize_title(current.title)
-    if title == "" or title ~= Batch.normalize_title(match.title) then
-        return false
-    end
+    return title ~= "" and title == Batch.normalize_title(match.title)
+end
+
+local function authors_agree(current, match)
     local wanted = {}
     for _i, author in ipairs(current.authors or {}) do
         local name = Batch.normalize_author(author)
@@ -109,24 +110,12 @@ function Batch.agrees(current, match)
     return false
 end
 
+function Batch.agrees(current, match)
+    return titles_agree(current, match) and authors_agree(current, match)
+end
+
 function Batch.agrees_in_part(current, match)
-    local title = Batch.normalize_title(current.title)
-    if title ~= "" and title == Batch.normalize_title(match.title) then
-        return true
-    end
-    local wanted = {}
-    for _i, author in ipairs(current.authors or {}) do
-        local name = Batch.normalize_author(author)
-        if name ~= "" then
-            wanted[name] = true
-        end
-    end
-    for _i, author in ipairs(match.authors or {}) do
-        if wanted[Batch.normalize_author(author)] then
-            return true
-        end
-    end
-    return false
+    return titles_agree(current, match) or authors_agree(current, match)
 end
 
 local function chunks(text)
@@ -580,53 +569,58 @@ function Batch:sections()
     return sections
 end
 
-function Batch.isbn_prefix(entry)
+function Batch.isbn_label(entry)
     if entry.isbn == "found" then
-        return _("ISBN from the book") .. " · "
+        return _("ISBN from the book")
     elseif entry.isbn then
-        return _("ISBN") .. " · "
+        return _("ISBN")
     end
-    return ""
 end
 
-function Batch:tag_lines(entry)
-    local text = self:tag(entry)
-    if entry.isbn == "found" then
-        local label = _("ISBN from the book")
-        local rest = text:sub(#label + #" · " + 1)
-        if text:sub(1, #label) == label and rest ~= "" then
-            return { label, rest }
+function Batch:_tag_parts(entry)
+    local label = Batch.isbn_label(entry)
+    local text
+    if entry.state == "done" then
+        label = nil
+        text = entry.sorted and _("✓ Sorted") or _("✓ Rebound")
+    elseif entry.state == "sure" then
+        if entry.changes == 0 then
+            label = nil
+            text = _("No changes")
+        else
+            local changes = entry.changes == 1 and _("1 change") or string.format(_("%d changes"), entry.changes)
+            text = entry.book.provider_name .. " · " .. changes
         end
+    elseif entry.kind == "open" then
+        text = _("Open in the reader")
+    elseif entry.kind == "write_failed" then
+        text = _("Write failed")
+    elseif entry.kind == "not_moved" then
+        text = _("Not moved")
+    elseif entry.kind == "matches" then
+        text = string.format(_("%d matches"), #entry.matches)
+    elseif entry.kind == "check" then
+        text = _("Check match")
+    elseif entry.kind == "none" then
+        text = _("No match")
+    else
+        text = _("Lookup failed")
+    end
+    if label and (entry.state == "sure" or entry.kind == "check") then
+        return { label, text }
     end
     return { text }
 end
 
 function Batch:tag(entry)
-    if entry.state == "done" then
-        return entry.sorted and _("✓ Sorted") or _("✓ Rebound")
+    return table.concat(self:_tag_parts(entry), " · ")
+end
+
+function Batch:tag_lines(entry)
+    if entry.isbn == "found" then
+        return self:_tag_parts(entry)
     end
-    if entry.state == "sure" then
-        if entry.changes == 0 then
-            return _("No changes")
-        end
-        local changes = entry.changes == 1 and _("1 change") or string.format(_("%d changes"), entry.changes)
-        local text = entry.book.provider_name .. " · " .. changes
-        return Batch.isbn_prefix(entry) .. text
-    end
-    if entry.kind == "open" then
-        return _("Open in the reader")
-    elseif entry.kind == "write_failed" then
-        return _("Write failed")
-    elseif entry.kind == "not_moved" then
-        return _("Not moved")
-    elseif entry.kind == "matches" then
-        return string.format(_("%d matches"), #entry.matches)
-    elseif entry.kind == "check" then
-        return Batch.isbn_prefix(entry) .. _("Check match")
-    elseif entry.kind == "none" then
-        return _("No match")
-    end
-    return _("Lookup failed")
+    return { self:tag(entry) }
 end
 
 function Batch:save_as_for(entry)
