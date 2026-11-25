@@ -183,7 +183,7 @@ T["a found isbn match with an agreeing title is sure and says where the isbn cam
     batch:lookup_all()
     local entry = batch.entries[1]
     a.eq(entry.state, "sure")
-    a.eq(batch:tag(entry), "ISBN from the book · Prov · 2 changes")
+    a.eq(batch:tag(entry), "ISBN from the book · Prov · 3 changes")
 end
 
 T["a found isbn tag stacks its label above the rest on two lines"] = function(a)
@@ -195,7 +195,7 @@ T["a found isbn tag stacks its label above the rest on two lines"] = function(a)
     local lines = batch:tag_lines(batch.entries[1])
     a.eq(#lines, 2)
     a.eq(lines[1], "ISBN from the book")
-    a.eq(lines[2], "Prov · 2 changes")
+    a.eq(lines[2], "Prov · 3 changes")
 end
 
 T["a tag without a found isbn stays on one line"] = function(a)
