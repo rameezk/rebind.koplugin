@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.0](https://github.com/rameezk/rebind.koplugin/compare/v2.4.0...v2.5.0) (2026-11-25)
+
+
+### Features
+
+* books with an isbn from their copyright page rebind in one tap when the title or author agrees ([#177](https://github.com/rameezk/rebind.koplugin/issues/177)) ([dbff305](https://github.com/rameezk/rebind.koplugin/commit/dbff305aca4a5a8ba269e1fd9640e4d1f7c0af5b))
+* books without a metadata isbn are looked up by the isbn on their copyright page ([#174](https://github.com/rameezk/rebind.koplugin/issues/174)) ([f147cc1](https://github.com/rameezk/rebind.koplugin/commit/f147cc19a39822429a94e0f405230f180c429eb1))
+* rebinding a book gives it the isbn of the edition you picked ([#176](https://github.com/rameezk/rebind.koplugin/issues/176)) ([dcae7ea](https://github.com/rameezk/rebind.koplugin/commit/dcae7ea7b41dd698a5db87d46fc82c216c3f5d3e))
+* see, edit and clear a book's isbn in the picker ([#173](https://github.com/rameezk/rebind.koplugin/issues/173)) ([605f4d2](https://github.com/rameezk/rebind.koplugin/commit/605f4d27125eab4de483fb7f96e72f429703e484))
+
 ## [2.4.0](https://github.com/rameezk/rebind.koplugin/compare/v2.3.0...v2.4.0) (2026-11-15)
 
 
