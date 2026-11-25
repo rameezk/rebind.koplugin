@@ -36,8 +36,13 @@ writing. They are the reference for tone, length and layout.
 ### 1. Find the release pull request
 
 ```sh
-gh pr list --state open --search "chore(main): release in:title" --json number,title,headRefName,body
+gh pr list --state open --json number,title,headRefName,body \
+  --jq '[.[] | select(.title | startswith("chore(main): release "))]'
 ```
+
+Filter on the title with `--jq` rather than `--search`. GitHub's search drops
+the parentheses in `chore(main)`, so a title search finds nothing even when
+the release pull request is open.
 
 If there is none, say so and stop. If `main` has commits since the pull request
 was last updated, wait for the `release` workflow run on `main` to finish
