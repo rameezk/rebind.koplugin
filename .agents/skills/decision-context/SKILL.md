@@ -1,6 +1,6 @@
 ---
 name: decision-context
-description: Build the project's shared language and record decisions worth remembering. Use when clarifying domain terminology, writing or editing CONTEXT.md, or when a hard-to-reverse decision is made that a future reader would question.
+description: Build the project's shared language and record decisions worth remembering. Use when clarifying domain terminology, writing or editing CONTEXT.md, when a hard-to-reverse decision is made that a future reader would question, or before settling decisions, to survey the ones already recorded.
 ---
 
 # Decision Context
@@ -46,3 +46,11 @@ Use the scaffold in [`adr-template.md`](adr-template.md): Title, Status, Context
 **An ADR is immutable once written.** The only part of an existing ADR that may ever change is its Status line - to `Deprecated` when the decision no longer applies, to `Superseded by ADR-NNNN` when a newer ADR replaces it, or from `Proposed` to `Accepted`. Title, Context, Decision, and Consequences are never edited after the fact: not to match how the code turned out, not to add detail learned during the build, not to fix the wording. If an ADR is wrong, outdated, or incomplete, that is a new decision - write a new ADR and point the old one's status at it. If the code has drifted from an accepted ADR, the code is what is wrong until a new ADR says otherwise.
 
 Files live in `docs/adr/` as `NNNN-slug.md`. Number sequentially with 4-digit zero-padding: scan the directory for the highest existing number and add one, starting at `0001` if it is empty.
+
+## Surveying decisions already made
+
+Before settling a decision, find out which decisions are already recorded. If there is no `docs/adr/`, there is nothing to survey. Otherwise list every ADR by its title and its Status line: the titles say what was decided and the Status lines show which decisions a later ADR has replaced, so the list is a complete index at little cost. Then read in full the ADRs that bear on the work, and follow each Status that points to a later ADR until you reach the decision as it stands now.
+
+When the work touches several areas, or the titles alone do not make clear which ADRs apply, hand the read to a subagent: give it the whole ADR directory and the request, and have it report which ADRs constrain the request, what each requires, and which a later ADR has superseded or amended, naming that ADR. Where the harness has no subagents, do the read yourself.
+
+A proposed decision that conflicts with a current ADR is never settled quietly. Raise it with the user as a conflict: going ahead with it is a new ADR, with the old one's Status pointing at it.

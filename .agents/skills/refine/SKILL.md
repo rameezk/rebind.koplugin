@@ -52,6 +52,8 @@ When an interface is still open and worth getting right, [[codebase-design]] say
 
 ## Recording decisions
 
+Before the first round puts a decision to the user, survey the decisions already recorded, as [[decision-context]] sets out, so no pick contradicts an ADR or leans on one a later ADR has replaced. A pick that conflicts with a current ADR is a question for the user in its own right, never an answer settled in passing.
+
 Refining is where decisions get made, so it is also where they get recorded - inline, the moment they settle, not deferred to some later step. When a choice settles that a future reader would otherwise have to reverse-engineer, or a term needs pinning down, hand off to [[decision-context]] right then: an ADR if the decision clears its bar (hard to reverse, surprising without context, a genuine trade-off), a `docs/CONTEXT.md` entry if a term just got sharpened. Don't batch these up to the end, and don't leave them for [[to-spec]] to maybe catch - the spec references the record, it doesn't create it.
 
 ## No question left unanswered
